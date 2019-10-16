@@ -12,7 +12,7 @@ using namespace gtsam::noiseModel;
 using symbol_shorthand::X;
 
 /**
- * Unary factor on the unknown pose, resulting from meauring the projection of
+ * Unary factor on the unknown pose, resulting from measuring the projection of
  * a known 3D point in the image
  */
 class ResectioningFactor: public NoiseModelFactor1<Pose3> {

@@ -5,6 +5,22 @@ set(CMAKE_CXX_STANDARD 14)
 
 find_package(GTSAM REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(VTK REQUIRED)
+find_package(VTK COMPONENTS
+  vtkChartsCore
+  vtkCommonColor
+  vtkCommonCore
+  vtkCommonDataModel
+  vtkInteractionStyle
+  vtkRenderingAnnotation
+  vtkRenderingContext2D
+  vtkRenderingContextOpenGL2
+  vtkRenderingCore
+  vtkRenderingFreeType
+  vtkRenderingGL2PSOpenGL2
+  vtkRenderingOpenGL2
+  vtkViewsContext2D
+  QUIET)
 
 include_directories(
   ${GTSAM_INCLUDE_DIR}
@@ -26,10 +42,18 @@ add_executable(camsim
   src/camsim.cpp
   src/gtsam_resection.cpp
   src/opencv_resection.cpp
-  )
+  src/vtk_line_plot.cpp 
+  src/vtk_rand_dist.cpp 
+  src/vtk_multi_plot.cpp)
 
 target_link_libraries(camsim
   PRIVATE gtsam
   PRIVATE opencv_core
   PRIVATE opencv_calib3d
+  PRIVATE ${VTK_LIBRARIES}
+  )
+
+vtk_module_autoinit(
+  TARGETS camsim
+  MODULES ${VTK_LIBRARIES}
   )
