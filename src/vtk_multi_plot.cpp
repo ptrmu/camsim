@@ -1,5 +1,9 @@
 
 
+#include <vtkChartXY.h>
+#include <vtkChartMatrix.h>
+#include <vtkContextView.h>
+#include <vtkContextScene.h>
 #include <vtkFloatArray.h>
 #include <vtkNamedColors.h>
 #include <vtkPlotPoints.h>
@@ -8,10 +12,9 @@
 #include <vtkRenderWindowInteractor.h>
 #include <vtkSmartPointer.h>
 #include <vtkTable.h>
-#include <vtkXYPlotActor.h>
 
 
-static vtkSmartPointer<vtkXYPlotActor> create_XYPlot()
+static vtkSmartPointer<vtkChartXY> create_ChartXY(double offset)
 {
   // Create a table with some points in it
   auto table = vtkSmartPointer<vtkTable>::New();
@@ -38,41 +41,50 @@ static vtkSmartPointer<vtkXYPlotActor> create_XYPlot()
     table->SetValue(i, 2, sin(i * inc));
   }
 
-  auto xyPlot = vtkSmartPointer<vtkXYPlotActor>::New();
+  auto chartXY = vtkSmartPointer<vtkChartXY>::New();
 
   // Add multiple scatter plots, setting the colors etc
-//  auto points = xyPlot->AddPlot(vtkChart::POINTS);
-//  points->SetInputData(table, 0, 1);
-//  points->SetColor(0, 0, 0, 255);
-//  points->SetWidth(1.0);
-//  dynamic_cast<vtkPlotPoints*>(points)->SetMarkerStyle(vtkPlotPoints::CROSS);
-//
-//  points = xyPlot->AddPlot(vtkChart::POINTS);
-//  points->SetInputData(table, 0, 2);
-//  points->SetColor(0, 0, 0, 255);
-//  points->SetWidth(1.0);
-//  dynamic_cast<vtkPlotPoints*>(points)->SetMarkerStyle(vtkPlotPoints::PLUS);
+  auto points = chartXY->AddPlot(vtkChart::POINTS);
+  points->SetInputData(table, 0, 1);
+  points->SetColor(255, 0, 0, 255);
+  points->SetWidth(1.0);
+  dynamic_cast<vtkPlotPoints *>(points)->SetMarkerStyle(vtkPlotPoints::CROSS);
 
-  xyPlot->
-  return xyPlot;
+  points = chartXY->AddPlot(vtkChart::POINTS);
+  points->SetInputData(table, 0, 2);
+  points->SetColor(0, 0, 255, 255);
+  points->SetWidth(1.0);
+  dynamic_cast<vtkPlotPoints *>(points)->SetMarkerStyle(vtkPlotPoints::PLUS);
+
+  return chartXY;
 }
 
 int vtk_multi_plot()
 {
-  vtkSmartPointer<vtkNamedColors> colors =
-    vtkSmartPointer<vtkNamedColors>::New();
+  int num_rows = 2;
+  int num_cols = 3;
 
-  vtkSmartPointer<vtkRenderWindow> renderWindow =
-    vtkSmartPointer<vtkRenderWindow>::New();
+  auto colors = vtkSmartPointer<vtkNamedColors>::New();
 
-  for (int r = 0; r < 6; r += 1)
-    for (int c = 0; c < 6; c += 1) {
+  auto matrix = vtkSmartPointer<vtkChartMatrix>::New();;
+  matrix->SetSize(vtkVector2i(num_cols, num_rows));
+  matrix->SetGutter(vtkVector2f(45.0, 45.0));
 
-      auto xyPlot = create_XYPlot();
+  for (int r = 0; r < num_rows; r += 1)
+    for (int c = 0; c < num_cols; c += 1) {
 
-      auto renderer = vtkSmartPointer<vtkRenderer>::New();
-      renderer->AddActor(xyPlot);
-
+      auto xyPlot = create_ChartXY(c);
+      matrix->SetChart(vtkVector2i(c, r), xyPlot);
     }
 
+  auto view = vtkSmartPointer<vtkContextView>::New();
+  view->GetRenderWindow()->SetSize(1280, 1024);
+  view->GetScene()->AddItem(matrix);
+
+  // Start interactor
+  view->GetRenderWindow()->Render();
+  view->GetInteractor()->Initialize();
+  view->GetInteractor()->Start();
+
+  return EXIT_SUCCESS;
 }
