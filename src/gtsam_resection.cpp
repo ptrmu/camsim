@@ -58,7 +58,6 @@ int gtsam_resection()
   /* 2. add factors to the graph */
   // add measurement factors
   SharedDiagonal measurementNoise = Diagonal::Sigmas(Vector2(5., .5));
-  boost::shared_ptr<ResectioningFactor> factor;
   graph.emplace_shared<ResectioningFactor>(measurementNoise, X(1), calib,
                                            Point2(55, 45), Point3(10, 10, 0));
   graph.emplace_shared<ResectioningFactor>(measurementNoise, X(1), calib,
@@ -79,6 +78,9 @@ int gtsam_resection()
   /* 4. Optimize the graph using Levenberg-Marquardt*/
   Values result = LevenbergMarquardtOptimizer(graph, initial).optimize();
   result.print("Final result:\n");
+
+  auto camera_f_marker = result.at<Pose3>(X(1));
+  std::cout << camera_f_marker.rotation() << camera_f_marker.rotation().xyz() << std::endl;
 
   std::cout.precision(2);
   Marginals marginals(graph, result);

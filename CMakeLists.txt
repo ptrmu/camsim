@@ -42,9 +42,11 @@ add_executable(camsim
   src/camsim.cpp
   src/gtsam_resection.cpp
   src/opencv_resection.cpp
-  src/vtk_line_plot.cpp 
-  src/vtk_rand_dist.cpp 
-  src/vtk_multi_plot.cpp)
+  src/vtk_line_plot.cpp
+  src/vtk_rand_dist.cpp
+  src/vtk_multi_plot.cpp
+  src/pfm_model.cpp
+  )
 
 target_link_libraries(camsim
   PRIVATE gtsam
@@ -53,7 +55,24 @@ target_link_libraries(camsim
   PRIVATE ${VTK_LIBRARIES}
   )
 
-vtk_module_autoinit(
-  TARGETS camsim
+vtk_module_autoinit(TARGETS camsim
+  MODULES ${VTK_LIBRARIES}
+  )
+
+add_executable(pfm_run
+  src/pfm_run.cpp
+  src/pfm_model.cpp
+  src/pfm_gtsam_resection.cpp
+  src/pfm_opencv_resection.cpp
+  )
+
+target_link_libraries(pfm_run
+  PRIVATE gtsam
+  PRIVATE opencv_core
+  PRIVATE opencv_calib3d
+  PRIVATE ${VTK_LIBRARIES}
+  )
+
+vtk_module_autoinit(TARGETS pfm_run
   MODULES ${VTK_LIBRARIES}
   )
