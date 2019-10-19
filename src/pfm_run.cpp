@@ -60,7 +60,7 @@ namespace camsim
   static int pfm_run()
   {
     auto model = get_model(ModelTypes::like_gtsam_resection);
-    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(5., .5));
+    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(.5, .5));
 
     // Get gtsam results
     gtsam::Pose3 gtsam_camera_f_world;

@@ -76,3 +76,19 @@ target_link_libraries(pfm_run
 vtk_module_autoinit(TARGETS pfm_run
   MODULES ${VTK_LIBRARIES}
   )
+
+add_executable(sfm_run
+  src/sfm_run.cpp
+  src/sfm_gtsam_example.cpp
+  )
+
+target_link_libraries(sfm_run
+  PRIVATE gtsam
+  PRIVATE opencv_core
+  PRIVATE opencv_calib3d
+  PRIVATE ${VTK_LIBRARIES}
+  )
+
+vtk_module_autoinit(TARGETS sfm_run
+  MODULES ${VTK_LIBRARIES}
+  )

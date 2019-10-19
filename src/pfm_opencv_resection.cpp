@@ -2,13 +2,53 @@
 #include <opencv2/opencv.hpp>
 #include "pfm_run.hpp"
 #include "pfm_model.hpp"
+#include <random>
 
 namespace camsim
 {
 
+  static int constexpr num_samples = 5;
+
+  static std::vector<std::vector<cv::Point2d>> generate_normal_corner_image_samples(
+    const PfmModel &pfm_model, const gtsam::SharedNoiseModel &measurement_noise)
+  {
+    // Allocate normal random number generators
+    std::random_device rd{};
+    std::mt19937 gen{rd()};
+
+    // Create a distribution for each point coordinate
+    std::vector<std::pair<std::normal_distribution<>, std::normal_distribution<>>> dists{};
+    for (auto &corner_f_image : pfm_model.corners_f_image_) {
+      dists.emplace_back(std::pair<std::normal_distribution<>, std::normal_distribution<>>{
+        std::normal_distribution<>{corner_f_image.x(), measurement_noise->sigmas()(0)},
+        std::normal_distribution<>{corner_f_image.y(), measurement_noise->sigmas()(1)}
+      });
+    }
+
+    // Generate a lot of samples
+    std::vector<std::vector<cv::Point2d>> image_points_samples(num_samples);
+    for (auto &image_points_sample : image_points_samples) {
+      std::vector<cv::Point2d> sample{};
+      for (auto &dist : dists) {
+        sample.emplace_back(cv::Point2d{dist.first(gen), dist.second(gen)});
+      }
+      image_points_sample = std::move(sample);
+    }
+
+    return image_points_samples;
+  }
+
   void pfm_opencv_resection(const PfmModel &pfm_model, const gtsam::SharedNoiseModel &measurement_noise,
                             gtsam::Pose3 &camera_f_world, gtsam::Matrix &camera_f_world_covariance)
   {
+    auto t = generate_normal_corner_image_samples(pfm_model, measurement_noise);
+    for (auto &t1 : t) {
+      for (auto &t2 : t1) {
+        std::cout << std::cout.precision(4) << t2 << ", ";
+      }
+      std::cout << std::endl;
+    }
+
     cv::Mat camera_matrix = (cv::Mat_<double>(3, 3)
       << pfm_model.camera_calibration_.fx(), 0, pfm_model.camera_calibration_.px(),
       0, pfm_model.camera_calibration_.fy(), pfm_model.camera_calibration_.py(),
