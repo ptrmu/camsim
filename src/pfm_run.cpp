@@ -37,7 +37,7 @@ namespace camsim
 
       case ModelTypes::shift_marker_in_z:
         marker_f_world = gtsam::Pose3{marker_f_world.rotation(),
-                                      marker_f_world.translation() + gtsam::Point3{0, 0, -0.5}};
+                                      marker_f_world.translation() + gtsam::Point3{0, 0, -2.5}};
         break;
 
       case ModelTypes::shift_marker_in_x:
@@ -46,8 +46,8 @@ namespace camsim
         break;
 
       case ModelTypes::small_rotate_camera__about_x:
-        marker_f_world = gtsam::Pose3{marker_f_world.rotation() * gtsam::Rot3::Rx(0.05),
-                                      marker_f_world.translation()};
+        camera_f_world = gtsam::Pose3{camera_f_world.rotation() * gtsam::Rot3::Rx(0.05),
+                                      camera_f_world.translation()};
         break;
     }
 
@@ -59,7 +59,7 @@ namespace camsim
 
   static int pfm_run()
   {
-    auto model = get_model(ModelTypes::like_gtsam_resection);
+    auto model = get_model(ModelTypes::shift_marker_in_z);
     auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(.5, .5));
 
     // Get gtsam results
