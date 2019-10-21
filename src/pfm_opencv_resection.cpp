@@ -14,8 +14,9 @@ namespace camsim
     const PfmModel &pfm_model, const gtsam::SharedNoiseModel &measurement_noise)
   {
     // Allocate normal random number generators
-    std::random_device rd{};
-    std::mt19937 gen{rd()};
+//    std::random_device rd{};
+//    std::mt19937 gen{rd()};
+    std::mt19937 gen{8};
 
     // Create a distribution for each point coordinate
     std::vector<std::pair<std::normal_distribution<>, std::normal_distribution<>>> dists{};
@@ -107,9 +108,9 @@ namespace camsim
       gtsam::Vector3 r_tmp = cam_f_world.rotation().xyz();
       r_tmp -= r_offset;
       // Normalize
-      r_tmp[0] = r_tmp[0] < -M_PI ? r_tmp[0] + 2 * M_PI : (r_tmp[0] > M_PI ? r_tmp[0] - 2 * M_PI : r_tmp[0]);
-      r_tmp[1] = r_tmp[1] < -M_PI ? r_tmp[1] + 2 * M_PI : (r_tmp[1] > M_PI ? r_tmp[1] - 2 * M_PI : r_tmp[1]);
-      r_tmp[2] = r_tmp[2] < -M_PI ? r_tmp[2] + 2 * M_PI : (r_tmp[2] > M_PI ? r_tmp[2] - 2 * M_PI : r_tmp[2]);
+      r_tmp(0) = r_tmp(0) < -M_PI ? r_tmp(0) + 2 * M_PI : (r_tmp(0) > M_PI ? r_tmp(0) - 2 * M_PI : r_tmp(0));
+      r_tmp(1) = r_tmp(1) < -M_PI ? r_tmp(1) + 2 * M_PI : (r_tmp(1) > M_PI ? r_tmp(1) - 2 * M_PI : r_tmp(1));
+      r_tmp(2) = r_tmp(2) < -M_PI ? r_tmp(2) + 2 * M_PI : (r_tmp(2) > M_PI ? r_tmp(2) - 2 * M_PI : r_tmp(2));
       r_mean += r_tmp;
     }
 
@@ -118,10 +119,11 @@ namespace camsim
 
     // undo offset
     r_mean += r_offset;
+
     // Normalize
-    r_mean[0] = r_mean[0] < -M_PI ? r_mean[0] + 2 * M_PI : (r_mean[0] > 2 * M_PI ? r_mean[0] - M_PI : r_mean[0]);
-    r_mean[1] = r_mean[1] < -M_PI ? r_mean[1] + 2 * M_PI : (r_mean[1] > 2 * M_PI ? r_mean[1] - M_PI : r_mean[1]);
-    r_mean[2] = r_mean[2] < -M_PI ? r_mean[2] + 2 * M_PI : (r_mean[2] > 2 * M_PI ? r_mean[2] - M_PI : r_mean[2]);
+    r_mean(0) = r_mean(0) < -M_PI ? r_mean(0) + 2 * M_PI : r_mean(0) > 2 * M_PI ? r_mean(0) - M_PI : r_mean(0);
+    r_mean(1) = r_mean(1) < -M_PI ? r_mean(1) + 2 * M_PI : r_mean(1) > 2 * M_PI ? r_mean(1) - M_PI : r_mean(1);
+    r_mean(2) = r_mean(2) < -M_PI ? r_mean(2) + 2 * M_PI : r_mean(2) > 2 * M_PI ? r_mean(2) - M_PI : r_mean(2);
 
     // Calculate variance
     gtsam::Vector6 mean;
@@ -133,9 +135,9 @@ namespace camsim
       auto t = cam_f_world.translation();
       res << xyz(0), xyz(1), xyz(2), t(0), t(1), t(2);
       res -= mean;
-      res[0] = res[0] < -M_PI ? res[0] + 2 * M_PI : (res[0] > 2 * M_PI ? res[0] - M_PI : res[0]);
-      res[1] = res[1] < -M_PI ? res[1] + 2 * M_PI : (res[1] > 2 * M_PI ? res[1] - M_PI : res[1]);
-      res[2] = res[2] < -M_PI ? res[2] + 2 * M_PI : (res[2] > 2 * M_PI ? res[2] - M_PI : res[2]);
+      res(0) = res(0) < -M_PI ? res(0) + 2 * M_PI : (res(0) > M_PI ? res(0) - 2 * M_PI : res(0));
+      res(1) = res(1) < -M_PI ? res(1) + 2 * M_PI : (res(1) > M_PI ? res(1) - 2 * M_PI : res(1));
+      res(2) = res(2) < -M_PI ? res(2) + 2 * M_PI : (res(2) > M_PI ? res(2) - 2 * M_PI : res(2));
       auto cross_res = res * res.transpose();
       cov += cross_res;
     }
