@@ -58,7 +58,7 @@ namespace camsim
 
     /* 3. Create an initial estimate for the camera pose */
     gtsam::Values initial;
-    initial.insert(X(1), pfm_model.camera_f_marker_);
+    initial.insert(X(1), pfm_model.camera_f_world_);
 
     /* 4. Optimize the graph using Levenberg-Marquardt*/
     auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();

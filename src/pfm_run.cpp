@@ -12,7 +12,9 @@ namespace camsim
     shift_camera_in_z,
     shift_marker_in_z,
     shift_marker_in_x,
+    shift_marker_in_y,
     small_rotate_camera__about_x,
+    small_rotate_camera__about_y,
   };
 
   std::unique_ptr<PfmModel> get_model(ModelTypes model_type)
@@ -42,11 +44,21 @@ namespace camsim
 
       case ModelTypes::shift_marker_in_x:
         marker_f_world = gtsam::Pose3{marker_f_world.rotation(),
+                                      marker_f_world.translation() + gtsam::Point3{6, 0, 0}};
+        break;
+
+      case ModelTypes::shift_marker_in_y:
+        marker_f_world = gtsam::Pose3{marker_f_world.rotation(),
                                       marker_f_world.translation() + gtsam::Point3{0, 6, 0}};
         break;
 
       case ModelTypes::small_rotate_camera__about_x:
         camera_f_world = gtsam::Pose3{camera_f_world.rotation() * gtsam::Rot3::Rx(0.05),
+                                      camera_f_world.translation()};
+        break;
+
+      case ModelTypes::small_rotate_camera__about_y:
+        camera_f_world = gtsam::Pose3{camera_f_world.rotation() * gtsam::Rot3::Ry(0.05),
                                       camera_f_world.translation()};
         break;
     }
@@ -59,7 +71,7 @@ namespace camsim
 
   static int pfm_run()
   {
-    auto model = get_model(ModelTypes::shift_marker_in_x);
+    auto model = get_model(ModelTypes::small_rotate_camera__about_y);
     auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(.5, .5));
 
     // Get gtsam results
@@ -70,6 +82,7 @@ namespace camsim
                         gtsam_camera_f_world, gtsam_camera_f_world_covariance);
 
     std::cout.precision(3);
+    std::cout << "gtsam_camera_f_world r:" << gtsam_camera_f_world.rotation().xyz() << std::endl;
     std::cout << "gtsam_camera_f_world:" << gtsam_camera_f_world << std::endl;
     std::cout << "gtsam_camera_f_world_covariance:\n" << gtsam_camera_f_world_covariance << std::endl << std::endl;
 //    std::cout << "gtsam_camera_f_world logmap:\n" << gtsam_camera_f_world.Logmap(gtsam_camera_f_world) << std::endl;
@@ -82,8 +95,9 @@ namespace camsim
                          opencv_camera_f_marker, opencv_camera_f_marker_covariance);
 
     std::cout.precision(3);
-    std::cout << "opencv_camera_f_marker:" << opencv_camera_f_marker << std::endl;
-    std::cout << "opencv_camera_f_marker_covariance:\n" << opencv_camera_f_marker_covariance << std::endl << std::endl;
+    std::cout << "opencv_camera_f_world r:" << opencv_camera_f_marker.rotation().xyz() << std::endl;
+    std::cout << "opencv_camera_f_world:" << opencv_camera_f_marker << std::endl;
+    std::cout << "opencv_camera_f_world_covariance:\n" << opencv_camera_f_marker_covariance << std::endl << std::endl;
 
     return EXIT_SUCCESS;
   }

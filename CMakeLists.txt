@@ -80,6 +80,7 @@ vtk_module_autoinit(TARGETS pfm_run
 add_executable(sfm_run
   src/sfm_run.cpp
   src/sfm_gtsam_example.cpp
+  src/sfm_model.cpp
   )
 
 target_link_libraries(sfm_run
