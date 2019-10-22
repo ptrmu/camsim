@@ -13,14 +13,14 @@ namespace camsim
 
     // Create the set of ground-truth landmarks
     std::vector<gtsam::Point3> points;
-    points.push_back(gtsam::Point3(10.0, 10.0, 10.0));
-    points.push_back(gtsam::Point3(-10.0, 10.0, 10.0));
-    points.push_back(gtsam::Point3(-10.0, -10.0, 10.0));
-    points.push_back(gtsam::Point3(10.0, -10.0, 10.0));
-    points.push_back(gtsam::Point3(10.0, 10.0, -10.0));
-    points.push_back(gtsam::Point3(-10.0, 10.0, -10.0));
-    points.push_back(gtsam::Point3(-10.0, -10.0, -10.0));
-    points.push_back(gtsam::Point3(10.0, -10.0, -10.0));
+    points.emplace_back(gtsam::Point3(10.0, 10.0, 10.0));
+    points.emplace_back(gtsam::Point3(-10.0, 10.0, 10.0));
+    points.emplace_back(gtsam::Point3(-10.0, -10.0, 10.0));
+    points.emplace_back(gtsam::Point3(10.0, -10.0, 10.0));
+    points.emplace_back(gtsam::Point3(10.0, 10.0, -10.0));
+    points.emplace_back(gtsam::Point3(-10.0, 10.0, -10.0));
+    points.emplace_back(gtsam::Point3(-10.0, -10.0, -10.0));
+    points.emplace_back(gtsam::Point3(10.0, -10.0, -10.0));
 
     return points;
   }

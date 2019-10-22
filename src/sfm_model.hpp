@@ -8,20 +8,49 @@
 
 namespace camsim
 {
-  struct SfmModel
+  enum MarkersConfigurations
   {
-    const gtsam::Cal3_S2 camera_calibration_;
-    const std::vector<gtsam::Pose3> camera_f_worlds_;
-    const std::vector<gtsam::Pose3> marker_f_worlds_;
+    square_around_origin_xy_plane = 0,
+  };
+
+  struct MarkersModel
+  {
+    const MarkersConfigurations markers_configuration_;
     const double marker_size_;
-    const std::vector<gtsam::SimpleCamera> cameras_;
+    const std::vector<gtsam::Pose3> pose_f_worlds_;
     const std::vector<std::vector<gtsam::Point3>> corners_f_worlds_;
+
+    MarkersModel(MarkersConfigurations markers_configuration);
+  };
+
+  enum CamerasConfigurations
+  {
+    square_around_z_axis = 0,
+  };
+
+  struct CamerasModel
+  {
+    const CamerasConfigurations camera_configuration_;
+    const gtsam::Cal3_S2 calibration_;
+    const std::vector<gtsam::Pose3> pose_f_worlds_;
+    const std::vector<gtsam::SimpleCamera> cameras_;
     const std::vector<std::vector<std::vector<gtsam::Point2>>> corners_f_images_;
 
-    SfmModel(const gtsam::Cal3_S2 &camera_calibration,
-             const std::vector<gtsam::Pose3> &camera_f_worlds,
-             const std::vector<gtsam::Pose3> &marker_f_worlds,
-             const double &marker_size);
+    CamerasModel(CamerasConfigurations cameras_configuration,
+                 double marker_size,
+                 const std::vector<std::vector<gtsam::Point3>> &corners_f_worlds);
+  };
+
+  struct SfmModel
+  {
+    MarkersModel markers_;
+    CamerasModel cameras_;
+
+    SfmModel(MarkersConfigurations markers_configuration,
+             CamerasConfigurations cameras_configuration) :
+      markers_{markers_configuration},
+      cameras_{cameras_configuration, markers_.marker_size_, markers_.corners_f_worlds_}
+    {}
   };
 }
 #endif //_SFM_MODEL_HPP
