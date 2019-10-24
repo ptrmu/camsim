@@ -46,27 +46,26 @@ namespace camsim
 
   int sfm_gtsam_example()
   {
-
     // Define the camera calibration parameters
     gtsam::Cal3_S2::shared_ptr K(new gtsam::Cal3_S2(50.0, 50.0, 0.0, 50.0, 50.0));
 
     // Define the camera observation noise model
-    gtsam::noiseModel::Isotropic::shared_ptr measurementNoise = gtsam::noiseModel::Isotropic::Sigma(2,
-                                                                                                    1.0); // one pixel in u and v
+    auto measurementNoise = gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
 
     // Create the set of ground-truth landmarks
-    std::vector<gtsam::Point3> points = createPoints();
+    auto points = createPoints();
 
     // Create the set of ground-truth poses
-    std::vector<gtsam::Pose3> poses = createPoses();
+    auto poses = createPoses();
 
     // Create a factor graph
     gtsam::NonlinearFactorGraph graph;
 
     // Add a prior on pose x1. This indirectly specifies where the origin is.
     gtsam::noiseModel::Diagonal::shared_ptr poseNoise =
-      gtsam::noiseModel::Diagonal::Sigmas((gtsam::Vector(6) << gtsam::Vector3::Constant(0.3),
-        gtsam::Vector3::Constant(0.1)).finished()); // 30cm std on x,y,z 0.1 rad on roll,pitch,yaw
+      gtsam::noiseModel::Diagonal::Sigmas(
+        (gtsam::Vector(6) << gtsam::Vector3::Constant(0.3),
+          gtsam::Vector3::Constant(0.1)).finished()); // 30cm std on x,y,z 0.1 rad on roll,pitch,yaw
     graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(gtsam::Symbol('x', 0), poses[0],
                                                             poseNoise); // add directly to graph
 

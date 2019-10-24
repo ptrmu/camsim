@@ -16,6 +16,7 @@ namespace camsim
 
 int main()
 {
+  return camsim::sfm_gtsam_slam_example();
 //  return camsim::sfm_gtsam_example();
-  return camsim::sfm_run();
+//  return camsim::sfm_run();
 }
