@@ -59,7 +59,11 @@ namespace camsim
   {
     std::vector<gtsam::Pose3> camera_f_worlds{};
 
-    if (camera_configuration == CamerasConfigurations::square_around_z_axis) {
+    if (camera_configuration == CamerasConfigurations::center_facing_markers) {
+      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),
+                                                gtsam::Point3(0, 0, 2)});
+
+    } else if (camera_configuration == CamerasConfigurations::square_around_z_axis) {
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),
                                                 gtsam::Point3(marker_size, marker_size, 2)});
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),

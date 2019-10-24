@@ -25,7 +25,8 @@ namespace camsim
 
   enum CamerasConfigurations
   {
-    square_around_z_axis = 0,
+    center_facing_markers = 0,
+    square_around_z_axis,
   };
 
   struct CamerasModel
