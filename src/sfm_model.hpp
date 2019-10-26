@@ -27,6 +27,7 @@ namespace camsim
   {
     center_facing_markers = 0,
     square_around_z_axis,
+    fly_to_plus_y,
   };
 
   struct CamerasModel

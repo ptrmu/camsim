@@ -42,16 +42,18 @@ namespace camsim
     for (size_t icam = 0; icam < sfm_model.cameras_.pose_f_worlds_.size(); icam += 1) {
 //      initial.insert(gtsam::Symbol('c', icam), sfm_model.cameras_.pose_f_worlds_[icam]);
 //      initial.insert(gtsam::Symbol('c', icam), gtsam::Pose3{});
+//      initial.insert(gtsam::Symbol('c', icam), sfm_model.cameras_.pose_f_worlds_[0]);
       initial.insert(gtsam::Symbol('c', icam), sfm_model.cameras_.pose_f_worlds_[icam]
         .compose(gtsam::Pose3(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25),
-                              gtsam::Point3(0.05, -0.10, 0.20))));
+                              gtsam::Point3(0.5, -0.10, 0.20))));
     }
     for (size_t imar = 0; imar < sfm_model.markers_.pose_f_worlds_.size(); imar += 1) {
 //      initial.insert(gtsam::Symbol('m', imar), sfm_model.markers_.pose_f_worlds_[imar]);
 //      initial.insert(gtsam::Symbol('m', imar), gtsam::Pose3{});
+//      initial.insert(gtsam::Symbol('m', imar), sfm_model.markers_.pose_f_worlds_[0]);
       initial.insert(gtsam::Symbol('m', imar), sfm_model.markers_.pose_f_worlds_[imar]
         .compose(gtsam::Pose3(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25),
-                              gtsam::Point3(0.05 * imar, -0.10, 0.20))));
+                              gtsam::Point3(0.5 * imar, -0.10, 0.20))));
     }
 
     /* Optimize the graph and print results */
@@ -68,7 +70,7 @@ namespace camsim
   int sfm_run()
   {
     SfmModel sfm_model{MarkersConfigurations::square_around_origin_xy_plane,
-                       CamerasConfigurations::square_around_z_axis};
+                       CamerasConfigurations::fly_to_plus_y};
 
     std::cout << sfm_model.cameras_.pose_f_worlds_[0].rotation().xyz() << std::endl;
     std::cout << sfm_model.cameras_.pose_f_worlds_[0].rotation().ypr() << std::endl;

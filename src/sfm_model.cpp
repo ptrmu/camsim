@@ -72,6 +72,12 @@ namespace camsim
                                                 gtsam::Point3(-marker_size, -marker_size, 2)});
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),
                                                 gtsam::Point3(-marker_size, marker_size, 2)});
+
+    } else if (camera_configuration == CamerasConfigurations::fly_to_plus_y) {
+      for (int i = -50; i <= 50; i += 1) {
+        camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),
+                                                  gtsam::Point3(0, i * marker_size / 10, 2)});
+      }
     }
 
     return camera_f_worlds;
@@ -122,4 +128,5 @@ namespace camsim
       }
     }
   }
+
 }
