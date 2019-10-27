@@ -82,6 +82,7 @@ add_executable(sfm_run
   src/sfm_gtsam_example.cpp
   src/sfm_gtsam_slam_example.cpp
   src/sfm_model.cpp
+  src/sfm_resection.cpp
   )
 
 target_link_libraries(sfm_run

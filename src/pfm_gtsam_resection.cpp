@@ -33,8 +33,8 @@ namespace camsim
     }
 
     /// evaluate the error
-    virtual gtsam::Vector evaluateError(const gtsam::Pose3 &pose, boost::optional<gtsam::Matrix &> H =
-    boost::none) const
+    virtual gtsam::Vector evaluateError(const gtsam::Pose3 &pose,
+                                        boost::optional<gtsam::Matrix &> H = boost::none) const
     {
       gtsam::SimpleCamera camera(pose, K_);
       return camera.project(P_, H, boost::none, boost::none) - p_;
