@@ -27,16 +27,14 @@ namespace camsim
   }
 
   static std::vector<std::vector<gtsam::Point3>> gen_corners_f_worlds(const std::vector<gtsam::Pose3> &marker_f_worlds,
-                                                                      double marker_size)
+                                                                      const std::vector<gtsam::Point3> corners_f_marker)
   {
-    std::vector<std::vector<gtsam::Point3>> corners_f_worlds;
+    std::vector<std::vector<gtsam::Point3>> corners_f_worlds{};
     for (auto &marker_f_world : marker_f_worlds) {
-      corners_f_worlds.emplace_back(std::vector<gtsam::Point3>
-                                      {marker_f_world * gtsam::Point3{marker_size / 2, marker_size / 2, 0},
-                                       marker_f_world * gtsam::Point3{marker_size / 2, -marker_size / 2, 0},
-                                       marker_f_world * gtsam::Point3{-marker_size / 2, -marker_size / 2, 0},
-                                       marker_f_world * gtsam::Point3{-marker_size / 2, marker_size / 2, 0}}
-      );
+      std::vector<gtsam::Point3> corners_f_world{};
+      for (auto &corner_f_marker : corners_f_marker) {
+        corners_f_world.emplace_back(marker_f_world * corner_f_marker);
+      }
     }
     return corners_f_worlds;
   }
@@ -44,8 +42,12 @@ namespace camsim
   MarkersModel::MarkersModel(MarkersConfigurations markers_configuration) :
     markers_configuration_{markers_configuration},
     marker_size_{20.0},
+    corners_f_marker_{gtsam::Point3{-marker_size_ / 2, marker_size_ / 2, 0},
+                      gtsam::Point3{marker_size_ / 2, marker_size_ / 2, 0},
+                      gtsam::Point3{marker_size_ / 2, -marker_size_ / 2, 0},
+                      gtsam::Point3{-marker_size_ / 2, -marker_size_ / 2, 0}},
     pose_f_worlds_{gen_marker_f_worlds(markers_configuration, marker_size_)},
-    corners_f_worlds_{gen_corners_f_worlds(pose_f_worlds_, marker_size_)}
+    corners_f_worlds_{gen_corners_f_worlds(pose_f_worlds_, corners_f_marker_)}
   {
     std::cout << "corners_f_worlds" << std::endl;
     for (auto per_marker : corners_f_worlds_) {

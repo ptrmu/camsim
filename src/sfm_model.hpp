@@ -8,6 +8,11 @@
 
 namespace camsim
 {
+  // The world coordinate frame is ENU.
+  // The Marker Coordinate frame is centered on the marker, x to the right, y to the top, x out of the marker
+  // The camera coordinate frame has z pointing in the direction it looks, x to the right and y down
+  // The image coordinate frame has two dimensions, u,v. u aligns with camera x, v aligns with camera y
+  //  the center of the image is aligned with the origin of the camera.
   enum MarkersConfigurations
   {
     square_around_origin_xy_plane = 0,
@@ -17,6 +22,7 @@ namespace camsim
   {
     const MarkersConfigurations markers_configuration_;
     const double marker_size_;
+    const std::vector<gtsam::Point3> corners_f_marker_;
     const std::vector<gtsam::Pose3> pose_f_worlds_;
     const std::vector<std::vector<gtsam::Point3>> corners_f_worlds_;
 
