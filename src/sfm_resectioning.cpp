@@ -55,6 +55,7 @@ namespace camsim
     gtsam::Pose3 cv_camera_f_marker(
       const std::vector<gtsam::Point2> &corners_f_image)
     {
+
       std::vector<cv::Point2d> cv_corners_f_image{
         cv::Point2d{corners_f_image[0].x(), corners_f_image[0].y()},
         cv::Point2d{corners_f_image[1].x(), corners_f_image[1].y()},
@@ -102,7 +103,16 @@ namespace camsim
         0, 0, 1)},
       cv_corners_f_marker{cv::Point3d{sfm_model.markers_.corners_f_marker_[0].x(),
                                       sfm_model.markers_.corners_f_marker_[0].y(),
-                                      sfm_model.markers_.corners_f_marker_[0].z()}}
+                                      sfm_model.markers_.corners_f_marker_[0].z()},
+                          cv::Point3d{sfm_model.markers_.corners_f_marker_[1].x(),
+                                      sfm_model.markers_.corners_f_marker_[1].y(),
+                                      sfm_model.markers_.corners_f_marker_[1].z()},
+                          cv::Point3d{sfm_model.markers_.corners_f_marker_[2].x(),
+                                      sfm_model.markers_.corners_f_marker_[2].y(),
+                                      sfm_model.markers_.corners_f_marker_[2].z()},
+                          cv::Point3d{sfm_model.markers_.corners_f_marker_[3].x(),
+                                      sfm_model.markers_.corners_f_marker_[3].y(),
+                                      sfm_model.markers_.corners_f_marker_[3].z()}}
     {}
 
     std::tuple<gtsam::Pose3, gtsam::Matrix6> camera_f_marker(

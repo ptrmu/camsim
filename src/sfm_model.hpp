@@ -38,7 +38,7 @@ namespace camsim
 
   struct CamerasModel
   {
-    const CamerasConfigurations camera_configuration_;
+    const CamerasConfigurations cameras_configuration_;
     const gtsam::Cal3_S2 calibration_;
     const std::vector<gtsam::Pose3> pose_f_worlds_;
     const std::vector<gtsam::SimpleCamera> cameras_;

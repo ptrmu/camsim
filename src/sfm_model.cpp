@@ -35,6 +35,7 @@ namespace camsim
       for (auto &corner_f_marker : corners_f_marker) {
         corners_f_world.emplace_back(marker_f_world * corner_f_marker);
       }
+      corners_f_worlds.emplace_back(corners_f_world);
     }
     return corners_f_worlds;
   }
@@ -116,7 +117,7 @@ namespace camsim
   CamerasModel::CamerasModel(CamerasConfigurations cameras_configuration,
                              double marker_size,
                              const std::vector<std::vector<gtsam::Point3>> &corners_f_worlds) :
-    camera_configuration_{cameras_configuration},
+    cameras_configuration_{cameras_configuration},
     calibration_{1, 1, 0, 50, 50},
     pose_f_worlds_{gen_camera_f_worlds(cameras_configuration, marker_size)},
     cameras_{gen_cameras(calibration_, pose_f_worlds_)},

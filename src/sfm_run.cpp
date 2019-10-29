@@ -9,6 +9,7 @@
 #include <gtsam/slam/ProjectionFactor.h>
 
 #include "sfm_model.hpp"
+#include "sfm_resectioning.hpp"
 
 namespace camsim
 {
@@ -79,6 +80,27 @@ namespace camsim
 
     return EXIT_SUCCESS;
   }
+
+  int sfm_run_resectioning()
+  {
+    SfmModel sfm_model{MarkersConfigurations::square_around_origin_xy_plane,
+                       CamerasConfigurations::center_facing_markers};
+
+    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(1.5, 1.5));
+
+    for (auto &per_camera : sfm_model.cameras_.corners_f_images_) {
+      auto camera_f_markers = sfm_resectioning(sfm_model,
+                                               sfm_model.cameras_.calibration_,
+                                               measurement_noise,
+                                               per_camera);
+
+      for (auto camera_f_marker : camera_f_markers) {
+        std::cout << std::get<0>(camera_f_marker) << " " << std::get<1>(camera_f_marker) << std::endl;
+      }
+    }
+
+    return EXIT_SUCCESS;
+  }
 }
 
 int main()
@@ -86,5 +108,6 @@ int main()
 //  return camsim::sfm_gtsam_slam_example();
 //  return camsim::sfm_gtsam_example();
 //  return camsim::sfm_isam_example();
-    return camsim::sfm_run();
+//  return camsim::sfm_run();
+  return camsim::sfm_run_resectioning();
 }
