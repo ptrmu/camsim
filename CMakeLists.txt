@@ -82,7 +82,7 @@ add_executable(sfm_run
   src/sfm_gtsam_example.cpp
   src/sfm_gtsam_slam_example.cpp
   src/sfm_model.cpp
-  src/sfm_resection.cpp
+  src/sfm_resectioning.cpp
   src/sfm_isam2_example.cpp
   )
 
