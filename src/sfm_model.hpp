@@ -18,15 +18,29 @@ namespace camsim
     square_around_origin_xy_plane = 0,
   };
 
+  struct MarkerModel
+  {
+    const std::size_t marker_idx_;
+    const gtsam::Pose3 pose_f_world_;
+    const std::vector<gtsam::Point3> corners_f_world_;
+
+    MarkerModel(std::size_t marker_idx,
+                const gtsam::Pose3 &pose_f_world,
+                std::vector<gtsam::Point3> corners_f_world) :
+      marker_idx_{marker_idx},
+      pose_f_world_{pose_f_world},
+      corners_f_world_{std::move(corners_f_world)}
+    {}
+  };
+
   struct MarkersModel
   {
     const MarkersConfigurations markers_configuration_;
     const double marker_size_;
     const std::vector<gtsam::Point3> corners_f_marker_;
-    const std::vector<gtsam::Pose3> pose_f_worlds_;
-    const std::vector<std::vector<gtsam::Point3>> corners_f_worlds_;
+    const std::vector<MarkerModel> markers_;
 
-    MarkersModel(MarkersConfigurations markers_configuration);
+    explicit MarkersModel(MarkersConfigurations markers_configuration);
   };
 
   enum CamerasConfigurations
@@ -36,29 +50,54 @@ namespace camsim
     fly_to_plus_y,
   };
 
+  struct CameraModel
+  {
+    const std::size_t camera_idx_;
+    const gtsam::Pose3 pose_f_world_;
+    const gtsam::SimpleCamera simple_camera_;
+
+    CameraModel(std::size_t camera_idx,
+                const gtsam::Pose3 &pose_f_world,
+                gtsam::SimpleCamera simple_camera) :
+      camera_idx_{camera_idx},
+      pose_f_world_{pose_f_world},
+      simple_camera_{std::move(simple_camera)}
+    {}
+  };
+
   struct CamerasModel
   {
     const CamerasConfigurations cameras_configuration_;
     const gtsam::Cal3_S2 calibration_;
-    const std::vector<gtsam::Pose3> pose_f_worlds_;
-    const std::vector<gtsam::SimpleCamera> cameras_;
-    const std::vector<std::vector<std::vector<gtsam::Point2>>> corners_f_images_;
+    const std::vector<CameraModel> cameras_;
 
     CamerasModel(CamerasConfigurations cameras_configuration,
-                 double marker_size,
-                 const std::vector<std::vector<gtsam::Point3>> &corners_f_worlds);
+                 double marker_size);
+  };
+
+  struct CornersFImageModel
+  {
+    const std::size_t marker_idx_;
+    const std::size_t camera_idx_;
+    const std::vector<gtsam::Point2> corners_f_image_;
+
+    CornersFImageModel(std::size_t marker_idx,
+                       std::size_t camera_idx,
+                       std::vector<gtsam::Point2> corners_f_image) :
+      marker_idx_{marker_idx},
+      camera_idx_{camera_idx},
+      corners_f_image_{std::move(corners_f_image)}
+    {}
   };
 
   struct SfmModel
   {
     MarkersModel markers_;
     CamerasModel cameras_;
+    const std::vector<std::vector<CornersFImageModel>> corners_f_images_;
 
     SfmModel(MarkersConfigurations markers_configuration,
-             CamerasConfigurations cameras_configuration) :
-      markers_{markers_configuration},
-      cameras_{cameras_configuration, markers_.marker_size_, markers_.corners_f_worlds_}
-    {}
+             CamerasConfigurations cameras_configuration);
   };
 }
 #endif //_SFM_MODEL_HPP

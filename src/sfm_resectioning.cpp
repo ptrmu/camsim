@@ -2,7 +2,6 @@
 #include "sfm_resectioning.hpp"
 
 #include "gtsam/inference/Symbol.h"
-#include "sfm_model.hpp"
 #include <gtsam/geometry/SimpleCamera.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
@@ -13,11 +12,11 @@ namespace camsim
 {
   // Use gtsam to calculate a camera's pose in a marker's frame.
   // Use the pose from opencv SolvePnp as the initial estimate.
-  class CalcCameraPose
+  class CalcCameraPoseImpl
   {
-    const SfmModel &sfm_model_;
     const gtsam::Cal3_S2 &K_;
-    const gtsam::SharedNoiseModel &measurement_noise_;
+    const gtsam::SharedNoiseModel measurement_noise_; // The structure gets lost if this is a reference (not sure why)
+    const std::vector<gtsam::Point3> &corners_f_marker_;
 
     cv::Mat camera_matrix_;
     cv::Mat dist_coeffs_{cv::Mat::zeros(4, 1, cv::DataType<double>::type)}; // Assuming no lens distortion
@@ -39,13 +38,13 @@ namespace camsim
     public:
       /// Construct factor given known point P and its projection p
       ResectioningFactor(const gtsam::SharedNoiseModel &model, const gtsam::Key &key,
-                         const gtsam::Cal3_S2 &calib, const gtsam::Point2 &p, const gtsam::Point3 &P) :
-        Base(model, key), K_(calib), P_(P), p_(p)
+                         const gtsam::Cal3_S2 &calib, gtsam::Point2 p, gtsam::Point3 P) :
+        Base(model, key), K_(calib), P_(std::move(P)), p_(std::move(p))
       {}
 
       /// evaluate the error
-      virtual gtsam::Vector evaluateError(const gtsam::Pose3 &pose,
-                                          boost::optional<gtsam::Matrix &> H = boost::none) const
+      gtsam::Vector evaluateError(const gtsam::Pose3 &pose,
+                                  boost::optional<gtsam::Matrix &> H = boost::none) const override
       {
         gtsam::SimpleCamera camera(pose, K_);
         return camera.project(P_, H, boost::none, boost::none) - p_;
@@ -93,26 +92,26 @@ namespace camsim
     }
 
   public:
-    CalcCameraPose(const SfmModel &sfm_model,
-                   const gtsam::Cal3_S2 &K,
-                   const gtsam::SharedNoiseModel &measurement_noise) :
-      sfm_model_{sfm_model}, K_{K}, measurement_noise_{measurement_noise},
+    CalcCameraPoseImpl(const gtsam::Cal3_S2 &K,
+                       const gtsam::SharedNoiseModel &measurement_noise,
+                       const std::vector<gtsam::Point3> &corners_f_marker) :
+      K_{K}, measurement_noise_{measurement_noise}, corners_f_marker_{corners_f_marker},
       camera_matrix_{(cv::Mat_<double>(3, 3)
         << K.fx(), 0, K.principalPoint().x(),
         0, K.fy(), K.principalPoint().y(),
         0, 0, 1)},
-      cv_corners_f_marker{cv::Point3d{sfm_model.markers_.corners_f_marker_[0].x(),
-                                      sfm_model.markers_.corners_f_marker_[0].y(),
-                                      sfm_model.markers_.corners_f_marker_[0].z()},
-                          cv::Point3d{sfm_model.markers_.corners_f_marker_[1].x(),
-                                      sfm_model.markers_.corners_f_marker_[1].y(),
-                                      sfm_model.markers_.corners_f_marker_[1].z()},
-                          cv::Point3d{sfm_model.markers_.corners_f_marker_[2].x(),
-                                      sfm_model.markers_.corners_f_marker_[2].y(),
-                                      sfm_model.markers_.corners_f_marker_[2].z()},
-                          cv::Point3d{sfm_model.markers_.corners_f_marker_[3].x(),
-                                      sfm_model.markers_.corners_f_marker_[3].y(),
-                                      sfm_model.markers_.corners_f_marker_[3].z()}}
+      cv_corners_f_marker{cv::Point3d{corners_f_marker[0].x(),
+                                      corners_f_marker[0].y(),
+                                      corners_f_marker[0].z()},
+                          cv::Point3d{corners_f_marker[1].x(),
+                                      corners_f_marker[1].y(),
+                                      corners_f_marker[1].z()},
+                          cv::Point3d{corners_f_marker[2].x(),
+                                      corners_f_marker[2].y(),
+                                      corners_f_marker[2].z()},
+                          cv::Point3d{corners_f_marker[3].x(),
+                                      corners_f_marker[3].y(),
+                                      corners_f_marker[3].z()}}
     {}
 
     std::tuple<gtsam::Pose3, gtsam::Matrix6> camera_f_marker(
@@ -125,7 +124,7 @@ namespace camsim
       for (size_t i = 0; i < corners_f_image.size(); i += 1) {
         graph_.emplace_shared<ResectioningFactor>(measurement_noise_, X1_, K_,
                                                   corners_f_image[i],
-                                                  sfm_model_.markers_.corners_f_marker_[i]);
+                                                  corners_f_marker_[i]);
       }
 
       /* Create an initial estimate for the camera pose using the opencv SolvePnp routine */
@@ -143,20 +142,18 @@ namespace camsim
     }
   };
 
-  std::vector<std::tuple<gtsam::Pose3, gtsam::Matrix6>> sfm_resectioning(
-    const SfmModel &sfm_model,
-    const gtsam::Cal3_S2 &K,
-    const gtsam::SharedNoiseModel &measurement_noise,
-    const std::vector<std::vector<gtsam::Point2>> &corners_f_images)
+  CalcCameraPose::CalcCameraPose(const gtsam::Cal3_S2 &K,
+                                 const gtsam::SharedNoiseModel &measurement_noise,
+                                 const std::vector<gtsam::Point3> &corners_f_marker) :
+    impl_{std::make_unique<CalcCameraPoseImpl>(K, measurement_noise, corners_f_marker)}
+  {}
+
+  CalcCameraPose::~CalcCameraPose() = default;
+
+  std::tuple<gtsam::Pose3, gtsam::Matrix6> CalcCameraPose::camera_f_marker(
+    const std::vector<gtsam::Point2> &corners_f_image)
   {
-    CalcCameraPose cmp{sfm_model, K, measurement_noise};
-
-    std::vector<std::tuple<gtsam::Pose3, gtsam::Matrix6>> camera_f_markers{};
-
-    for (auto &corners_f_image : corners_f_images) {
-      camera_f_markers.emplace_back(cmp.camera_f_marker(corners_f_image));
-    }
-
-    return camera_f_markers;
+    return impl_->camera_f_marker(corners_f_image);
   }
+
 }

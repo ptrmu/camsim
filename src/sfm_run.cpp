@@ -6,7 +6,6 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
-#include <gtsam/slam/ProjectionFactor.h>
 
 #include "sfm_model.hpp"
 #include "sfm_resectioning.hpp"
@@ -18,43 +17,44 @@ namespace camsim
     gtsam::NonlinearFactorGraph graph;
 
     // Add a prior factor on the first marker.
-    // 100cm std on x,y,z 0.3 rad on roll,pitch,yaw
+    // 10cm std on x,y,z 0.3 rad on roll,pitch,yaw
     auto marker_noise = gtsam::noiseModel::Diagonal::Sigmas(
       (gtsam::Vector(6) << 0.3, 0.3, 0.3, 0.1, 0.1, 0.1).finished());
-    auto prior_maker_f_world = sfm_model.markers_.pose_f_worlds_[0];
+    auto prior_marker_f_world = sfm_model.markers_.markers_[0].pose_f_world_;
     graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(gtsam::Symbol('m', 0),
-                                                            sfm_model.markers_.pose_f_worlds_[0],
+                                                            prior_marker_f_world,
                                                             marker_noise);
 
     // Add the between factors
-    for (size_t icam = 0; icam < sfm_model.cameras_.pose_f_worlds_.size(); icam += 1) {
-      for (size_t imar = 0; imar < sfm_model.markers_.pose_f_worlds_.size(); imar += 1) {
-        auto &camera_f_world = sfm_model.cameras_.pose_f_worlds_[icam];
-        auto &marker_f_world = sfm_model.markers_.pose_f_worlds_[imar];
-        gtsam::Pose3 marker_f_camera = camera_f_world.inverse() * marker_f_world;
-        graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(gtsam::Symbol('c', icam),
-                                                                 gtsam::Symbol('m', imar),
+    for (auto &per_camera : sfm_model.corners_f_images_) {
+      for (auto &per_marker : per_camera) {
+        gtsam::Pose3 marker_f_camera =
+          sfm_model.cameras_.cameras_[per_marker.camera_idx_].pose_f_world_.inverse() *
+          sfm_model.markers_.markers_[per_marker.marker_idx_].pose_f_world_;
+        graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(gtsam::Symbol('c', per_marker.camera_idx_),
+                                                                 gtsam::Symbol('m', per_marker.marker_idx_),
                                                                  marker_f_camera, marker_noise);
+
       }
     }
 
     // Create the initial values
     gtsam::Values initial;
-    for (size_t icam = 0; icam < sfm_model.cameras_.pose_f_worlds_.size(); icam += 1) {
+    for (auto &camera : sfm_model.cameras_.cameras_) {
 //      initial.insert(gtsam::Symbol('c', icam), sfm_model.cameras_.pose_f_worlds_[icam]);
 //      initial.insert(gtsam::Symbol('c', icam), gtsam::Pose3{});
 //      initial.insert(gtsam::Symbol('c', icam), sfm_model.cameras_.pose_f_worlds_[0]);
-      initial.insert(gtsam::Symbol('c', icam), sfm_model.cameras_.pose_f_worlds_[icam]
+      initial.insert(gtsam::Symbol('c', camera.camera_idx_), camera.pose_f_world_
         .compose(gtsam::Pose3(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25),
                               gtsam::Point3(0.5, -0.10, 0.20))));
     }
-    for (size_t imar = 0; imar < sfm_model.markers_.pose_f_worlds_.size(); imar += 1) {
+    for (auto &marker : sfm_model.markers_.markers_) {
 //      initial.insert(gtsam::Symbol('m', imar), sfm_model.markers_.pose_f_worlds_[imar]);
 //      initial.insert(gtsam::Symbol('m', imar), gtsam::Pose3{});
 //      initial.insert(gtsam::Symbol('m', imar), sfm_model.markers_.pose_f_worlds_[0]);
-      initial.insert(gtsam::Symbol('m', imar), sfm_model.markers_.pose_f_worlds_[imar]
+      initial.insert(gtsam::Symbol('m', marker.marker_idx_), marker.pose_f_world_
         .compose(gtsam::Pose3(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25),
-                              gtsam::Point3(0.5 * imar, -0.10, 0.20))));
+                              gtsam::Point3(0.5 * marker.marker_idx_, -0.10, 0.20))));
     }
 
     /* Optimize the graph and print results */
@@ -73,8 +73,8 @@ namespace camsim
     SfmModel sfm_model{MarkersConfigurations::square_around_origin_xy_plane,
                        CamerasConfigurations::fly_to_plus_y};
 
-    std::cout << sfm_model.cameras_.pose_f_worlds_[0].rotation().xyz() << std::endl;
-    std::cout << sfm_model.cameras_.pose_f_worlds_[0].rotation().ypr() << std::endl;
+    std::cout << sfm_model.cameras_.cameras_[0].pose_f_world_.rotation().xyz() << std::endl;
+    std::cout << sfm_model.cameras_.cameras_[0].pose_f_world_.rotation().ypr() << std::endl;
 
     simple_sfm(sfm_model);
 
@@ -88,13 +88,16 @@ namespace camsim
 
     auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(1.5, 1.5));
 
-    for (auto &per_camera : sfm_model.cameras_.corners_f_images_) {
-      auto camera_f_markers = sfm_resectioning(sfm_model,
-                                               sfm_model.cameras_.calibration_,
-                                               measurement_noise,
-                                               per_camera);
+    for (auto &camera : sfm_model.cameras_.cameras_) {
 
-      for (auto camera_f_marker : camera_f_markers) {
+      CalcCameraPose ccp{sfm_model.cameras_.calibration_,
+                         measurement_noise,
+                         sfm_model.markers_.corners_f_marker_};
+
+      for (auto &marker : sfm_model.markers_.markers_) {
+
+        auto &corners_f_image = sfm_model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
+        auto camera_f_marker = ccp.camera_f_marker(corners_f_image);
         std::cout << std::get<0>(camera_f_marker) << " " << std::get<1>(camera_f_marker) << std::endl;
       }
     }
