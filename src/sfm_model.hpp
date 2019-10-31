@@ -98,6 +98,8 @@ namespace camsim
 
     SfmModel(MarkersConfigurations markers_configuration,
              CamerasConfigurations cameras_configuration);
+
+    std::string to_str(const std::tuple<gtsam::Pose3, gtsam::Matrix6> &pose_cov);
   };
 }
 #endif //_SFM_MODEL_HPP

@@ -142,4 +142,14 @@ namespace camsim
       }
     }
   }
+
+  std::string SfmModel::to_str(const std::tuple<gtsam::Pose3, gtsam::Matrix6> &pose_cov)
+  {
+    auto r_xyz = std::get<0>(pose_cov).rotation().xyz().transpose();
+    auto t_xyz = std::get<0>(pose_cov).translation().transpose();
+    std::stringstream ss{};
+    ss << r_xyz << " " << t_xyz;
+    return ss.str();
+  }
+
 }
