@@ -1,6 +1,8 @@
 
 #include "sfm_model.hpp"
 
+#include <iomanip>
+
 namespace camsim
 {
 
@@ -145,10 +147,18 @@ namespace camsim
 
   std::string SfmModel::to_str(const std::tuple<gtsam::Pose3, gtsam::Matrix6> &pose_cov)
   {
-    auto r_xyz = std::get<0>(pose_cov).rotation().xyz().transpose();
-    auto t_xyz = std::get<0>(pose_cov).translation().transpose();
+    auto &v = std::get<1>(pose_cov);
     std::stringstream ss{};
-    ss << r_xyz << " " << t_xyz;
+    ss << std::setprecision(4) << std::fixed;
+    ss << ":" << std::setw(8) << std::get<0>(pose_cov).rotation().xyz().transpose() << " "
+       << std::setw(8) << std::get<0>(pose_cov).translation().transpose() << std::endl
+       << v(0, 0) << std::endl
+       << v(1, 0) << " " << v(1, 1) << std::endl
+       << v(2, 0) << " " << v(2, 1) << " " << v(2, 2) << std::endl
+       << v(3, 0) << " " << v(3, 1) << " " << v(3, 2) << " " << v(3, 3) << std::endl
+       << v(4, 0) << " " << v(4, 1) << " " << v(4, 2) << " " << v(4, 3) << " " << v(4, 4) << std::endl
+       << v(5, 0) << " " << v(5, 1) << " " << v(5, 2) << " " << v(5, 3) << " " << v(5, 4) << " " << v(5, 5)
+       << std::endl;
     return ss.str();
   }
 
