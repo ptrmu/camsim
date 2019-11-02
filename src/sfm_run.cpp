@@ -86,7 +86,7 @@ namespace camsim
     SfmModel sfm_model{MarkersConfigurations::square_around_origin_xy_plane,
                        CamerasConfigurations::center_facing_markers};
 
-    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(1.5, 1.5));
+    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(0.5, 0.5));
 
     for (auto &camera : sfm_model.cameras_.cameras_) {
 
@@ -98,9 +98,6 @@ namespace camsim
 
         auto &corners_f_image = sfm_model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
         auto camera_f_marker = ccp.camera_f_marker(corners_f_image);
-        std::cout << std::get<0>(camera_f_marker) << " " << std::get<1>(camera_f_marker) << std::endl;
-//        std::cout << std::get<0>(camera_f_marker).rotation().xyz() << std::endl;
-//        std::cout << (marker.pose_f_world_.inverse() * camera.pose_f_world_).rotation().xyz() << std::endl;
         std::cout << sfm_model.to_str(camera_f_marker) << std::endl;
       }
     }

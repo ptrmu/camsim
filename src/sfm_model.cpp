@@ -68,22 +68,22 @@ namespace camsim
     std::vector<gtsam::Pose3> camera_f_worlds{};
 
     if (camera_configuration == CamerasConfigurations::center_facing_markers) {
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),
+      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(0, 0, 2)});
 
     } else if (camera_configuration == CamerasConfigurations::square_around_z_axis) {
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),
+      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(marker_size, marker_size, 2)});
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),
+      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(marker_size, -marker_size, 2)});
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),
+      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(-marker_size, -marker_size, 2)});
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),
+      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(-marker_size, marker_size, 2)});
 
     } else if (camera_configuration == CamerasConfigurations::fly_to_plus_y) {
       for (int i = -50; i <= 50; i += 1) {
-        camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, -M_PI_2),
+        camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                   gtsam::Point3(0, i * marker_size / 10, 2)});
       }
     }
@@ -145,19 +145,44 @@ namespace camsim
     }
   }
 
+  class NumFmt
+  {
+    int width_;
+    int precision_;
+  public:
+    NumFmt(int width, int precision)
+      : width_(width), precision_(precision)
+    {
+    }
+
+    friend std::ostream &
+    operator<<(std::ostream &dest, NumFmt const &fmt)
+    {
+//      dest.setf(std::ios_base::fixed, std::ios_base::floatfield);
+      dest.unsetf(std::ios_base::floatfield);
+      dest.precision(fmt.precision_);
+      dest.width(fmt.width_);
+      return dest;
+    }
+  };
+
   std::string SfmModel::to_str(const std::tuple<gtsam::Pose3, gtsam::Matrix6> &pose_cov)
   {
+    NumFmt nf(9, 3);
+    auto r = std::get<0>(pose_cov).rotation().xyz();
+    auto t = std::get<0>(pose_cov).translation();
     auto &v = std::get<1>(pose_cov);
     std::stringstream ss{};
-    ss << std::setprecision(4) << std::fixed;
-    ss << ":" << std::setw(8) << std::get<0>(pose_cov).rotation().xyz().transpose() << " "
-       << std::setw(8) << std::get<0>(pose_cov).translation().transpose() << std::endl
-       << v(0, 0) << std::endl
-       << v(1, 0) << " " << v(1, 1) << std::endl
-       << v(2, 0) << " " << v(2, 1) << " " << v(2, 2) << std::endl
-       << v(3, 0) << " " << v(3, 1) << " " << v(3, 2) << " " << v(3, 3) << std::endl
-       << v(4, 0) << " " << v(4, 1) << " " << v(4, 2) << " " << v(4, 3) << " " << v(4, 4) << std::endl
-       << v(5, 0) << " " << v(5, 1) << " " << v(5, 2) << " " << v(5, 3) << " " << v(5, 4) << " " << v(5, 5)
+    ss << nf << r(0) << " " << nf << r(1) << " " << nf << r(2) << " "
+       << nf << t(0) << " " << nf << t(1) << " " << nf << t(2) << std::endl
+       << nf << v(0, 0) << std::endl
+       << nf << v(1, 0) << " " << nf << v(1, 1) << std::endl
+       << nf << v(2, 0) << " " << nf << v(2, 1) << " " << nf << v(2, 2) << std::endl
+       << nf << v(3, 0) << " " << nf << v(3, 1) << " " << nf << v(3, 2) << " " << nf << v(3, 3) << std::endl
+       << nf << v(4, 0) << " " << nf << v(4, 1) << " " << nf << v(4, 2) << " " << nf << v(4, 3) << " " << nf << v(4, 4)
+       << std::endl
+       << nf << v(5, 0) << " " << nf << v(5, 1) << " " << nf << v(5, 2) << " " << nf << v(5, 3) << " " << nf << v(5, 4)
+       << " " << nf << v(5, 5)
        << std::endl;
     return ss.str();
   }
