@@ -84,7 +84,7 @@ add_executable(sfm_run
   src/sfm_model.cpp
   src/sfm_resectioning.cpp
   src/sfm_isam2_example.cpp
-  )
+  src/sfm_isam2.cpp src/sfm_isam2.hpp)
 
 target_link_libraries(sfm_run
   PRIVATE gtsam

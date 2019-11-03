@@ -34,4 +34,7 @@ namespace camsim
       const std::vector<gtsam::Point2> &corners_f_image);
   };
 }
+
+int sfm_run_resectioning();
+
 #endif //_SFM_RESECTION_HPP

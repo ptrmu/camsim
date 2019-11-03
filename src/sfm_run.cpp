@@ -7,6 +7,7 @@
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
 
+#include "sfm_isam2.hpp"
 #include "sfm_model.hpp"
 #include "sfm_resectioning.hpp"
 
@@ -80,47 +81,6 @@ namespace camsim
 
     return EXIT_SUCCESS;
   }
-
-  int sfm_run_resectioning()
-  {
-    SfmModel sfm_model{MarkersConfigurations::square_around_origin_xy_plane,
-                       CamerasConfigurations::fly_to_plus_y};
-
-    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(0.5, 0.5));
-
-    for (auto &camera : sfm_model.cameras_.cameras_) {
-      std::cout << "camera " << camera.camera_idx_ << std::endl;
-
-      CalcCameraPose ccp{sfm_model.cameras_.calibration_,
-                         measurement_noise,
-                         sfm_model.markers_.corners_f_marker_};
-
-      for (auto &marker : sfm_model.markers_.markers_) {
-
-        auto &corners_f_image = sfm_model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
-
-        // If the marker was not visible in the image then, obviously, a pose calculation can not be done.
-        if (corners_f_image.empty()) {
-          std::cout << "Marker not visible" << std::endl;
-          continue;
-        }
-
-        // Find the camera pose in the marker frame using the GTSAM library
-        auto camera_f_marker = ccp.camera_f_marker(corners_f_image);
-
-        // Test that the calculated pose is the same as the original model.
-        if (!std::get<0>(camera_f_marker).equals(
-          marker.pose_f_world_.inverse() * camera.pose_f_world_)) {
-          std::cout << "calculated pose does not match the ground truth" << std::endl;
-        }
-
-        // Output the resulting pose and covariance
-        std::cout << sfm_model.to_str(camera_f_marker) << std::endl;
-      }
-    }
-
-    return EXIT_SUCCESS;
-  }
 }
 
 int main()
@@ -129,5 +89,6 @@ int main()
 //  return camsim::sfm_gtsam_example();
 //  return camsim::sfm_isam_example();
 //  return camsim::sfm_run();
-  return camsim::sfm_run_resectioning();
+//  return sfm_run_resectioning();
+  return sfm_run_isam2();
 }
