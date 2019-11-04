@@ -5,6 +5,7 @@
 #include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/SimpleCamera.h>
+#include "sfm_pose_with_covariance.hpp"
 
 namespace camsim
 {
@@ -99,7 +100,7 @@ namespace camsim
     SfmModel(MarkersConfigurations markers_configuration,
              CamerasConfigurations cameras_configuration);
 
-    std::string to_str(const std::tuple<gtsam::Pose3, gtsam::Matrix6> &pose_cov);
+    std::string to_str(const SfmPoseWithCovariance &pose_cov);
   };
 }
 #endif //_SFM_MODEL_HPP

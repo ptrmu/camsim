@@ -1,5 +1,6 @@
 
 #include "sfm_model.hpp"
+#include "sfm_pose_with_covariance.hpp"
 
 #include <iomanip>
 
@@ -158,7 +159,7 @@ namespace camsim
 
         // If the array is empty, then the marker was not visible to the camera.
         if (corners_f_image.empty()) {
-          std::cout << "Marker not visible"<< std::endl;
+          std::cout << "Marker not visible" << std::endl;
         } else {
           std::cout << corners_f_image[0]
                     << corners_f_image[1]
@@ -190,12 +191,12 @@ namespace camsim
     }
   };
 
-  std::string SfmModel::to_str(const std::tuple<gtsam::Pose3, gtsam::Matrix6> &pose_cov)
+  std::string SfmModel::to_str(const SfmPoseWithCovariance &pose_cov)
   {
     NumFmt nf(9, 3);
-    auto r = std::get<0>(pose_cov).rotation().xyz();
-    auto t = std::get<0>(pose_cov).translation();
-    auto &v = std::get<1>(pose_cov);
+    auto r = pose_cov.pose_.rotation().xyz();
+    auto t = pose_cov.pose_.translation();
+    auto &v = pose_cov.cov_;
     std::stringstream ss{};
     ss << nf << r(0) << " " << nf << r(1) << " " << nf << r(2) << " "
        << nf << t(0) << " " << nf << t(1) << " " << nf << t(2) << std::endl

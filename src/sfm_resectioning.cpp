@@ -114,7 +114,8 @@ namespace camsim
                                       corners_f_marker[3].z()}}
     {}
 
-    std::tuple<gtsam::Pose3, gtsam::Matrix6> camera_f_marker(
+    SfmPoseWithCovariance camera_f_marker(
+      int marker_id,
       const std::vector<gtsam::Point2> &corners_f_image)
     {
       graph_.resize(0);
@@ -138,7 +139,10 @@ namespace camsim
       gtsam::Marginals marginals(graph_, result);
       auto camera_f_marker_covariance = marginals.marginalCovariance(X1_);
 
-      return std::tuple<gtsam::Pose3, gtsam::Matrix6>{camera_f_marker, camera_f_marker_covariance};
+      return SfmPoseWithCovariance{
+        marker_id,
+        result.at<gtsam::Pose3>(X1_),
+        marginals.marginalCovariance(X1_)};
     }
   };
 
@@ -150,10 +154,11 @@ namespace camsim
 
   CalcCameraPose::~CalcCameraPose() = default;
 
-  std::tuple<gtsam::Pose3, gtsam::Matrix6> CalcCameraPose::camera_f_marker(
+  SfmPoseWithCovariance CalcCameraPose::camera_f_marker(
+    int marker_id,
     const std::vector<gtsam::Point2> &corners_f_image)
   {
-    return impl_->camera_f_marker(corners_f_image);
+    return impl_->camera_f_marker(marker_id, corners_f_image);
   }
 }
 
@@ -185,10 +190,10 @@ int sfm_run_resectioning()
       }
 
       // Find the camera pose in the marker frame using the GTSAM library
-      auto camera_f_marker = ccp.camera_f_marker(corners_f_image);
+      auto camera_f_marker = ccp.camera_f_marker(marker.marker_idx_, corners_f_image);
 
       // Test that the calculated pose is the same as the original model.
-      if (!std::get<0>(camera_f_marker).equals(
+      if (!camera_f_marker.pose_.equals(
         marker.pose_f_world_.inverse() * camera.pose_f_world_)) {
         std::cout << "calculated pose does not match the ground truth" << std::endl;
       }
