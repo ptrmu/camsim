@@ -1,13 +1,49 @@
 
 #include "sfm_isam2.hpp"
 
+#include <set>
+
+#include <gtsam/inference/Symbol.h>
+#include <gtsam/nonlinear/ISAM2.h>
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/slam/PriorFactor.h>
+
 namespace camsim
 {
+  static   gtsam::ISAM2Params get_isam2_parameters()
+  {
+    gtsam::ISAM2Params parameters;
+
+    parameters.relinearizeThreshold = 0.01;
+    parameters.relinearizeSkip = 1;
+    return parameters;
+  }
+
+  class SfmIsam2Impl
+  {
+    std::set<int> markers_seen_{};
+    gtsam::ISAM2 isam{get_isam2_parameters()};
+    gtsam::NonlinearFactorGraph graph{};
+    gtsam::Values initialEstimate{};
+
+  public:
+    void add_measurement(int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
+    {
+//      graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(1, 2, poseOdometry, noiseOdometery);
+    }
+  };
+
+  SfmIsam2::SfmIsam2() :
+    impl_{std::make_unique<SfmIsam2Impl>()}
+  {}
+
+  SfmIsam2::~SfmIsam2() = default;
 
   void SfmIsam2::add_measurements(
     int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
   {
-
+    impl_->add_measurement(camera_id, camera_f_markers);
   }
 }
 
@@ -64,7 +100,8 @@ int sfm_run_isam2()
   for (auto &camera : sfm_model.cameras_.cameras_) {
     std::cout << "camera " << camera.camera_idx_ << std::endl;
 
-    auto camera_f_markers = sfm_run_isam2_camera_f_markers(sfm_model, measurement_noise, camera);
+    sfm_isam2.add_measurements(camera.camera_idx_,
+                               sfm_run_isam2_camera_f_markers(sfm_model, measurement_noise, camera));
   }
 
   return EXIT_SUCCESS;

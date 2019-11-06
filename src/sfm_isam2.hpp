@@ -6,8 +6,17 @@
 
 namespace camsim
 {
+  class SfmIsam2Impl;
+
   class SfmIsam2
   {
+    std::unique_ptr<SfmIsam2Impl> impl_;
+
+  public:
+    SfmIsam2();
+
+    ~SfmIsam2();
+
     void add_measurements(int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers);
   };
 }
