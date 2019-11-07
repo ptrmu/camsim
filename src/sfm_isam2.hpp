@@ -13,7 +13,7 @@ namespace camsim
     std::unique_ptr<SfmIsam2Impl> impl_;
 
   public:
-    SfmIsam2();
+    SfmIsam2(int key_marker_id, const gtsam::Pose3 &key_marker_f_world);
 
     ~SfmIsam2();
 

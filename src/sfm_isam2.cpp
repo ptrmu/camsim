@@ -2,6 +2,7 @@
 #include "sfm_isam2.hpp"
 
 #include <set>
+#include <map>
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/ISAM2.h>
@@ -11,7 +12,7 @@
 
 namespace camsim
 {
-  static   gtsam::ISAM2Params get_isam2_parameters()
+  static gtsam::ISAM2Params get_isam2_parameters()
   {
     gtsam::ISAM2Params parameters;
 
@@ -22,20 +23,35 @@ namespace camsim
 
   class SfmIsam2Impl
   {
+    const int key_marker_id_;
+    const gtsam::Pose3 key_marker_f_world_;
+
     std::set<int> markers_seen_{};
     gtsam::ISAM2 isam{get_isam2_parameters()};
+
+    std::map<int, SfmPoseWithCovariance> markers_known{};
     gtsam::NonlinearFactorGraph graph{};
     gtsam::Values initialEstimate{};
 
   public:
-    void add_measurement(int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
+    SfmIsam2Impl(int key_marker_id, const gtsam::Pose3 &key_marker_f_world) :
+      key_marker_id_{key_marker_id}, key_marker_f_world_{key_marker_f_world}
+    {
+    }
+
+    void add_measurements(int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
+    {
+//      graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(1, 2, poseOdometry, noiseOdometery);
+    }
+
+    void add_measurements_2(int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
     {
 //      graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(1, 2, poseOdometry, noiseOdometery);
     }
   };
 
-  SfmIsam2::SfmIsam2() :
-    impl_{std::make_unique<SfmIsam2Impl>()}
+  SfmIsam2::SfmIsam2(int key_marker_id, const gtsam::Pose3 &key_marker_f_world) :
+    impl_{std::make_unique<SfmIsam2Impl>(key_marker_id, key_marker_f_world)}
   {}
 
   SfmIsam2::~SfmIsam2() = default;
@@ -43,7 +59,7 @@ namespace camsim
   void SfmIsam2::add_measurements(
     int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
   {
-    impl_->add_measurement(camera_id, camera_f_markers);
+    impl_->add_measurements(camera_id, camera_f_markers);
   }
 }
 
@@ -95,7 +111,7 @@ int sfm_run_isam2()
 
   gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(0.5, 0.5));
 
-  camsim::SfmIsam2 sfm_isam2{};
+  camsim::SfmIsam2 sfm_isam2{0, sfm_model.markers_.markers_[0].pose_f_world_};
 
   for (auto &camera : sfm_model.cameras_.cameras_) {
     std::cout << "camera " << camera.camera_idx_ << std::endl;
