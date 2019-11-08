@@ -27,11 +27,11 @@ namespace camsim
     const gtsam::Pose3 key_marker_f_world_;
 
     std::set<int> markers_seen_{};
-    gtsam::ISAM2 isam{get_isam2_parameters()};
+    gtsam::ISAM2 isam_{get_isam2_parameters()};
 
-    std::map<int, SfmPoseWithCovariance> markers_known{};
-    gtsam::NonlinearFactorGraph graph{};
-    gtsam::Values initialEstimate{};
+    std::map<int, SfmPoseWithCovariance> markers_known_{};
+    gtsam::NonlinearFactorGraph graph_{};
+    gtsam::Values initialEstimate_{};
 
   public:
     SfmIsam2Impl(int key_marker_id, const gtsam::Pose3 &key_marker_f_world) :
@@ -46,7 +46,65 @@ namespace camsim
 
     void add_measurements_2(int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
     {
-//      graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(1, 2, poseOdometry, noiseOdometery);
+      // Have to see at least two markers before this routine can do anything.
+      if (camera_f_markers.size() < 2) {
+        return;
+      }
+
+      // Start with a fresh graph.
+      graph_.resize(0);
+      initialEstimate_.clear();
+      bool camera_initial_added = false;
+
+      // Loop through the measurements adding priors for any markers we have already located to some degree
+      for (auto &camera_f_marker : camera_f_markers) {
+
+        const gtsam::Pose3 *known_marker_f_world{nullptr};
+        gtsam::SharedNoiseModel known_noise_model{};
+
+        // If this is the key marker, then add the prior
+        if (camera_f_marker.id_ == key_marker_id_) {
+          static auto key_prior = gtsam::noiseModel::Diagonal::Sigmas(
+            (gtsam::Vector(6) << gtsam::Vector3::Constant(1e-5), gtsam::Vector3::Constant(1e-5))
+              .finished());
+          known_noise_model = key_prior;
+          known_marker_f_world = &key_marker_f_world_;
+
+        } else {
+          // See if this measurement is for a known marker.
+          auto marker_it = markers_known_.find(camera_f_marker.id_);
+          if (marker_it != markers_known_.end()) {
+            known_noise_model = gtsam::noiseModel::Gaussian::Covariance(marker_it->second.cov_);
+            known_marker_f_world = &marker_it->second.pose_;
+          }
+        }
+
+        // If no known marker has the id of the measurement, then there is no prior to add.
+        if (known_marker_f_world == nullptr) {
+          continue;
+        }
+
+        // Add the prior for the known marker_f_world.
+        graph_.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(gtsam::Symbol('m', camera_f_marker.id_),
+                                                                 *known_marker_f_world,
+                                                                 known_noise_model);
+
+        // Add the initial estimate for the known marker_f_world
+        initialEstimate_.insert(gtsam::Symbol('m', camera_f_marker.id_), *known_marker_f_world);
+
+        // Add the measurment between the known marker and the camera
+       graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+          gtsam::Symbol('c', camera_id),
+          gtsam::Symbol('m', camera_f_marker.id_),
+          camera_f_marker.pose_,
+          gtsam::noiseModel::Gaussian::Covariance(camera_f_marker.cov_));
+
+        // Add the initialEstimate for the camera if it has not been added already.
+        if (!camera_initial_added) {
+          camera_initial_added = true;
+          initialEstimate_.insert(gtsam::Symbol('c', camera_id), *known_marker_f_world * camera_f_marker.pose_);
+        }
+      }
     }
   };
 
