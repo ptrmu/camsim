@@ -6,6 +6,8 @@
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/ISAM2.h>
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
@@ -54,7 +56,13 @@ namespace camsim
       // Start with a fresh graph.
       graph_.resize(0);
       initialEstimate_.clear();
-      bool camera_initial_added = false;
+
+      // List of markers that we have never seen.
+      std::vector<const SfmPoseWithCovariance *> unknown_camera_f_markers{};
+
+      // The camera pose initial value is figured from one of the known markers
+      bool camera_f_world_inited = false;
+      gtsam::Pose3 camera_f_world_estimate{};
 
       // Loop through the measurements adding priors for any markers we have already located to some degree
       for (auto &camera_f_marker : camera_f_markers) {
@@ -79,8 +87,10 @@ namespace camsim
           }
         }
 
-        // If no known marker has the id of the measurement, then there is no prior to add.
+        // If no known marker has the id of the measurement, then there is no prior to add. Save
+        // this measurement so it can be added to the graph later.
         if (known_marker_f_world == nullptr) {
+          unknown_camera_f_markers.emplace_back(&camera_f_marker);
           continue;
         }
 
@@ -93,17 +103,56 @@ namespace camsim
         initialEstimate_.insert(gtsam::Symbol('m', camera_f_marker.id_), *known_marker_f_world);
 
         // Add the measurment between the known marker and the camera
-       graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-          gtsam::Symbol('c', camera_id),
+        graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
           gtsam::Symbol('m', camera_f_marker.id_),
+          gtsam::Symbol('c', camera_id),
           camera_f_marker.pose_,
           gtsam::noiseModel::Gaussian::Covariance(camera_f_marker.cov_));
 
         // Add the initialEstimate for the camera if it has not been added already.
-        if (!camera_initial_added) {
-          camera_initial_added = true;
-          initialEstimate_.insert(gtsam::Symbol('c', camera_id), *known_marker_f_world * camera_f_marker.pose_);
+        if (!camera_f_world_inited) {
+          camera_f_world_inited = true;
+          camera_f_world_estimate = *known_marker_f_world * camera_f_marker.pose_;
+          initialEstimate_.insert(gtsam::Symbol('c', camera_id), camera_f_world_estimate);
         }
+      }
+
+      // If there were no known markers in the measurements, then just exit as there is nothing to do.
+      if (!camera_f_world_inited) {
+        return;
+      }
+
+      // Add the measurements to unknown markers to the graph. Use the estimate of the camera pose
+      // to calculate initial estimates for these marker poses
+      for (auto &unknown_camera_f_marker : unknown_camera_f_markers) {
+
+        // Add the measurment between the unknown marker and the camera
+        graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+          gtsam::Symbol('m', unknown_camera_f_marker->id_),
+          gtsam::Symbol('c', camera_id),
+          unknown_camera_f_marker->pose_,
+          gtsam::noiseModel::Gaussian::Covariance(unknown_camera_f_marker->cov_));
+
+        // derive an estimate of the marker pose from the camera pose estimate
+        auto marker_f_world = camera_f_world_estimate * unknown_camera_f_marker->pose_.inverse();
+        initialEstimate_.insert(gtsam::Symbol('m', unknown_camera_f_marker->id_), marker_f_world);
+      }
+
+      initialEstimate_.print("initialEstimate");
+      graph_.print("graph dump");
+
+      // Now optimize this graph
+      auto result = gtsam::LevenbergMarquardtOptimizer(graph_, initialEstimate_).optimize();
+      result.print("Final results:\n");
+      std::cout << "initial error = " << graph_.error(initialEstimate_) << std::endl;
+      std::cout << "final error = " << graph_.error(result) << std::endl;
+
+      // Print marginal Covariances
+      gtsam::Marginals marginals(graph_, result);
+      std::cout << "c covariance:\n" << marginals.marginalCovariance(gtsam::Symbol('c', camera_id)) << std::endl;
+      for (auto &camera_f_marker : camera_f_markers) {
+        std::cout << "m" << camera_f_marker.id_ << " covariance:\n"
+                  << marginals.marginalCovariance(gtsam::Symbol('m', camera_f_marker.id_)) << std::endl;
       }
     }
   };
@@ -117,7 +166,7 @@ namespace camsim
   void SfmIsam2::add_measurements(
     int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
   {
-    impl_->add_measurements(camera_id, camera_f_markers);
+    impl_->add_measurements_2(camera_id, camera_f_markers);
   }
 }
 
@@ -165,7 +214,7 @@ std::vector<camsim::SfmPoseWithCovariance> sfm_run_isam2_camera_f_markers(
 int sfm_run_isam2()
 {
   camsim::SfmModel sfm_model{camsim::MarkersConfigurations::square_around_origin_xy_plane,
-                             camsim::CamerasConfigurations::fly_to_plus_y};
+                             camsim::CamerasConfigurations::east_facing_markers};
 
   gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(0.5, 0.5));
 

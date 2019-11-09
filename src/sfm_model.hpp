@@ -47,6 +47,7 @@ namespace camsim
   enum CamerasConfigurations
   {
     center_facing_markers = 0,
+    east_facing_markers,
     square_around_z_axis,
     fly_to_plus_y,
   };

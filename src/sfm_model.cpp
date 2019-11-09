@@ -72,6 +72,10 @@ namespace camsim
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(0, 0, 2)});
 
+    } else if (camera_configuration == CamerasConfigurations::east_facing_markers) {
+      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
+                                                gtsam::Point3(marker_size, 0, 2)});
+
     } else if (camera_configuration == CamerasConfigurations::square_around_z_axis) {
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(marker_size, marker_size, 2)});
