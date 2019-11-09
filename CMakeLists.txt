@@ -5,22 +5,22 @@ set(CMAKE_CXX_STANDARD 14)
 
 find_package(GTSAM REQUIRED)
 find_package(OpenCV REQUIRED)
-find_package(VTK REQUIRED)
-find_package(VTK COMPONENTS
-  vtkChartsCore
-  vtkCommonColor
-  vtkCommonCore
-  vtkCommonDataModel
-  vtkInteractionStyle
-  vtkRenderingAnnotation
-  vtkRenderingContext2D
-  vtkRenderingContextOpenGL2
-  vtkRenderingCore
-  vtkRenderingFreeType
-  vtkRenderingGL2PSOpenGL2
-  vtkRenderingOpenGL2
-  vtkViewsContext2D
-  QUIET)
+#find_package(VTK REQUIRED)
+#find_package(VTK COMPONENTS
+#  vtkChartsCore
+#  vtkCommonColor
+#  vtkCommonCore
+#  vtkCommonDataModel
+#  vtkInteractionStyle
+#  vtkRenderingAnnotation
+#  vtkRenderingContext2D
+#  vtkRenderingContextOpenGL2
+#  vtkRenderingCore
+#  vtkRenderingFreeType
+#  vtkRenderingGL2PSOpenGL2
+#  vtkRenderingOpenGL2
+#  vtkViewsContext2D
+#  QUIET)
 
 include_directories(
   ${GTSAM_INCLUDE_DIR}
@@ -42,9 +42,9 @@ add_executable(camsim
   src/camsim.cpp
   src/gtsam_resection.cpp
   src/opencv_resection.cpp
-  src/vtk_line_plot.cpp
-  src/vtk_rand_dist.cpp
-  src/vtk_multi_plot.cpp
+#  src/vtk_line_plot.cpp
+#  src/vtk_rand_dist.cpp
+#  src/vtk_multi_plot.cpp
   src/pfm_model.cpp
   )
 
@@ -55,9 +55,9 @@ target_link_libraries(camsim
   PRIVATE ${VTK_LIBRARIES}
   )
 
-vtk_module_autoinit(TARGETS camsim
-  MODULES ${VTK_LIBRARIES}
-  )
+#vtk_module_autoinit(TARGETS camsim
+#  MODULES ${VTK_LIBRARIES}
+#  )
 
 add_executable(pfm_run
   src/pfm_run.cpp
@@ -73,9 +73,9 @@ target_link_libraries(pfm_run
   PRIVATE ${VTK_LIBRARIES}
   )
 
-vtk_module_autoinit(TARGETS pfm_run
-  MODULES ${VTK_LIBRARIES}
-  )
+#vtk_module_autoinit(TARGETS pfm_run
+#  MODULES ${VTK_LIBRARIES}
+#  )
 
 add_executable(sfm_run
   src/sfm_run.cpp
@@ -93,6 +93,6 @@ target_link_libraries(sfm_run
   PRIVATE ${VTK_LIBRARIES}
   )
 
-vtk_module_autoinit(TARGETS sfm_run
-  MODULES ${VTK_LIBRARIES}
-  )
+#vtk_module_autoinit(TARGETS sfm_run
+#  MODULES ${VTK_LIBRARIES}
+#  )
