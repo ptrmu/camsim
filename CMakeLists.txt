@@ -52,7 +52,7 @@ target_link_libraries(camsim
   PRIVATE gtsam
   PRIVATE opencv_core
   PRIVATE opencv_calib3d
-  PRIVATE ${VTK_LIBRARIES}
+#  PRIVATE ${VTK_LIBRARIES}
   )
 
 #vtk_module_autoinit(TARGETS camsim
@@ -70,7 +70,7 @@ target_link_libraries(pfm_run
   PRIVATE gtsam
   PRIVATE opencv_core
   PRIVATE opencv_calib3d
-  PRIVATE ${VTK_LIBRARIES}
+#  PRIVATE ${VTK_LIBRARIES}
   )
 
 #vtk_module_autoinit(TARGETS pfm_run
@@ -90,7 +90,7 @@ target_link_libraries(sfm_run
   PRIVATE gtsam
   PRIVATE opencv_core
   PRIVATE opencv_calib3d
-  PRIVATE ${VTK_LIBRARIES}
+#  PRIVATE ${VTK_LIBRARIES}
   )
 
 #vtk_module_autoinit(TARGETS sfm_run
