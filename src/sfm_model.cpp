@@ -25,6 +25,16 @@ namespace camsim
                                                 gtsam::Point3(-marker_size, -marker_size, 0)});
       marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
                                                 gtsam::Point3(-marker_size, marker_size, 0)});
+
+    } else if (marker_configuration == MarkersConfigurations::along_x_axis) {
+      int marker_number = 3;
+      double marker_spacing = 5 * marker_size;
+
+      for (int i = 0; i < marker_number; i += 1) {
+        double offset = i - static_cast<double>(marker_number - 1) / 2;
+        marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
+                                                  gtsam::Point3(offset * marker_spacing, 0, 0)});
+      }
     }
 
     std::vector<MarkerModel> markers{};
@@ -72,7 +82,7 @@ namespace camsim
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(0, 0, 2)});
 
-    } else if (camera_configuration == CamerasConfigurations::east_facing_markers) {
+    } else if (camera_configuration == CamerasConfigurations::plus_x_facing_markers) {
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(marker_size, 0, 2)});
 
@@ -90,6 +100,16 @@ namespace camsim
       for (int i = -10; i <= 10; i += 1) {
         camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                   gtsam::Point3(0, i * marker_size / 2, 2)});
+      }
+
+    } else if (camera_configuration == CamerasConfigurations::c_along_x_axis) {
+      int camera_number = 5;
+      double camera_spacing = 1.25 * marker_size;
+
+      for (int i = 0; i < camera_number; i += 1) {
+        double offset = i - static_cast<double>(camera_number - 1) / 2;
+        camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
+                                                  gtsam::Point3(offset * camera_spacing, 0, 2)});
       }
     }
 
@@ -163,9 +183,10 @@ namespace camsim
 
         // If the array is empty, then the marker was not visible to the camera.
         if (corners_f_image.empty()) {
-          std::cout << "Marker not visible" << std::endl;
+          std::cout << "  Marker not visible" << std::endl;
         } else {
-          std::cout << corners_f_image[0]
+          std::cout << "  "
+                    << corners_f_image[0]
                     << corners_f_image[1]
                     << corners_f_image[2]
                     << corners_f_image[3] << std::endl;
@@ -173,47 +194,4 @@ namespace camsim
       }
     }
   }
-
-  class NumFmt
-  {
-    int width_;
-    int precision_;
-  public:
-    NumFmt(int width, int precision)
-      : width_(width), precision_(precision)
-    {
-    }
-
-    friend std::ostream &
-    operator<<(std::ostream &dest, NumFmt const &fmt)
-    {
-//      dest.setf(std::ios_base::fixed, std::ios_base::floatfield);
-      dest.unsetf(std::ios_base::floatfield);
-      dest.precision(fmt.precision_);
-      dest.width(fmt.width_);
-      return dest;
-    }
-  };
-
-  std::string SfmModel::to_str(const SfmPoseWithCovariance &pose_cov)
-  {
-    NumFmt nf(9, 3);
-    auto r = pose_cov.pose_.rotation().xyz();
-    auto t = pose_cov.pose_.translation();
-    auto &v = pose_cov.cov_;
-    std::stringstream ss{};
-    ss << nf << r(0) << " " << nf << r(1) << " " << nf << r(2) << " "
-       << nf << t(0) << " " << nf << t(1) << " " << nf << t(2) << std::endl
-       << nf << v(0, 0) << std::endl
-       << nf << v(1, 0) << " " << nf << v(1, 1) << std::endl
-       << nf << v(2, 0) << " " << nf << v(2, 1) << " " << nf << v(2, 2) << std::endl
-       << nf << v(3, 0) << " " << nf << v(3, 1) << " " << nf << v(3, 2) << " " << nf << v(3, 3) << std::endl
-       << nf << v(4, 0) << " " << nf << v(4, 1) << " " << nf << v(4, 2) << " " << nf << v(4, 3) << " " << nf << v(4, 4)
-       << std::endl
-       << nf << v(5, 0) << " " << nf << v(5, 1) << " " << nf << v(5, 2) << " " << nf << v(5, 3) << " " << nf << v(5, 4)
-       << " " << nf << v(5, 5)
-       << std::endl;
-    return ss.str();
-  }
-
 }

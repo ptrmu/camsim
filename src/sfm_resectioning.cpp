@@ -173,7 +173,9 @@ int sfm_run_resectioning()
   auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(0.5, 0.5));
 
   for (auto &camera : sfm_model.cameras_.cameras_) {
-    std::cout << "camera " << camera.camera_idx_ << std::endl;
+    std::cout << std::endl
+              << "************************" << std::endl
+              << "camera " << camera.camera_idx_ << std::endl;
 
     camsim::CalcCameraPose ccp{sfm_model.cameras_.calibration_,
                                measurement_noise,
@@ -185,7 +187,7 @@ int sfm_run_resectioning()
 
       // If the marker was not visible in the image then, obviously, a pose calculation can not be done.
       if (corners_f_image.empty()) {
-        std::cout << "Marker not visible" << std::endl;
+        std::cout << "Marker not visible" << std::endl << std::endl;
         continue;
       }
 
@@ -199,7 +201,7 @@ int sfm_run_resectioning()
       }
 
       // Output the resulting pose and covariance
-      std::cout << sfm_model.to_str(camera_f_marker) << std::endl;
+      std::cout << camera_f_marker.to_str() << std::endl;
     }
   }
 

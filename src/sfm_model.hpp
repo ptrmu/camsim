@@ -17,6 +17,7 @@ namespace camsim
   enum MarkersConfigurations
   {
     square_around_origin_xy_plane = 0,
+    along_x_axis,
   };
 
   struct MarkerModel
@@ -47,9 +48,10 @@ namespace camsim
   enum CamerasConfigurations
   {
     center_facing_markers = 0,
-    east_facing_markers,
+    plus_x_facing_markers,
     square_around_z_axis,
     fly_to_plus_y,
+    c_along_x_axis,
   };
 
   struct CameraModel
@@ -100,8 +102,6 @@ namespace camsim
 
     SfmModel(MarkersConfigurations markers_configuration,
              CamerasConfigurations cameras_configuration);
-
-    std::string to_str(const SfmPoseWithCovariance &pose_cov);
   };
 }
 #endif //_SFM_MODEL_HPP

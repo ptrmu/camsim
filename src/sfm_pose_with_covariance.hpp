@@ -15,6 +15,12 @@ namespace camsim
     SfmPoseWithCovariance(int id, const gtsam::Pose3 &pose, const gtsam::Matrix6 &cov) :
       id_{id}, pose_{pose}, cov_{cov}
     {}
+
+    std::string to_str() const;
+
+    static std::string to_str(const gtsam::Pose3 &pose);
+
+    static std::string to_str(const gtsam::Matrix6 &cov);
   };
 }
 
