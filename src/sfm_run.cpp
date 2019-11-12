@@ -8,12 +8,12 @@
 #include <gtsam/slam/PriorFactor.h>
 
 #include "sfm_isam2.hpp"
-#include "sfm_model.hpp"
+#include "model.hpp"
 #include "sfm_resectioning.hpp"
 
 namespace camsim
 {
-  static void simple_sfm(const SfmModel &sfm_model)
+  static void simple_sfm(const Model &model)
   {
     gtsam::NonlinearFactorGraph graph;
 
@@ -21,17 +21,17 @@ namespace camsim
     // 10cm std on x,y,z 0.3 rad on roll,pitch,yaw
     auto marker_noise = gtsam::noiseModel::Diagonal::Sigmas(
       (gtsam::Vector(6) << 0.3, 0.3, 0.3, 0.1, 0.1, 0.1).finished());
-    auto prior_marker_f_world = sfm_model.markers_.markers_[0].pose_f_world_;
+    auto prior_marker_f_world = model.markers_.markers_[0].pose_f_world_;
     graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(gtsam::Symbol('m', 0),
                                                             prior_marker_f_world,
                                                             marker_noise);
 
     // Add the between factors
-    for (auto &per_camera : sfm_model.corners_f_images_) {
+    for (auto &per_camera : model.corners_f_images_) {
       for (auto &per_marker : per_camera) {
         gtsam::Pose3 marker_f_camera =
-          sfm_model.cameras_.cameras_[per_marker.camera_idx_].pose_f_world_.inverse() *
-          sfm_model.markers_.markers_[per_marker.marker_idx_].pose_f_world_;
+          model.cameras_.cameras_[per_marker.camera_idx_].pose_f_world_.inverse() *
+          model.markers_.markers_[per_marker.marker_idx_].pose_f_world_;
         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(gtsam::Symbol('c', per_marker.camera_idx_),
                                                                  gtsam::Symbol('m', per_marker.marker_idx_),
                                                                  marker_f_camera, marker_noise);
@@ -41,18 +41,18 @@ namespace camsim
 
     // Create the initial values
     gtsam::Values initial;
-    for (auto &camera : sfm_model.cameras_.cameras_) {
-//      initial.insert(gtsam::Symbol('c', icam), sfm_model.cameras_.pose_f_worlds_[icam]);
+    for (auto &camera : model.cameras_.cameras_) {
+//      initial.insert(gtsam::Symbol('c', icam), model.cameras_.pose_f_worlds_[icam]);
 //      initial.insert(gtsam::Symbol('c', icam), gtsam::Pose3{});
-//      initial.insert(gtsam::Symbol('c', icam), sfm_model.cameras_.pose_f_worlds_[0]);
+//      initial.insert(gtsam::Symbol('c', icam), model.cameras_.pose_f_worlds_[0]);
       initial.insert(gtsam::Symbol('c', camera.camera_idx_), camera.pose_f_world_
         .compose(gtsam::Pose3(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25),
                               gtsam::Point3(0.5, -0.10, 0.20))));
     }
-    for (auto &marker : sfm_model.markers_.markers_) {
-//      initial.insert(gtsam::Symbol('m', imar), sfm_model.markers_.pose_f_worlds_[imar]);
+    for (auto &marker : model.markers_.markers_) {
+//      initial.insert(gtsam::Symbol('m', imar), model.markers_.pose_f_worlds_[imar]);
 //      initial.insert(gtsam::Symbol('m', imar), gtsam::Pose3{});
-//      initial.insert(gtsam::Symbol('m', imar), sfm_model.markers_.pose_f_worlds_[0]);
+//      initial.insert(gtsam::Symbol('m', imar), model.markers_.pose_f_worlds_[0]);
       initial.insert(gtsam::Symbol('m', marker.marker_idx_), marker.pose_f_world_
         .compose(gtsam::Pose3(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25),
                               gtsam::Point3(0.5 * marker.marker_idx_, -0.10, 0.20))));
@@ -71,13 +71,14 @@ namespace camsim
 
   int sfm_run()
   {
-    SfmModel sfm_model{MarkersConfigurations::square_around_origin_xy_plane,
-                       CamerasConfigurations::fly_to_plus_y};
+    Model model{MarkersConfigurations::square_around_origin_xy_plane,
+                CamerasConfigurations::fly_to_plus_y,
+                CameraTypes::simple_camera};
 
-    std::cout << sfm_model.cameras_.cameras_[0].pose_f_world_.rotation().xyz() << std::endl;
-    std::cout << sfm_model.cameras_.cameras_[0].pose_f_world_.rotation().ypr() << std::endl;
+    std::cout << model.cameras_.cameras_[0].pose_f_world_.rotation().xyz() << std::endl;
+    std::cout << model.cameras_.cameras_[0].pose_f_world_.rotation().ypr() << std::endl;
 
-    simple_sfm(sfm_model);
+    simple_sfm(model);
 
     return EXIT_SUCCESS;
   }

@@ -1,8 +1,8 @@
 
 #include "sfm_resectioning.hpp"
 
+#include <gtsam/geometry/Cal3DS2.h>
 #include "gtsam/inference/Symbol.h"
-#include <gtsam/geometry/SimpleCamera.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/Marginals.h>
@@ -14,7 +14,10 @@ namespace camsim
   // Use the pose from opencv SolvePnp as the initial estimate.
   class CalcCameraPoseImpl
   {
-    const gtsam::Cal3_S2 &K_;
+    const gtsam::Cal3DS2 &K_;
+    const std::function<gtsam::Point2(const gtsam::Pose3 &,
+                                      const gtsam::Point3 &,
+                                      boost::optional<gtsam::Matrix &>)> &project_func_;
     const gtsam::SharedNoiseModel measurement_noise_; // The structure gets lost if this is a reference (not sure why)
     const std::vector<gtsam::Point3> &corners_f_marker_;
 
@@ -29,27 +32,35 @@ namespace camsim
 
     class ResectioningFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
     {
-      typedef NoiseModelFactor1 <gtsam::Pose3> Base;
-
-      const gtsam::Cal3_S2 &K_;     ///< camera's intrinsic parameters
+      const std::function<gtsam::Point2(const gtsam::Pose3 &,
+                                        const gtsam::Point3 &,
+                                        boost::optional<gtsam::Matrix &>)> &project_func_;
       const gtsam::Point3 P_;       ///< 3D point on the calibration rig
       const gtsam::Point2 p_;       ///< 2D measurement of the 3D point
 
     public:
       /// Construct factor given known point P and its projection p
-      ResectioningFactor(const gtsam::SharedNoiseModel &model, const gtsam::Key &key,
-                         const gtsam::Cal3_S2 &calib, gtsam::Point2 p, gtsam::Point3 P) :
-        Base(model, key), K_(calib), P_(std::move(P)), p_(std::move(p))
+      ResectioningFactor(const gtsam::SharedNoiseModel &model,
+                         const gtsam::Key &key,
+                         const std::function<gtsam::Point2(const gtsam::Pose3 &,
+                                                           const gtsam::Point3 &,
+                                                           boost::optional<gtsam::Matrix &>)> &project_func,
+                         gtsam::Point2 p,
+                         gtsam::Point3 P) :
+        NoiseModelFactor1<gtsam::Pose3>(model, key),
+        project_func_{project_func},
+        P_(std::move(P)),
+        p_(std::move(p))
       {}
 
       /// evaluate the error
       gtsam::Vector evaluateError(const gtsam::Pose3 &pose,
-                                  boost::optional<gtsam::Matrix &> H = boost::none) const override
+                                  boost::optional<gtsam::Matrix &> H) const override
       {
-        gtsam::SimpleCamera camera(pose, K_);
-        return camera.project(P_, H, boost::none, boost::none) - p_;
+        return project_func_(pose, P_, H) - p_;
       }
     };
+
 
     gtsam::Pose3 cv_camera_f_marker(
       const std::vector<gtsam::Point2> &corners_f_image)
@@ -92,13 +103,17 @@ namespace camsim
     }
 
   public:
-    CalcCameraPoseImpl(const gtsam::Cal3_S2 &K,
+    CalcCameraPoseImpl(const gtsam::Cal3DS2 &K,
+                       const std::function<gtsam::Point2(const gtsam::Pose3 &,
+                                                         const gtsam::Point3 &,
+                                                         boost::optional<gtsam::Matrix &>)> &project_func,
                        const gtsam::SharedNoiseModel &measurement_noise,
                        const std::vector<gtsam::Point3> &corners_f_marker) :
-      K_{K}, measurement_noise_{measurement_noise}, corners_f_marker_{corners_f_marker},
+      K_{K}, project_func_{project_func},
+      measurement_noise_{measurement_noise}, corners_f_marker_{corners_f_marker},
       camera_matrix_{(cv::Mat_<double>(3, 3)
-        << K.fx(), 0, K.principalPoint().x(),
-        0, K.fy(), K.principalPoint().y(),
+        << K.fx(), 0, K.px(),
+        0, K.fy(), K.py(),
         0, 0, 1)},
       cv_corners_f_marker{cv::Point3d{corners_f_marker[0].x(),
                                       corners_f_marker[0].y(),
@@ -123,7 +138,8 @@ namespace camsim
 
       /* Add measurement factors to the graph */
       for (size_t i = 0; i < corners_f_image.size(); i += 1) {
-        graph_.emplace_shared<ResectioningFactor>(measurement_noise_, X1_, K_,
+        graph_.emplace_shared<ResectioningFactor>(measurement_noise_, X1_,
+                                                  project_func_,
                                                   corners_f_image[i],
                                                   corners_f_marker_[i]);
       }
@@ -141,15 +157,18 @@ namespace camsim
 
       return SfmPoseWithCovariance{
         marker_id,
-        result.at<gtsam::Pose3>(X1_),
-        marginals.marginalCovariance(X1_)};
+        camera_f_marker,
+        camera_f_marker_covariance};
     }
   };
 
-  CalcCameraPose::CalcCameraPose(const gtsam::Cal3_S2 &K,
+  CalcCameraPose::CalcCameraPose(const gtsam::Cal3DS2 &K,
+                                 const std::function<gtsam::Point2(const gtsam::Pose3 &,
+                                                                   const gtsam::Point3 &,
+                                                                   boost::optional<gtsam::Matrix &>)> &project_func,
                                  const gtsam::SharedNoiseModel &measurement_noise,
                                  const std::vector<gtsam::Point3> &corners_f_marker) :
-    impl_{std::make_unique<CalcCameraPoseImpl>(K, measurement_noise, corners_f_marker)}
+    impl_{std::make_unique<CalcCameraPoseImpl>(K, project_func, measurement_noise, corners_f_marker)}
   {}
 
   CalcCameraPose::~CalcCameraPose() = default;
@@ -163,27 +182,29 @@ namespace camsim
 }
 
 
-#include "sfm_model.hpp"
+#include "model.hpp"
 
 int sfm_run_resectioning()
 {
-  camsim::SfmModel sfm_model{camsim::MarkersConfigurations::square_around_origin_xy_plane,
-                             camsim::CamerasConfigurations::fly_to_plus_y};
+  camsim::Model model{camsim::MarkersConfigurations::square_around_origin_xy_plane,
+                      camsim::CamerasConfigurations::center_facing_markers,
+                      camsim::CameraTypes::distorted_camera};
 
   auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(0.5, 0.5));
 
-  for (auto &camera : sfm_model.cameras_.cameras_) {
+  for (auto &camera : model.cameras_.cameras_) {
     std::cout << std::endl
               << "************************" << std::endl
               << "camera " << camera.camera_idx_ << std::endl;
 
-    camsim::CalcCameraPose ccp{sfm_model.cameras_.calibration_,
+    camsim::CalcCameraPose ccp{model.cameras_.calibration_,
+                               camera.project_func_,
                                measurement_noise,
-                               sfm_model.markers_.corners_f_marker_};
+                               model.markers_.corners_f_marker_};
 
-    for (auto &marker : sfm_model.markers_.markers_) {
+    for (auto &marker : model.markers_.markers_) {
 
-      auto &corners_f_image = sfm_model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
+      auto &corners_f_image = model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
 
       // If the marker was not visible in the image then, obviously, a pose calculation can not be done.
       if (corners_f_image.empty()) {

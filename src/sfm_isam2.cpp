@@ -202,22 +202,23 @@ namespace camsim
   }
 }
 
-#include "sfm_model.hpp"
+#include "model.hpp"
 
 std::vector<camsim::SfmPoseWithCovariance> sfm_run_isam2_camera_f_markers(
-  camsim::SfmModel &sfm_model,
+  camsim::Model &model,
   const gtsam::SharedNoiseModel &measurement_noise,
   const camsim::CameraModel &camera)
 {
   std::vector<camsim::SfmPoseWithCovariance> camera_f_markers{};
 
-  camsim::CalcCameraPose ccp{sfm_model.cameras_.calibration_,
+  camsim::CalcCameraPose ccp{model.cameras_.calibration_,
+                             camera.project_func_,
                              measurement_noise,
-                             sfm_model.markers_.corners_f_marker_};
+                             model.markers_.corners_f_marker_};
 
-  for (auto &marker : sfm_model.markers_.markers_) {
+  for (auto &marker : model.markers_.markers_) {
 
-    auto &corners_f_image = sfm_model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
+    auto &corners_f_image = model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
 
     // If the marker was not visible in the image then, obviously, a pose calculation can not be done.
     if (corners_f_image.empty()) {
@@ -245,20 +246,21 @@ std::vector<camsim::SfmPoseWithCovariance> sfm_run_isam2_camera_f_markers(
 
 int sfm_run_isam2()
 {
-  camsim::SfmModel sfm_model{camsim::MarkersConfigurations::along_x_axis,
-                             camsim::CamerasConfigurations::c_along_x_axis};
+  camsim::Model model{camsim::MarkersConfigurations::along_x_axis,
+                      camsim::CamerasConfigurations::c_along_x_axis,
+                      camsim::CameraTypes::distorted_camera};
 
   gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(0.5, 0.5));
 
-  camsim::SfmIsam2 sfm_isam2{0, sfm_model.markers_.markers_[0].pose_f_world_};
+  camsim::SfmIsam2 sfm_isam2{0, model.markers_.markers_[0].pose_f_world_};
 
-  for (auto &camera : sfm_model.cameras_.cameras_) {
+  for (auto &camera : model.cameras_.cameras_) {
     std::cout << std::endl
               << "************************" << std::endl
               << "camera " << camera.camera_idx_ << " measurements of camera_f_marker" << std::endl;
 
     sfm_isam2.add_measurements(camera.camera_idx_,
-                               sfm_run_isam2_camera_f_markers(sfm_model, measurement_noise, camera));
+                               sfm_run_isam2_camera_f_markers(model, measurement_noise, camera));
   }
 
   return EXIT_SUCCESS;

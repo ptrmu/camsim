@@ -60,8 +60,8 @@ target_link_libraries(camsim
 #  )
 
 add_executable(pfm_run
-  src/pfm_run.cpp
   src/pfm_model.cpp
+  src/pfm_run.cpp
   src/pfm_gtsam_resection.cpp
   src/pfm_opencv_resection.cpp
   )
@@ -78,10 +78,10 @@ target_link_libraries(pfm_run
 #  )
 
 add_executable(sfm_run
+  src/model.cpp
   src/sfm_run.cpp
   src/sfm_gtsam_example.cpp
   src/sfm_gtsam_slam_example.cpp
-  src/sfm_model.cpp
   src/sfm_resectioning.cpp
   src/sfm_isam2_example.cpp
   src/sfm_isam2.cpp

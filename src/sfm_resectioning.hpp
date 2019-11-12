@@ -10,7 +10,7 @@
 
 namespace gtsam
 {
-  class Cal3_S2;
+  class Cal3DS2;
 }
 
 namespace camsim
@@ -22,7 +22,10 @@ namespace camsim
     std::unique_ptr<CalcCameraPoseImpl> impl_;
 
   public:
-    CalcCameraPose(const gtsam::Cal3_S2 &K,
+    CalcCameraPose(const gtsam::Cal3DS2 &K,
+                   const std::function<gtsam::Point2(const gtsam::Pose3 &,
+                                                     const gtsam::Point3 &,
+                                                     boost::optional<gtsam::Matrix &>)> &project_func,
                    const gtsam::SharedNoiseModel &measurement_noise,
                    const std::vector<gtsam::Point3> &corners_f_marker);
 

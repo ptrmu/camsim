@@ -1,6 +1,8 @@
 
 #include "pfm_run.hpp"
 
+
+#include <gtsam/geometry/Cal3_S2.h>
 #include "pfm_model.hpp"
 
 namespace camsim

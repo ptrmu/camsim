@@ -1,6 +1,9 @@
 
-#include "sfm_model.hpp"
+#include "model.hpp"
 #include "sfm_pose_with_covariance.hpp"
+
+#include <gtsam/geometry/Cal3_S2.h>
+#include <gtsam/geometry/SimpleCamera.h>
 
 #include <iomanip>
 
@@ -71,10 +74,37 @@ namespace camsim
     }
   }
 
+  static gtsam::Cal3DS2 gen_camera_calibration(CameraTypes camera_type)
+  {
+    return gtsam::Cal3DS2{1, 1, 0, 50, 50, 0., 0.};
+  }
 
-  static std::vector<CameraModel> gen_cameras(CamerasConfigurations camera_configuration,
-                                              double marker_size,
-                                              const gtsam::Cal3_S2 &camera_calibration)
+  static gtsam::Point2 project_point(CameraTypes camera_type,
+                                     const gtsam::Cal3DS2 &calibration,
+                                     const gtsam::Pose3 &pose,
+                                     const gtsam::Point3 &pw,
+                                     boost::optional<gtsam::Matrix &> H)
+  {
+    if (camera_type == CameraTypes::simple_camera) {
+      gtsam::Cal3_S2 K{calibration.fx(), calibration.fy(),
+                       calibration.skew(),
+                       calibration.px(), calibration.py()};
+      auto camera = gtsam::SimpleCamera{pose, K};
+      return camera.project(pw, H);
+    }
+
+    if (camera_type == CameraTypes::distorted_camera) {
+      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{pose, calibration};
+      return camera.project(pw, H);
+    }
+
+    return gtsam::Point2{};
+  }
+
+  static std::vector<CameraModel> gen_cameras(CameraTypes camera_type,
+                                              CamerasConfigurations camera_configuration,
+                                              const gtsam::Cal3DS2 &calibration,
+                                              double marker_size)
   {
     std::vector<gtsam::Pose3> camera_f_worlds{};
 
@@ -117,18 +147,25 @@ namespace camsim
     for (std::size_t idx = 0; idx < camera_f_worlds.size(); idx += 1) {
       auto &camera_f_world = camera_f_worlds[idx];
 
-      cameras.emplace_back(CameraModel{idx, camera_f_world,
-                                       gtsam::SimpleCamera{camera_f_world, camera_calibration}});
+      cameras.emplace_back(CameraModel{
+        idx,
+        camera_f_world,
+        [camera_type, calibration](const gtsam::Pose3 &camera_f_xxx,
+                                   const gtsam::Point3 &point_f_xxx,
+                                   boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
+        { return project_point(camera_type, calibration, camera_f_xxx, point_f_xxx, H); }});
     }
 
     return cameras;
   }
 
-  CamerasModel::CamerasModel(CamerasConfigurations cameras_configuration,
+  CamerasModel::CamerasModel(CameraTypes camera_type,
+                             CamerasConfigurations cameras_configuration,
                              double marker_size) :
+    camera_type_{camera_type},
     cameras_configuration_{cameras_configuration},
-    calibration_{1, 1, 0, 50, 50},
-    cameras_{gen_cameras(cameras_configuration, marker_size, calibration_)}
+    calibration_{gen_camera_calibration(camera_type)},
+    cameras_{gen_cameras(camera_type, cameras_configuration, calibration_, marker_size)}
   {}
 
   static std::vector<std::vector<CornersFImageModel>> gen_corners_f_images(const MarkersModel &markers,
@@ -141,10 +178,11 @@ namespace camsim
       for (auto &marker : markers.markers_) {
         // Project the corners of this marker into this camera's image plane. There should be more
         // checks for bad geometries before calling project because it aborts in those cases.
-        std::vector<gtsam::Point2> corners_f_image{camera.simple_camera_.project(marker.corners_f_world_[0]),
-                                                   camera.simple_camera_.project(marker.corners_f_world_[1]),
-                                                   camera.simple_camera_.project(marker.corners_f_world_[2]),
-                                                   camera.simple_camera_.project(marker.corners_f_world_[3])};
+        std::vector<gtsam::Point2> corners_f_image{
+          camera.project_func_(camera.pose_f_world_, marker.corners_f_world_[0], boost::none),
+          camera.project_func_(camera.pose_f_world_, marker.corners_f_world_[1], boost::none),
+          camera.project_func_(camera.pose_f_world_, marker.corners_f_world_[2], boost::none),
+          camera.project_func_(camera.pose_f_world_, marker.corners_f_world_[3], boost::none)};
 
         // If any of the points is outside of the image boundary, then don't save any of the points. This
         // simulates when a marker can't be seen by a camera.
@@ -165,10 +203,11 @@ namespace camsim
     return corners_f_images;
   }
 
-  SfmModel::SfmModel(MarkersConfigurations markers_configuration,
-                     CamerasConfigurations cameras_configuration) :
+  Model::Model(MarkersConfigurations markers_configuration,
+               CamerasConfigurations cameras_configuration,
+               CameraTypes camera_type) :
     markers_{markers_configuration},
-    cameras_{cameras_configuration, markers_.marker_size_},
+    cameras_{camera_type, cameras_configuration, markers_.marker_size_},
     corners_f_images_{gen_corners_f_images(markers_, cameras_)}
   {
     std::cout << "corners_f_images" << std::endl;

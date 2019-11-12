@@ -1,10 +1,9 @@
 
-#ifndef _SFM_MODEL_HPP
-#define _SFM_MODEL_HPP
+#ifndef _MODEL_HPP
+#define _MODEL_HPP
 
-#include <gtsam/geometry/Cal3_S2.h>
+#include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/Pose3.h>
-#include <gtsam/geometry/SimpleCamera.h>
 #include "sfm_pose_with_covariance.hpp"
 
 namespace camsim
@@ -54,28 +53,40 @@ namespace camsim
     c_along_x_axis,
   };
 
+  enum CameraTypes
+  {
+    simple_camera = 0,
+    distorted_camera,
+  };
+
   struct CameraModel
   {
     const std::size_t camera_idx_;
     const gtsam::Pose3 pose_f_world_;
-    const gtsam::SimpleCamera simple_camera_;
+    const std::function<gtsam::Point2(const gtsam::Pose3 &,
+                                      const gtsam::Point3 &,
+                                      boost::optional<gtsam::Matrix &>)> project_func_;
 
     CameraModel(std::size_t camera_idx,
                 const gtsam::Pose3 &pose_f_world,
-                gtsam::SimpleCamera simple_camera) :
+                const std::function<gtsam::Point2(const gtsam::Pose3 &,
+                                                  const gtsam::Point3 &,
+                                                  boost::optional<gtsam::Matrix &>)> &project_func) :
       camera_idx_{camera_idx},
       pose_f_world_{pose_f_world},
-      simple_camera_{std::move(simple_camera)}
+      project_func_{project_func}
     {}
   };
 
   struct CamerasModel
   {
+    const CameraTypes camera_type_;
     const CamerasConfigurations cameras_configuration_;
-    const gtsam::Cal3_S2 calibration_;
+    const gtsam::Cal3DS2 calibration_;
     const std::vector<CameraModel> cameras_;
 
-    CamerasModel(CamerasConfigurations cameras_configuration,
+    CamerasModel(CameraTypes camera_type,
+                 CamerasConfigurations cameras_configuration,
                  double marker_size);
   };
 
@@ -94,14 +105,17 @@ namespace camsim
     {}
   };
 
-  struct SfmModel
+  struct Model
   {
     MarkersModel markers_;
     CamerasModel cameras_;
     const std::vector<std::vector<CornersFImageModel>> corners_f_images_;
 
-    SfmModel(MarkersConfigurations markers_configuration,
-             CamerasConfigurations cameras_configuration);
+    Model(MarkersConfigurations markers_configuration,
+          CamerasConfigurations cameras_configuration,
+          CameraTypes camera_type);
+
+
   };
 }
-#endif //_SFM_MODEL_HPP
+#endif //_MODEL_HPP
