@@ -15,6 +15,9 @@ namespace camsim
 
   void pfm_opencv_resection(const PfmModel &pfm_model, const gtsam::SharedNoiseModel &measurement_noise,
                             gtsam::Pose3 &camera_f_world, gtsam::Matrix &camera_f_world_covariance);
+
+  int pfm_simple_rotation_example();
+  int pfm_optimize_pose3();
 }
 
 #endif //PFM_RUN_HPP

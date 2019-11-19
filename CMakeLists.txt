@@ -64,6 +64,8 @@ add_executable(pfm_run
   src/pfm_run.cpp
   src/pfm_gtsam_resection.cpp
   src/pfm_opencv_resection.cpp
+  src/pfm_simple_rotation_example.cpp 
+  src/pfm_optimize_pose3.cpp
   )
 
 target_link_libraries(pfm_run

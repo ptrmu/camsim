@@ -89,6 +89,5 @@ int gtsam_resection()
   std::cout << "initial error = " << graph.error(initial) << std::endl;
   std::cout << "final error = " << graph.error(result) << std::endl;
 
-  return 0;
-
+  return EXIT_SUCCESS;
 }

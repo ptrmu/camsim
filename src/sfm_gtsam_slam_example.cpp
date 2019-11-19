@@ -43,6 +43,6 @@ namespace camsim
 
     result.print("result");
 
-    return 0;
+    return EXIT_SUCCESS;
   }
 }
