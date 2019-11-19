@@ -63,17 +63,27 @@ namespace camsim
      *  - A measurement value
      *  - A measurement model with the correct dimensionality for the factor
      */
-    Pose3 prior{Rot3::RzRyRx(45 * degree, 0., 0.),
+    Pose3 prior{Rot3::RzRyRx(45 * degree, 90. * degree, 0.),
                 Point3{10., 20., 30.}};
     prior.print("\ngoal pose");
 
-    Matrix6 cov{};
+    Matrix6 cov;
+    cov.setZero();
     cov(0, 0) = 1.0e-2;
     cov(1, 1) = 1.1e-2;
     cov(2, 2) = 1.2e-2;
     cov(3, 3) = 1.3e-2;
     cov(4, 4) = 1.4e-2;
     cov(5, 5) = 1.5e-2;
+
+    int cor_0 = 0;
+    int cor_1 = 5;
+    double cor_c = 1.;
+    double cor_f = cor_c * cov(cor_0, cor_0) * cov(cor_1, cor_1);
+    cov(cor_0, cor_1) = cor_f;
+    cov(cor_1, cor_0) = cor_f;
+
+    cout << endl << cov << endl;
 
     auto model = noiseModel::Gaussian::Covariance(cov, false);
     Symbol key('x', 1);
@@ -108,7 +118,8 @@ namespace camsim
      * are multiple types of variables.
      */
     Values initial;
-    initial.insert(key, prior);
+    Pose3 est{prior.rotation(), prior.translation() + Point3{1, 2, 3}};
+    initial.insert(key, est);
     initial.print("\ninitial estimate\n");
 
     /**
@@ -123,8 +134,8 @@ namespace camsim
     result.print("final result\n");
 
     {
-//    Marginals marginals(graph, result);
-//    cout << marginals.marginalCovariance(key) << endl;
+    Marginals marginals(graph, result);
+    cout << marginals.marginalCovariance(key) << endl;
     }
 
     return EXIT_SUCCESS;
