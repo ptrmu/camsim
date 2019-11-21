@@ -133,10 +133,8 @@ namespace camsim
     Values result = LevenbergMarquardtOptimizer(graph, initial).optimize();
     result.print("final result\n");
 
-    {
     Marginals marginals(graph, result);
     cout << marginals.marginalCovariance(key) << endl;
-    }
 
     return EXIT_SUCCESS;
   }
