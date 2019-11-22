@@ -60,6 +60,7 @@ target_link_libraries(camsim
 #  )
 
 add_executable(pfm_run
+  src/model.cpp
   src/pfm_model.cpp
   src/pfm_run.cpp
   src/pfm_gtsam_resection.cpp
