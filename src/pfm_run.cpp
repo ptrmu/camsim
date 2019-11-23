@@ -3,6 +3,7 @@
 
 
 #include <gtsam/geometry/Cal3_S2.h>
+#include "model.hpp"
 #include "pfm_model.hpp"
 
 namespace camsim
@@ -103,11 +104,26 @@ namespace camsim
 
     return EXIT_SUCCESS;
   }
+
+  static int pfm_run_multi()
+  {
+    Model model{MarkersConfigurations::square_around_origin_xy_plane,
+                CamerasConfigurations::fly_to_plus_y,
+                CameraTypes::simple_camera};
+
+    for (auto &camera : model.cameras_.cameras_) {
+      for (auto &marker : model.markers_.markers_) {
+      }
+    }
+
+    return EXIT_SUCCESS;
+  }
 }
 
 int main()
 {
 //  return camsim::pfm_run();
 //  return camsim::pfm_simple_rotation_example();
-  return camsim::pfm_optimize_pose3();
+//  return camsim::pfm_optimize_pose3();
+  return camsim::pfm_run_multi();
 }
