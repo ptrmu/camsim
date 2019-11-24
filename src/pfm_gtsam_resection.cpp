@@ -42,23 +42,27 @@ namespace camsim
   };
 
 
-  void pfm_gtsam_resection(const PfmModel &pfm_model, const gtsam::SharedNoiseModel &measurement_noise,
+  void pfm_gtsam_resection(const gtsam::Cal3_S2 &camera_calibration,
+                           const std::vector<gtsam::Point2> &corners_f_image,
+                           const std::vector<gtsam::Point3> &corners_f_world,
+                           const gtsam::Pose3 &camera_f_world_initial,
+                           const gtsam::SharedNoiseModel &measurement_noise,
                            gtsam::Pose3 &camera_f_world, gtsam::Matrix &camera_f_world_covariance)
   {
     /* 1. create graph */
     gtsam::NonlinearFactorGraph graph;
 
     /* 2. add measurement factors to the graph */
-    for (int i = 0; i < pfm_model.corners_f_world_.size(); i += 1) {
+    for (int i = 0; i < corners_f_world.size(); i += 1) {
       graph.emplace_shared<ResectioningFactor>(measurement_noise, X(1),
-                                               pfm_model.camera_calibration_,
-                                               pfm_model.corners_f_image_[i],
-                                               pfm_model.corners_f_world_[i]);
+                                               camera_calibration,
+                                               corners_f_image[i],
+                                               corners_f_world[i]);
     }
 
     /* 3. Create an initial estimate for the camera pose */
     gtsam::Values initial;
-    initial.insert(X(1), pfm_model.camera_f_world_);
+    initial.insert(X(1), camera_f_world_initial);
 
     /* 4. Optimize the graph using Levenberg-Marquardt*/
     auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();

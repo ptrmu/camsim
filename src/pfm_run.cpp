@@ -81,7 +81,11 @@ namespace camsim
     gtsam::Pose3 gtsam_camera_f_world;
     gtsam::Matrix gtsam_camera_f_world_covariance;
 
-    pfm_gtsam_resection(*model, measurement_noise,
+    pfm_gtsam_resection(model->camera_calibration_,
+                        model->corners_f_image_,
+                        model->corners_f_world_,
+                        model->camera_f_world_,
+                        measurement_noise,
                         gtsam_camera_f_world, gtsam_camera_f_world_covariance);
 
     std::cout.precision(3);
@@ -105,6 +109,10 @@ namespace camsim
     return EXIT_SUCCESS;
   }
 
+  static void compare_results(const CameraModel &camera, const MarkerModel &marker)
+  {
+  }
+
   static int pfm_run_multi()
   {
     Model model{MarkersConfigurations::square_around_origin_xy_plane,
@@ -113,6 +121,7 @@ namespace camsim
 
     for (auto &camera : model.cameras_.cameras_) {
       for (auto &marker : model.markers_.markers_) {
+        compare_results(camera, marker);
       }
     }
 
@@ -122,8 +131,8 @@ namespace camsim
 
 int main()
 {
-//  return camsim::pfm_run();
+  return camsim::pfm_run();
 //  return camsim::pfm_simple_rotation_example();
 //  return camsim::pfm_optimize_pose3();
-  return camsim::pfm_run_multi();
+//  return camsim::pfm_run_multi();
 }
