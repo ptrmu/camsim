@@ -109,8 +109,27 @@ namespace camsim
     return EXIT_SUCCESS;
   }
 
-  static void compare_results(const CameraModel &camera, const MarkerModel &marker)
+  static void compare_results(const gtsam::Cal3_S2 &camera_calibration,
+                              const gtsam::SharedNoiseModel &measurement_noise,
+                              const CameraModel &camera, const MarkerModel &marker,
+                              const std::vector<gtsam::Point2> &corners_f_image)
   {
+    // Get gtsam results
+    gtsam::Pose3 gtsam_camera_f_world;
+    gtsam::Matrix gtsam_camera_f_world_covariance;
+
+    pfm_gtsam_resection(camera_calibration,
+                        corners_f_image,
+                        marker.corners_f_world_,
+                        camera.pose_f_world_,
+                        measurement_noise,
+                        gtsam_camera_f_world, gtsam_camera_f_world_covariance);
+
+    std::cout.precision(3);
+    std::cout << "gtsam_camera_f_world r:" << gtsam_camera_f_world.rotation().xyz() << std::endl;
+    std::cout << "gtsam_camera_f_world:" << gtsam_camera_f_world << std::endl;
+    std::cout << "gtsam_camera_f_world_covariance:\n" << gtsam_camera_f_world_covariance << std::endl << std::endl;
+
   }
 
   static int pfm_run_multi()
@@ -119,9 +138,16 @@ namespace camsim
                 CamerasConfigurations::fly_to_plus_y,
                 CameraTypes::simple_camera};
 
+    const gtsam::Cal3_S2 camera_calibration{model.cameras_.get_Cal3_S2()};
+    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(.5, .5));
+
     for (auto &camera : model.cameras_.cameras_) {
       for (auto &marker : model.markers_.markers_) {
-        compare_results(camera, marker);
+        auto &corners_f_image = model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
+        if (!corners_f_image.empty()) {
+          compare_results(camera_calibration, measurement_noise,
+                          camera, marker, corners_f_image);
+        }
       }
     }
 
@@ -131,8 +157,8 @@ namespace camsim
 
 int main()
 {
-  return camsim::pfm_run();
+//  return camsim::pfm_run();
 //  return camsim::pfm_simple_rotation_example();
 //  return camsim::pfm_optimize_pose3();
-//  return camsim::pfm_run_multi();
+  return camsim::pfm_run_multi();
 }

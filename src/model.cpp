@@ -168,6 +168,13 @@ namespace camsim
     cameras_{gen_cameras(camera_type, cameras_configuration, calibration_, marker_size)}
   {}
 
+  gtsam::Cal3_S2 CamerasModel::get_Cal3_S2()
+  {
+    return gtsam::Cal3_S2{calibration_.fx(), calibration_.fy(),
+                          calibration_.skew(),
+                          calibration_.px(), calibration_.py()};
+  }
+
   static std::vector<std::vector<CornersFImageModel>> gen_corners_f_images(const MarkersModel &markers,
                                                                            const CamerasModel &cameras)
   {

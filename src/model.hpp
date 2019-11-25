@@ -3,6 +3,7 @@
 #define _MODEL_HPP
 
 #include <gtsam/geometry/Cal3DS2.h>
+#include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam/geometry/Pose3.h>
 #include "sfm_pose_with_covariance.hpp"
 
@@ -88,6 +89,8 @@ namespace camsim
     CamerasModel(CameraTypes camera_type,
                  CamerasConfigurations cameras_configuration,
                  double marker_size);
+
+    gtsam::Cal3_S2 get_Cal3_S2();
   };
 
   struct CornersFImageModel
