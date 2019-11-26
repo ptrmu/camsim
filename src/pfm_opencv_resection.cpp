@@ -11,7 +11,8 @@ namespace camsim
   static int constexpr num_samples = 5000;
 
   static std::vector<std::vector<cv::Point2d>> generate_normal_corners_f_images(
-    const PfmModel &pfm_model, const gtsam::SharedNoiseModel &measurement_noise)
+    const std::vector<gtsam::Point2> &corners_f_image,
+    const gtsam::SharedNoiseModel &measurement_noise)
   {
     // Allocate normal random number generators
 //    std::random_device rd{};
@@ -20,7 +21,7 @@ namespace camsim
 
     // Create a distribution for each point coordinate
     std::vector<std::pair<std::normal_distribution<>, std::normal_distribution<>>> dists{};
-    for (auto &corner_f_image : pfm_model.corners_f_image_) {
+    for (auto &corner_f_image : corners_f_image) {
       dists.emplace_back(std::pair<std::normal_distribution<>, std::normal_distribution<>>{
         std::normal_distribution<>{corner_f_image.x(), measurement_noise->sigmas()(0)},
         std::normal_distribution<>{corner_f_image.y(), measurement_noise->sigmas()(1)}
@@ -40,22 +41,23 @@ namespace camsim
     return image_points_samples;
   }
 
-  static std::vector<gtsam::Pose3> many_opencv_resection(const PfmModel &pfm_model,
+  static std::vector<gtsam::Pose3> many_opencv_resection(const gtsam::Cal3_S2 &camera_calibration,
+                                                         const std::vector<gtsam::Point3> &corners_f_world,
                                                          std::vector<std::vector<cv::Point2d>> corners_f_images)
   {
     std::vector<gtsam::Pose3> camera_f_worlds{};
 
     cv::Mat camera_matrix = (cv::Mat_<double>(3, 3)
-      << pfm_model.camera_calibration_.fx(), 0, pfm_model.camera_calibration_.px(),
-      0, pfm_model.camera_calibration_.fy(), pfm_model.camera_calibration_.py(),
+      << camera_calibration.fx(), 0, camera_calibration.px(),
+      0, camera_calibration.fy(), camera_calibration.py(),
       0, 0, 1);
     cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, cv::DataType<double>::type); // Assuming no lens distortion
 
     std::vector<cv::Point3d> world_points;
-    for (int i = 0; i < pfm_model.corners_f_world_.size(); i += 1) {
-      world_points.emplace_back(cv::Point3d(pfm_model.corners_f_world_[i].x(),
-                                            pfm_model.corners_f_world_[i].y(),
-                                            pfm_model.corners_f_world_[i].z()));
+    for (int i = 0; i < corners_f_world.size(); i += 1) {
+      world_points.emplace_back(cv::Point3d(corners_f_world[i].x(),
+                                            corners_f_world[i].y(),
+                                            corners_f_world[i].z()));
     }
 
     for (auto image_points : corners_f_images) {
@@ -148,10 +150,14 @@ namespace camsim
     camera_f_world_covariance = cov;
   }
 
-  void pfm_opencv_resection(const PfmModel &pfm_model, const gtsam::SharedNoiseModel &measurement_noise,
+  void pfm_opencv_resection(const gtsam::Cal3_S2 &camera_calibration,
+                            const std::vector<gtsam::Point2> &corners_f_image,
+                            const std::vector<gtsam::Point3> &corners_f_world,
+                            const gtsam::Pose3 &camera_f_world_initial,
+                            const gtsam::SharedNoiseModel &measurement_noise,
                             gtsam::Pose3 &camera_f_world, gtsam::Matrix &camera_f_world_covariance)
   {
-    auto corners_f_images = generate_normal_corners_f_images(pfm_model, measurement_noise);
+    auto corners_f_images = generate_normal_corners_f_images(corners_f_image, measurement_noise);
 //    std::cout.precision(3);
 //    std::cout.setf(std::ios::fixed);
 //    for (auto &t1 : corners_f_images) {
@@ -161,7 +167,7 @@ namespace camsim
 //      std::cout << std::endl;
 //    }
 
-    auto camera_f_worlds = many_opencv_resection(pfm_model, corners_f_images);
+    auto camera_f_worlds = many_opencv_resection(camera_calibration, corners_f_world, corners_f_images);
 //    std::cout.precision(3);
 //    std::cout.setf(std::ios::fixed);
 //    for (auto &t1 : camera_f_worlds) {
