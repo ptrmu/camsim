@@ -1,5 +1,5 @@
 
-#include "sfm_pose_with_covariance.hpp"
+#include "pose_with_covariance.hpp"
 
 namespace camsim
 {
@@ -25,23 +25,23 @@ namespace camsim
     }
   };
 
-  std::string SfmPoseWithCovariance::to_str() const
+  std::string PoseWithCovariance::to_str() const
   {
     return to_str(pose_).append(to_str(cov_));
   }
 
-  std::string SfmPoseWithCovariance::to_str(const gtsam::Pose3 &pose)
+  std::string PoseWithCovariance::to_str(const gtsam::Pose3 &pose)
   {
     NumFmt nf(9, 3);
     auto r = pose.rotation().xyz();
     auto &t = pose.translation();
     std::stringstream ss{};
     ss << nf << r(0) << " " << nf << r(1) << " " << nf << r(2) << " "
-       << nf << t(0) << " " << nf << t(1) << " " << nf << t(2) << std::endl;
+       << nf << t(0) << " " << nf << t(1) << " " << nf << t(2);
     return ss.str();
   }
 
-  std::string SfmPoseWithCovariance::to_str(const gtsam::Matrix6 &cov)
+  std::string PoseWithCovariance::to_str(const gtsam::Matrix6 &cov)
   {
     NumFmt nf(9, 3);
     auto &v = cov;
@@ -53,9 +53,7 @@ namespace camsim
        << nf << v(4, 0) << " " << nf << v(4, 1) << " " << nf << v(4, 2) << " " << nf << v(4, 3) << " " << nf << v(4, 4)
        << std::endl
        << nf << v(5, 0) << " " << nf << v(5, 1) << " " << nf << v(5, 2) << " " << nf << v(5, 3) << " " << nf << v(5, 4)
-       << " " << nf << v(5, 5)
-       <<
-       std::endl;
+       << " " << nf << v(5, 5);
     return ss.str();
   }
 

@@ -6,13 +6,13 @@
 
 namespace camsim
 {
-  struct SfmPoseWithCovariance
+  struct PoseWithCovariance
   {
     const int id_;
     const gtsam::Pose3 pose_;
     const gtsam::Matrix6 cov_;
 
-    SfmPoseWithCovariance(int id, const gtsam::Pose3 &pose, const gtsam::Matrix6 &cov) :
+    PoseWithCovariance(int id, const gtsam::Pose3 &pose, const gtsam::Matrix6 &cov) :
       id_{id}, pose_{pose}, cov_{cov}
     {}
 

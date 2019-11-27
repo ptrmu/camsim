@@ -67,6 +67,7 @@ add_executable(pfm_run
   src/pfm_opencv_resection.cpp
   src/pfm_simple_rotation_example.cpp 
   src/pfm_optimize_pose3.cpp
+  src/pose_with_covariance.cpp
   )
 
 target_link_libraries(pfm_run
@@ -88,7 +89,7 @@ add_executable(sfm_run
   src/sfm_resectioning.cpp
   src/sfm_isam2_example.cpp
   src/sfm_isam2.cpp
-  src/sfm_pose_with_covariance.cpp
+  src/pose_with_covariance.cpp
   )
 
 target_link_libraries(sfm_run

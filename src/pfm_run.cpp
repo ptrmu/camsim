@@ -5,6 +5,7 @@
 #include <gtsam/geometry/Cal3_S2.h>
 #include "model.hpp"
 #include "pfm_model.hpp"
+#include "pose_with_covariance.hpp"
 
 namespace camsim
 {
@@ -72,55 +73,17 @@ namespace camsim
                                       marker_size);
   }
 
-  static int pfm_run()
-  {
-    auto model = get_model(ModelTypes::small_rotate_camera__about_y);
-    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(.5, .5));
-
-    // Get gtsam results
-    gtsam::Pose3 gtsam_camera_f_world;
-    gtsam::Matrix gtsam_camera_f_world_covariance;
-
-    pfm_gtsam_resection(model->camera_calibration_,
-                        model->corners_f_image_,
-                        model->corners_f_world_,
-                        model->camera_f_world_,
-                        measurement_noise,
-                        gtsam_camera_f_world, gtsam_camera_f_world_covariance);
-
-    std::cout.precision(3);
-    std::cout << "gtsam_camera_f_world r:" << gtsam_camera_f_world.rotation().xyz() << std::endl;
-    std::cout << "gtsam_camera_f_world:" << gtsam_camera_f_world << std::endl;
-    std::cout << "gtsam_camera_f_world_covariance:\n" << gtsam_camera_f_world_covariance << std::endl << std::endl;
-//    std::cout << "gtsam_camera_f_world logmap:\n" << gtsam_camera_f_world.Logmap(gtsam_camera_f_world) << std::endl;
-
-    // Get opencv results
-    gtsam::Pose3 opencv_camera_f_marker;
-    gtsam::Matrix opencv_camera_f_marker_covariance;
-
-    pfm_opencv_resection(model->camera_calibration_,
-                         model->corners_f_image_,
-                         model->corners_f_world_,
-                         model->camera_f_world_,
-                         measurement_noise,
-                         opencv_camera_f_marker, opencv_camera_f_marker_covariance);
-
-    std::cout.precision(3);
-    std::cout << "opencv_camera_f_world r:" << opencv_camera_f_marker.rotation().xyz() << std::endl;
-    std::cout << "opencv_camera_f_world:" << opencv_camera_f_marker << std::endl;
-    std::cout << "opencv_camera_f_world_covariance:\n" << opencv_camera_f_marker_covariance << std::endl << std::endl;
-
-    return EXIT_SUCCESS;
-  }
-
   static void compare_results(const gtsam::Cal3_S2 &camera_calibration,
                               const gtsam::SharedNoiseModel &measurement_noise,
                               const CameraModel &camera, const MarkerModel &marker,
                               const std::vector<gtsam::Point2> &corners_f_image)
   {
+    std::cout << "camera_" << camera.camera_idx_ << PoseWithCovariance::to_str(camera.pose_f_world_) << std::endl;
+    std::cout << "marker_" << marker.marker_idx_ << PoseWithCovariance::to_str(marker.pose_f_world_) << std::endl;
+
     // Get gtsam results
     gtsam::Pose3 gtsam_camera_f_world;
-    gtsam::Matrix gtsam_camera_f_world_covariance;
+    gtsam::Matrix6 gtsam_camera_f_world_covariance;
 
     pfm_gtsam_resection(camera_calibration,
                         corners_f_image,
@@ -129,14 +92,13 @@ namespace camsim
                         measurement_noise,
                         gtsam_camera_f_world, gtsam_camera_f_world_covariance);
 
-    std::cout.precision(3);
-    std::cout << "gtsam_camera_f_world r:" << gtsam_camera_f_world.rotation().xyz() << std::endl;
-    std::cout << "gtsam_camera_f_world:" << gtsam_camera_f_world << std::endl;
-    std::cout << "gtsam_camera_f_world_covariance:\n" << gtsam_camera_f_world_covariance << std::endl << std::endl;
+    std::cout << "gtsam_camera_f_world" << std::endl
+              << PoseWithCovariance::to_str(gtsam_camera_f_world) << std::endl
+              << PoseWithCovariance::to_str(gtsam_camera_f_world_covariance) << std::endl;
 
     // Get opencv results
     gtsam::Pose3 opencv_camera_f_marker;
-    gtsam::Matrix opencv_camera_f_marker_covariance;
+    gtsam::Matrix6 opencv_camera_f_marker_covariance;
 
     pfm_opencv_resection(camera_calibration,
                          corners_f_image,
@@ -145,20 +107,17 @@ namespace camsim
                          measurement_noise,
                          opencv_camera_f_marker, opencv_camera_f_marker_covariance);
 
-    std::cout.precision(3);
-    std::cout << "opencv_camera_f_world r:" << opencv_camera_f_marker.rotation().xyz() << std::endl;
-    std::cout << "opencv_camera_f_world:" << opencv_camera_f_marker << std::endl;
-    std::cout << "opencv_camera_f_world_covariance:\n" << opencv_camera_f_marker_covariance << std::endl << std::endl;
+    std::cout << "opencv_camera_f_world" << std::endl
+              << PoseWithCovariance::to_str(opencv_camera_f_marker) << std::endl
+              << PoseWithCovariance::to_str(opencv_camera_f_marker_covariance) << std::endl;
+
+    std::cout << std::endl;
   }
 
-  static int pfm_run_multi()
+  static void pfm_run_multi(Model &model)
   {
-    Model model{MarkersConfigurations::square_around_origin_xy_plane,
-                CamerasConfigurations::fly_to_plus_y,
-                CameraTypes::simple_camera};
-
     const gtsam::Cal3_S2 camera_calibration{model.cameras_.get_Cal3_S2()};
-    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(.5, .5));
+    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(.1, .1));
 
     for (auto &camera : model.cameras_.cameras_) {
       for (auto &marker : model.markers_.markers_) {
@@ -169,6 +128,19 @@ namespace camsim
         }
       }
     }
+  }
+
+  static int pfm_run()
+  {
+    Model model{MarkersConfigurations::single_center,
+                CamerasConfigurations::fly_to_plus_y,
+                CameraTypes::simple_camera};
+
+//    Model model{MarkersConfigurations::single_south_west,
+//                CamerasConfigurations::far_south,
+//                CameraTypes::simple_camera};
+
+    pfm_run_multi(model);
 
     return EXIT_SUCCESS;
   }
@@ -176,8 +148,7 @@ namespace camsim
 
 int main()
 {
-//  return camsim::pfm_run();
+  return camsim::pfm_run();
 //  return camsim::pfm_simple_rotation_example();
 //  return camsim::pfm_optimize_pose3();
-  return camsim::pfm_run_multi();
 }

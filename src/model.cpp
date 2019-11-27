@@ -1,6 +1,6 @@
 
 #include "model.hpp"
-#include "sfm_pose_with_covariance.hpp"
+#include "pose_with_covariance.hpp"
 
 #include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam/geometry/SimpleCamera.h>
@@ -28,6 +28,14 @@ namespace camsim
                                                 gtsam::Point3(-marker_size, -marker_size, 0)});
       marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
                                                 gtsam::Point3(-marker_size, marker_size, 0)});
+
+    } else if (marker_configuration == MarkersConfigurations::single_center) {
+      marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
+                                                gtsam::Point3(0, 0, 0)});
+
+    } else if (marker_configuration == MarkersConfigurations::single_south_west) {
+      marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
+                                                gtsam::Point3(-marker_size, -marker_size, 0)});
 
     } else if (marker_configuration == MarkersConfigurations::along_x_axis) {
       int marker_number = 3;
@@ -112,6 +120,10 @@ namespace camsim
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(0, 0, 2)});
 
+    } else if (camera_configuration == CamerasConfigurations::far_south) {
+      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., 0.),
+                                                gtsam::Point3(0., -100., 2.)});
+
     } else if (camera_configuration == CamerasConfigurations::plus_x_facing_markers) {
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
                                                 gtsam::Point3(marker_size, 0, 2)});
@@ -127,9 +139,15 @@ namespace camsim
                                                 gtsam::Point3(-marker_size, marker_size, 2)});
 
     } else if (camera_configuration == CamerasConfigurations::fly_to_plus_y) {
-      for (int i = -10; i <= 10; i += 1) {
-        camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                  gtsam::Point3(0, i * marker_size / 2, 2)});
+      const int camera_number = 5;
+      const double min = -80.0;
+      const double max = 80.0;
+      const double delta = (max - min) / (camera_number - 1);
+
+      for (int i = 0; i < camera_number; i += 1) {
+        double offset = i * delta + min;
+        camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., 0.),
+                                                  gtsam::Point3(0., offset, 2.)});
       }
 
     } else if (camera_configuration == CamerasConfigurations::c_along_x_axis) {
@@ -222,7 +240,9 @@ namespace camsim
       for (auto &per_marker : per_camera) {
 
         if (per_marker.marker_idx_ == 0) {
-          std::cout << "camera " << per_marker.camera_idx_ << std::endl;
+          auto &camera = cameras_.cameras_[per_marker.camera_idx_];
+          std::cout << "camera_" <<  camera.camera_idx_
+                    << PoseWithCovariance::to_str(camera.pose_f_world_) << std::endl;
         }
 
         auto &corners_f_image = per_marker.corners_f_image_;
@@ -239,5 +259,6 @@ namespace camsim
         }
       }
     }
+    std::cout << std::endl;
   }
 }

@@ -31,7 +31,7 @@ namespace camsim
     std::set<int> markers_seen_{};
     gtsam::ISAM2 isam_{get_isam2_parameters()};
 
-    std::map<int, SfmPoseWithCovariance> markers_known_{};
+    std::map<int, PoseWithCovariance> markers_known_{};
     gtsam::NonlinearFactorGraph graph_{};
     gtsam::Values initialEstimate_{};
 
@@ -41,12 +41,12 @@ namespace camsim
     {
     }
 
-    void add_measurements(int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
+    void add_measurements(int camera_id, const std::vector<PoseWithCovariance> &camera_f_markers)
     {
 //      graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(1, 2, poseOdometry, noiseOdometery);
     }
 
-    void add_measurements_2(int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
+    void add_measurements_2(int camera_id, const std::vector<PoseWithCovariance> &camera_f_markers)
     {
       // Have to see at least two markers before this routine can do anything.
       if (camera_f_markers.size() < 2) {
@@ -58,7 +58,7 @@ namespace camsim
       initialEstimate_.clear();
 
       // List of markers that we have never seen.
-      std::vector<const SfmPoseWithCovariance *> unknown_camera_f_markers{};
+      std::vector<const PoseWithCovariance *> unknown_camera_f_markers{};
 
       // The camera pose initial value is figured from one of the known markers
       bool camera_f_world_inited = false;
@@ -155,14 +155,14 @@ namespace camsim
       const auto c_pose{result.at<gtsam::Pose3>(gtsam::Symbol('c', camera_id))};
       const gtsam::Matrix6 c_cov{marginals.marginalCovariance(gtsam::Symbol('c', camera_id))};
       std::cout << "c" << camera_id << std::endl
-                << SfmPoseWithCovariance::to_str(c_pose)
-                << SfmPoseWithCovariance::to_str(c_cov) << std::endl;
+                << PoseWithCovariance::to_str(c_pose)
+                << PoseWithCovariance::to_str(c_cov) << std::endl;
       for (auto &camera_f_marker : camera_f_markers) {
         const auto m_pose{result.at<gtsam::Pose3>(gtsam::Symbol('m', camera_f_marker.id_))};
         const gtsam::Matrix6 m_cov{marginals.marginalCovariance(gtsam::Symbol('m', camera_f_marker.id_))};
         std::cout << "m" << camera_f_marker.id_ << std::endl
-                  << SfmPoseWithCovariance::to_str(m_pose)
-                  << SfmPoseWithCovariance::to_str(m_cov) << std::endl;
+                  << PoseWithCovariance::to_str(m_pose)
+                  << PoseWithCovariance::to_str(m_cov) << std::endl;
       }
 
       // Save marker poses in the known marker array.
@@ -182,9 +182,9 @@ namespace camsim
 
         // Add the new marker pose
         markers_known_.emplace(camera_f_marker.id_,
-                               SfmPoseWithCovariance{camera_f_marker.id_,
-                                                     result.at<gtsam::Pose3>(key),
-                                                     marginals.marginalCovariance(key)});
+                               PoseWithCovariance{camera_f_marker.id_,
+                                                  result.at<gtsam::Pose3>(key),
+                                                  marginals.marginalCovariance(key)});
       }
     }
   };
@@ -196,7 +196,7 @@ namespace camsim
   SfmIsam2::~SfmIsam2() = default;
 
   void SfmIsam2::add_measurements(
-    int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers)
+    int camera_id, const std::vector<PoseWithCovariance> &camera_f_markers)
   {
     impl_->add_measurements_2(camera_id, camera_f_markers);
   }
@@ -204,12 +204,12 @@ namespace camsim
 
 #include "model.hpp"
 
-std::vector<camsim::SfmPoseWithCovariance> sfm_run_isam2_camera_f_markers(
+std::vector<camsim::PoseWithCovariance> sfm_run_isam2_camera_f_markers(
   camsim::Model &model,
   const gtsam::SharedNoiseModel &measurement_noise,
   const camsim::CameraModel &camera)
 {
-  std::vector<camsim::SfmPoseWithCovariance> camera_f_markers{};
+  std::vector<camsim::PoseWithCovariance> camera_f_markers{};
 
   camsim::CalcCameraPose ccp{model.cameras_.calibration_,
                              camera.project_func_,

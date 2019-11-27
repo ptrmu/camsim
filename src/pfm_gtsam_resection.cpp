@@ -47,7 +47,7 @@ namespace camsim
                            const std::vector<gtsam::Point3> &corners_f_world,
                            const gtsam::Pose3 &camera_f_world_initial,
                            const gtsam::SharedNoiseModel &measurement_noise,
-                           gtsam::Pose3 &camera_f_world, gtsam::Matrix &camera_f_world_covariance)
+                           gtsam::Pose3 &camera_f_world, gtsam::Matrix6 &camera_f_world_covariance)
   {
     /* 1. create graph */
     gtsam::NonlinearFactorGraph graph;

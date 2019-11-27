@@ -17,7 +17,7 @@ namespace camsim
 
     ~SfmIsam2();
 
-    void add_measurements(int camera_id, const std::vector<SfmPoseWithCovariance> &camera_f_markers);
+    void add_measurements(int camera_id, const std::vector<PoseWithCovariance> &camera_f_markers);
   };
 }
 

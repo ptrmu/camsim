@@ -5,7 +5,6 @@
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/Cal3_S2.h>
 #include <gtsam/geometry/Pose3.h>
-#include "sfm_pose_with_covariance.hpp"
 
 namespace camsim
 {
@@ -17,6 +16,8 @@ namespace camsim
   enum MarkersConfigurations
   {
     square_around_origin_xy_plane = 0,
+    single_center,
+    single_south_west,
     along_x_axis,
   };
 
@@ -48,6 +49,7 @@ namespace camsim
   enum CamerasConfigurations
   {
     center_facing_markers = 0,
+    far_south,
     plus_x_facing_markers,
     square_around_z_axis,
     fly_to_plus_y,

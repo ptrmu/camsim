@@ -3,12 +3,13 @@
 #include <opencv2/opencv.hpp>
 #include "pfm_run.hpp"
 #include "pfm_model.hpp"
+#include "pose_with_covariance.hpp"
 #include <random>
 
 namespace camsim
 {
 
-  static int constexpr num_samples = 5000;
+  static int constexpr num_samples = 4096;
 
   static std::vector<std::vector<cv::Point2d>> generate_normal_corners_f_images(
     const std::vector<gtsam::Point2> &corners_f_image,
@@ -91,7 +92,7 @@ namespace camsim
 
   static void mean_camera_f_world(std::vector<gtsam::Pose3> camera_f_worlds,
                                   gtsam::Pose3 &camera_f_world,
-                                  gtsam::Matrix &camera_f_world_covariance)
+                                  gtsam::Matrix6 &camera_f_world_covariance)
   {
     if (camera_f_worlds.empty()) {
       return;
@@ -155,7 +156,7 @@ namespace camsim
                             const std::vector<gtsam::Point3> &corners_f_world,
                             const gtsam::Pose3 &camera_f_world_initial,
                             const gtsam::SharedNoiseModel &measurement_noise,
-                            gtsam::Pose3 &camera_f_world, gtsam::Matrix &camera_f_world_covariance)
+                            gtsam::Pose3 &camera_f_world, gtsam::Matrix6 &camera_f_world_covariance)
   {
     auto corners_f_images = generate_normal_corners_f_images(corners_f_image, measurement_noise);
 //    std::cout.precision(3);
@@ -174,6 +175,15 @@ namespace camsim
 //      std::cout << t1;
 //    }
 
+//    for (int i = 0; i < camera_f_worlds.size(); i += 1) {
+//      auto &corners_f_image = corners_f_images[i];
+//      auto &camera_f_world = camera_f_worlds[i];
+//      std::cout << corners_f_image[0]
+//                << corners_f_image[1]
+//                << corners_f_image[2]
+//                << corners_f_image[3] << std::endl;
+//      std::cout << "                         " << PoseWithCovariance::to_str(camera_f_world) << std::endl;
+//    }
 
     mean_camera_f_world(std::move(camera_f_worlds), camera_f_world, camera_f_world_covariance);
   }

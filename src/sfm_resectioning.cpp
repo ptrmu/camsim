@@ -129,7 +129,7 @@ namespace camsim
                                       corners_f_marker[3].z()}}
     {}
 
-    SfmPoseWithCovariance camera_f_marker(
+    PoseWithCovariance camera_f_marker(
       int marker_id,
       const std::vector<gtsam::Point2> &corners_f_image)
     {
@@ -155,7 +155,7 @@ namespace camsim
       gtsam::Marginals marginals(graph_, result);
       auto camera_f_marker_covariance = marginals.marginalCovariance(X1_);
 
-      return SfmPoseWithCovariance{
+      return PoseWithCovariance{
         marker_id,
         camera_f_marker,
         camera_f_marker_covariance};
@@ -173,7 +173,7 @@ namespace camsim
 
   CalcCameraPose::~CalcCameraPose() = default;
 
-  SfmPoseWithCovariance CalcCameraPose::camera_f_marker(
+  PoseWithCovariance CalcCameraPose::camera_f_marker(
     int marker_id,
     const std::vector<gtsam::Point2> &corners_f_image)
   {
