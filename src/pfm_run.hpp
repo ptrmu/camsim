@@ -11,19 +11,26 @@ namespace camsim
 {
   class PfmModel;
 
-  void pfm_gtsam_resection(const gtsam::Cal3_S2 &camera_calibration,
+  void pfm_resection_gtsam(const gtsam::Cal3_S2 &camera_calibration,
                            const std::vector<gtsam::Point2> &corners_f_image,
                            const std::vector<gtsam::Point3> &corners_f_world,
                            const gtsam::Pose3 &camera_f_world_initial,
                            const gtsam::SharedNoiseModel &measurement_noise,
                            gtsam::Pose3 &camera_f_world, gtsam::Matrix6 &camera_f_world_covariance);
 
-  void pfm_opencv_resection(const gtsam::Cal3_S2 &camera_calibration,
+  void pfm_resection_opencv(const gtsam::Cal3_S2 &camera_calibration,
                             const std::vector<gtsam::Point2> &corners_f_image,
                             const std::vector<gtsam::Point3> &corners_f_world,
                             const gtsam::Pose3 &camera_f_world_initial,
                             const gtsam::SharedNoiseModel &measurement_noise,
                             gtsam::Pose3 &camera_f_world, gtsam::Matrix6 &camera_f_world_covariance);
+
+  void pfm_resection_projection(const gtsam::Cal3_S2 &camera_calibration,
+                                const std::vector<gtsam::Point2> &corners_f_image,
+                                const std::vector<gtsam::Point3> &corners_f_world,
+                                const gtsam::Pose3 &camera_f_world_initial,
+                                const gtsam::SharedNoiseModel &measurement_noise,
+                                gtsam::Pose3 &camera_f_world, gtsam::Matrix6 &camera_f_world_covariance);
 
   int pfm_simple_rotation_example();
 

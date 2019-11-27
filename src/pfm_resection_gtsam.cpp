@@ -42,7 +42,7 @@ namespace camsim
   };
 
 
-  void pfm_gtsam_resection(const gtsam::Cal3_S2 &camera_calibration,
+  void pfm_resection_gtsam(const gtsam::Cal3_S2 &camera_calibration,
                            const std::vector<gtsam::Point2> &corners_f_image,
                            const std::vector<gtsam::Point3> &corners_f_world,
                            const gtsam::Pose3 &camera_f_world_initial,

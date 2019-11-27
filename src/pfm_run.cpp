@@ -85,7 +85,7 @@ namespace camsim
     gtsam::Pose3 gtsam_camera_f_world;
     gtsam::Matrix6 gtsam_camera_f_world_covariance;
 
-    pfm_gtsam_resection(camera_calibration,
+    pfm_resection_gtsam(camera_calibration,
                         corners_f_image,
                         marker.corners_f_world_,
                         camera.pose_f_world_,
@@ -96,11 +96,26 @@ namespace camsim
               << PoseWithCovariance::to_str(gtsam_camera_f_world) << std::endl
               << PoseWithCovariance::to_str(gtsam_camera_f_world_covariance) << std::endl;
 
+    // Get projection results
+    gtsam::Pose3 projection_camera_f_world;
+    gtsam::Matrix6 projection_camera_f_world_covariance;
+
+    pfm_resection_projection(camera_calibration,
+                             corners_f_image,
+                             marker.corners_f_world_,
+                             camera.pose_f_world_,
+                             measurement_noise,
+                             projection_camera_f_world, projection_camera_f_world_covariance);
+
+    std::cout << "projection_camera_f_world" << std::endl
+              << PoseWithCovariance::to_str(projection_camera_f_world) << std::endl
+              << PoseWithCovariance::to_str(projection_camera_f_world_covariance) << std::endl;
+
     // Get opencv results
     gtsam::Pose3 opencv_camera_f_marker;
     gtsam::Matrix6 opencv_camera_f_marker_covariance;
 
-    pfm_opencv_resection(camera_calibration,
+    pfm_resection_opencv(camera_calibration,
                          corners_f_image,
                          marker.corners_f_world_,
                          camera.pose_f_world_,
@@ -117,7 +132,7 @@ namespace camsim
   static void pfm_run_multi(Model &model)
   {
     const gtsam::Cal3_S2 camera_calibration{model.cameras_.get_Cal3_S2()};
-    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(.1, .1));
+    auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(.5, .5));
 
     for (auto &camera : model.cameras_.cameras_) {
       for (auto &marker : model.markers_.markers_) {
