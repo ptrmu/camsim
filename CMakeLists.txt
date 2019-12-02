@@ -69,7 +69,7 @@ add_executable(pfm_run
   src/pfm_optimize_pose3.cpp
   src/pose_with_covariance.cpp
   src/pfm_resection_projection.cpp
-  )
+  src/pfm_resection_monte_carlo.cpp)
 
 target_link_libraries(pfm_run
   PRIVATE gtsam

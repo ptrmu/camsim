@@ -126,6 +126,21 @@ namespace camsim
               << PoseWithCovariance::to_str(opencv_camera_f_marker) << std::endl
               << PoseWithCovariance::to_str(opencv_camera_f_marker_covariance) << std::endl;
 
+    // Get monte carlo results
+    gtsam::Pose3 monte_carlo_camera_f_marker;
+    gtsam::Matrix6 monte_carlo_camera_f_marker_covariance;
+
+    pfm_resection_monte_carlo(camera_calibration,
+                              corners_f_image,
+                              marker.corners_f_world_,
+                              camera.pose_f_world_,
+                              measurement_noise,
+                              monte_carlo_camera_f_marker, monte_carlo_camera_f_marker_covariance);
+
+    std::cout << "monte_carlo_camera_f_world" << std::endl
+              << PoseWithCovariance::to_str(monte_carlo_camera_f_marker) << std::endl
+              << PoseWithCovariance::to_str(monte_carlo_camera_f_marker_covariance) << std::endl;
+
     std::cout << std::endl;
   }
 

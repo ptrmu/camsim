@@ -44,7 +44,7 @@ namespace camsim
 
   static std::vector<gtsam::Pose3> many_opencv_resection(const gtsam::Cal3_S2 &camera_calibration,
                                                          const std::vector<gtsam::Point3> &corners_f_world,
-                                                         std::vector<std::vector<cv::Point2d>> corners_f_images)
+                                                         const std::vector<std::vector<cv::Point2d>> &corners_f_images)
   {
     std::vector<gtsam::Pose3> camera_f_worlds{};
 
@@ -61,7 +61,7 @@ namespace camsim
                                             corners_f_world[i].z()));
     }
 
-    for (auto image_points : corners_f_images) {
+    for (auto &image_points : corners_f_images) {
       // Solve for pose
       cv::Mat rotation_vector; // Rotation in axis-angle form
       cv::Mat translation_vector;
@@ -103,7 +103,7 @@ namespace camsim
 
     // for the mean calculation
     gtsam::Point3 t_mean{};
-    gtsam::Vector3 r_mean{};
+    gtsam::Vector3 r_mean{gtsam::Z_3x1};
     gtsam::Vector3 r_offset{camera_f_worlds[0].rotation().xyz()};
     for (auto &cam_f_world: camera_f_worlds) {
       t_mean += cam_f_world.translation();
@@ -131,7 +131,7 @@ namespace camsim
     // Calculate variance
     gtsam::Vector6 mean;
     mean << r_mean(0), r_mean(1), r_mean(2), t_mean(0), t_mean(1), t_mean(2);
-    gtsam::Matrix6 cov{};
+    gtsam::Matrix6 cov{gtsam::Z_6x6};
     for (auto &cam_f_world: camera_f_worlds) {
       gtsam::Vector6 res;
       auto xyz = cam_f_world.rotation().xyz();
