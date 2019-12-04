@@ -3,6 +3,7 @@
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/DoglegOptimizer.h>
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
@@ -35,7 +36,6 @@ namespace camsim
         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(gtsam::Symbol('c', per_marker.camera_idx_),
                                                                  gtsam::Symbol('m', per_marker.marker_idx_),
                                                                  marker_f_camera, marker_noise);
-
       }
     }
 
@@ -82,6 +82,21 @@ namespace camsim
 
     return EXIT_SUCCESS;
   }
+
+  int sfm_test_clear()
+  {
+    gtsam::NonlinearFactorGraph graph;
+    gtsam::Values initial;
+    initial.insert(gtsam::Symbol('m', 0), 1.);
+    initial.print("before clear");
+    auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();
+    initial.clear();
+    initial.print("after clear");
+    initial.insert(gtsam::Symbol('c', 0), 1.);
+    initial.print("after add new value");
+
+    return EXIT_SUCCESS;
+  }
 }
 
 int main()
@@ -91,5 +106,6 @@ int main()
 //  return camsim::sfm_isam_example();
 //  return camsim::sfm_run();
 //  return sfm_run_resectioning();
-  return sfm_run_isam2();
+//  return sfm_run_isam2();
+  return camsim::sfm_test_clear();
 }

@@ -97,7 +97,24 @@ target_link_libraries(sfm_run
   PRIVATE gtsam
   PRIVATE opencv_core
   PRIVATE opencv_calib3d
-#  PRIVATE ${VTK_LIBRARIES}
+  #  PRIVATE ${VTK_LIBRARIES}
+  )
+
+#vtk_module_autoinit(TARGETS sfm_run
+#  MODULES ${VTK_LIBRARIES}
+#  )
+
+add_executable(pfp_run
+  src/model.cpp
+  src/pfp_run.cpp
+  src/pose_with_covariance.cpp
+  src/pfp_odometry_example_3d.cpp)
+
+target_link_libraries(pfp_run
+  PRIVATE gtsam
+  PRIVATE opencv_core
+  PRIVATE opencv_calib3d
+  #  PRIVATE ${VTK_LIBRARIES}
   )
 
 #vtk_module_autoinit(TARGETS sfm_run
