@@ -144,6 +144,7 @@ namespace camsim
 int main()
 {
 //  camsim::pfp_simple();
-  camsim::odometry_example_3d();
+//  camsim::odometry_example_3d();
+  camsim::pfp_pose_unit_test();
   return EXIT_SUCCESS;
 }
