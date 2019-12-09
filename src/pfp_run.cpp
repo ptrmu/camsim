@@ -31,7 +31,7 @@ namespace camsim
     cov(3, 3) = 2.1e-2;
     cov(4, 4) = 2.2e-2;
     cov(5, 5) = 2.3e-2;
-    int cor_0 = 3;
+    int cor_0 = 1;
     int cor_1 = 5;
     double cor_c = 1.0;
     double cor_f = cor_c * cov(cor_0, cor_0) * cov(cor_1, cor_1);
@@ -44,7 +44,7 @@ namespace camsim
 
     // Create the body pose
     gtsam::Pose3 body_f_world{gtsam::Rot3::Ypr(90. * degree, 90. * degree, 0. * degree),
-                              gtsam::Point3{0., 0., 0.}};
+                              gtsam::Point3{0., 5., 0.}};
 
     // Create the measurement constraint
     auto body_f_world_measurement_noise = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
@@ -76,6 +76,11 @@ namespace camsim
 
     std::cout << PoseWithCovariance::to_str(result_body_f_world) << std::endl;
     std::cout << PoseWithCovariance::to_str(result_body_f_world_covariance) << std::endl;
+
+    gtsam::Matrix6 adjoint_map = result_body_f_world.AdjointMap();
+    gtsam::Matrix6 r_adj_cov = adjoint_map * result_body_f_world_covariance * adjoint_map.transpose();
+    std::cout << r_adj_cov << std::endl;
+
 
     gtsam::Matrix3 t_cov{};
     for (int r = 0; r < 3; r += 1) {

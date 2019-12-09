@@ -13,6 +13,6 @@ namespace camsim
     Pose3 base_pose3{};
 
     auto adjoint = base_pose3.AdjointMap();
-    
+
   }
 }
