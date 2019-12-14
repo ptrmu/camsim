@@ -45,70 +45,48 @@ namespace camsim
 
   template<class TPose>
   static typename TPose::Jacobian transform_covariance(
-    const TPose &wTb,
+    const typename TPose::Rotation &r,
+    const std::array<double, TPose::Translation::dimension> &t,
     const typename TPose::Jacobian &cov)
   {
+    // Construct a pose object
+    TPose wTb{r, typename TPose::Translation{&t.front()}};
+
     // transform the covariance with the AdjointMap
     auto adjointMap = wTb.AdjointMap();
     return adjointMap * cov * adjointMap.transpose();
   }
 
-  static typename Pose2::Jacobian rotate_only(
-    const std::array<double, Pose2::Rotation::dimension> r,
-    const typename Pose2::Jacobian &cov)
-  {
-    // Create a rotation only transform
-    Pose2 wTb{Pose2::Rotation{r[0] * degree}, Pose2::Translation{}};
-    return transform_covariance(wTb, cov);
-  }
-
-  static Pose2::Jacobian translate_only(
-    const std::array<double, Pose2::Translation::dimension> t,
-    const Pose2::Jacobian &cov)
-  {
-    // Create a translation only transform
-    Pose2 wTb{Pose2::Rotation{}, Pose2::Translation{t[0], t[1]}};
-    return transform_covariance(wTb, cov);
-  }
-
   static Pose2::Jacobian rotate_translate(
-    const std::array<double, Pose2::Rotation::dimension> r,
-    const std::array<double, Pose2::Translation::dimension> t,
+    const std::array<double, Pose2::Rotation::dimension> &r,
+    const std::array<double, Pose2::Translation::dimension> &t,
     const Pose2::Jacobian &cov)
   {
-    // Create a translation only transform
-    Pose2 wTb{Pose2::Rotation{r[0] * degree}, Pose2::Translation{t[0], t[1]}};
-    return transform_covariance(wTb, cov);
-  }
-
-  static typename Pose3::Jacobian rotate_only(
-    const std::array<double, Pose3::Rotation::dimension> r,
-    const typename Pose3::Jacobian &cov)
-  {
-    // Create a rotation only transform
-    Pose3 wTb{Pose3::Rotation::RzRyRx(r[0] * degree, r[1] * degree, r[2] * degree),
-              Pose3::Translation{}};
-    return transform_covariance(wTb, cov);
-  }
-
-  static Pose3::Jacobian translate_only(
-    const std::array<double, Pose3::Translation::dimension> t,
-    const Pose3::Jacobian &cov)
-  {
-    // Create a translation only transform
-    Pose3 wTb{Pose3::Rotation{}, Pose3::Translation{t[0], t[1], t[2]}};
-    return transform_covariance(wTb, cov);
+    return transform_covariance<Pose2>(Pose2::Rotation{r[0] * degree}, t, cov);
   }
 
   static Pose3::Jacobian rotate_translate(
-    const std::array<double, Pose3::Rotation::dimension> r,
-    const std::array<double, Pose3::Translation::dimension> t,
+    const std::array<double, Pose3::Rotation::dimension> &r,
+    const std::array<double, Pose3::Translation::dimension> &t,
     const Pose3::Jacobian &cov)
   {
-    // Create a translation only transform
-    Pose3 wTb{Pose3::Rotation::RzRyRx(r[0] * degree, r[1] * degree, r[2] * degree),
-              Pose3::Translation{t[0], t[1], t[2]}};
-    return transform_covariance(wTb, cov);
+    return transform_covariance<Pose3>(Pose3::Rotation::RzRyRx(r[0] * degree, r[1] * degree, r[2] * degree), t, cov);
+  }
+
+  template<class TPose>
+  static typename TPose::Jacobian rotate_only(
+    const std::array<double, TPose::Rotation::dimension> &r,
+    const typename TPose::Jacobian &cov)
+  {
+    return rotate_translate(r, {}, cov);
+  }
+
+  template<class TPose>
+  static typename TPose::Jacobian translate_only(
+    const std::array<double, TPose::Translation::dimension> &t,
+    const typename TPose::Jacobian &cov)
+  {
+    return rotate_translate({}, t, cov);
   }
 
   static void pfp_covariance3_transform_unit_test()
@@ -116,7 +94,7 @@ namespace camsim
     // rotate
     {
       auto cov = generate_full_covariance<Pose2>({0.1, 0.3, 0.7});
-      auto cov_trans = rotate_only({90.}, cov);
+      auto cov_trans = rotate_only<Pose2>({90.}, cov);
       // interchange x and y axes
       EXPECT_DOUBLES_EQUAL(cov_trans(1, 1), cov(0, 0), 1e-9);
       EXPECT_DOUBLES_EQUAL(cov_trans(0, 0), cov(1, 1), 1e-9);
@@ -130,7 +108,7 @@ namespace camsim
     // translate along x with uncertainty in x
     {
       auto cov = generate_one_variable_covariance<Pose2>(0, 0.1);
-      auto cov_trans = translate_only({20., 0.}, cov);
+      auto cov_trans = translate_only<Pose2>({20., 0.}, cov);
       EXPECT_DOUBLES_EQUAL(cov_trans(0, 0), 0.1 * 0.1, 1e-9);
       EXPECT_DOUBLES_EQUAL(cov_trans(1, 1), 0., 1e-9);
       EXPECT_DOUBLES_EQUAL(cov_trans(2, 2), 0., 1e-9);
@@ -143,7 +121,7 @@ namespace camsim
     // translate along x with uncertainty in y
     {
       auto cov = generate_one_variable_covariance<Pose2>(1, 0.1);
-      auto cov_trans = translate_only({20., 0.}, cov);
+      auto cov_trans = translate_only<Pose2>({20., 0.}, cov);
       EXPECT_DOUBLES_EQUAL(cov_trans(0, 0), 0., 1e-9);
       EXPECT_DOUBLES_EQUAL(cov_trans(1, 1), 0.1 * 0.1, 1e-9);
       EXPECT_DOUBLES_EQUAL(cov_trans(2, 2), 0., 1e-9);
@@ -156,7 +134,7 @@ namespace camsim
     // translate along x with uncertainty in theta
     {
       auto cov = generate_one_variable_covariance<Pose2>(2, 0.1);
-      auto cov_trans = translate_only({20., 0.}, cov);
+      auto cov_trans = translate_only<Pose2>({20., 0.}, cov);
       EXPECT_DOUBLES_EQUAL(cov_trans(2, 1), -0.1 * 0.1 * 20., 1e-9);
       EXPECT_DOUBLES_EQUAL(cov_trans(1, 1), 0.1 * 0.1 * 20. * 20., 1e-9);
     }
@@ -230,7 +208,7 @@ namespace camsim
     // rotate 90 around z axis and then 90 around y axis
     {
       auto cov = generate_full_covariance<Pose3>({0.1, 0.2, 0.3, 0.5, 0.7, 1.1});
-      auto cov_trans = rotate_only({0., 90., 90.}, cov);
+      auto cov_trans = rotate_only<Pose3>({0., 90., 90.}, cov);
       // x from y, y from z, z from x
       EXPECT_DOUBLES_EQUAL(cov_trans(0, 0), cov(1, 1), 1e-9);
       EXPECT_DOUBLES_EQUAL(cov_trans(1, 1), cov(2, 2), 1e-9);
@@ -250,7 +228,7 @@ namespace camsim
     // translate along the x axis with uncertainty in roty and rotz
     {
       auto cov = generate_two_variable_covariance<Pose3>(1, 2, 0.7, 0.3);
-      auto cov_trans = translate_only({20., 0., 0.}, cov);
+      auto cov_trans = translate_only<Pose3>({20., 0., 0.}, cov);
       // The variance in roty and rotz causes off-diagonal covariances
       EXPECT_DOUBLES_EQUAL(cov_trans(5, 1), 0.7 * 0.7 * 20., 1e-9);
       EXPECT_DOUBLES_EQUAL(cov_trans(5, 5), 0.7 * 0.7 * 20. * 20., 1e-9);
