@@ -17,6 +17,66 @@ namespace camsim
 {
   const double degree = M_PI / 180;
 
+  template<class TRotation>
+  TRotation rot_from_array(
+    const std::array<double, TRotation::dimension> &r)
+  {
+    return TRotation{};
+  }
+
+  template<>
+  Rot2 rot_from_array<Rot2>(
+    const std::array<double, Rot2::dimension> &r)
+  {
+    return Rot2{r[0] * degree};
+  }
+
+  template<>
+  Rot3 rot_from_array<Rot3>(
+    const std::array<double, Rot3::dimension> &r)
+  {
+    return Rot3::RzRyRx(r[0] * degree, r[1] * degree, r[2] * degree);
+  }
+
+
+  template<class TPose>
+  class TransformPoseCovariance
+  {
+    using TPCFunc = std::function<typename TPose::Jacobian(const TPose &wTb,
+                                                           const typename TPose::Jacobian &cov)>;
+
+  private:
+    TPCFunc tpcfunc_;
+
+  public:
+    TransformPoseCovariance(TPCFunc tpcfunc) :
+      tpcfunc_{tpcfunc}
+    {}
+
+    typename TPose::Jacobian rotate_translate(
+      const std::array<double, Pose2::Rotation::dimension> &r,
+      const std::array<double, Pose2::Translation::dimension> &t,
+      const Pose2::Jacobian &cov)
+    {
+      TPose wTb{rot_from_array<TPose::Rotation>(r), typename TPose::Translation{&t.front()}};
+      return tpcfunc_(wTb, cov);
+    }
+
+    typename TPose::Jacobian rotate_only(
+      const std::array<double, TPose::Rotation::dimension> &r,
+      const typename TPose::Jacobian &cov)
+    {
+      return rotate_translate(r, {}, cov);
+    }
+
+    typename TPose::Jacobian translate_only(
+      const std::array<double, TPose::Translation::dimension> &t,
+      const typename TPose::Jacobian &cov)
+    {
+      return rotate_translate({}, t, cov);
+    }
+  };
+
   template<class TPose>
   static typename TPose::Jacobian generate_full_covariance(
     std::array<double, TPose::dimension> sigma_values)
@@ -70,7 +130,8 @@ namespace camsim
     const std::array<double, Pose3::Translation::dimension> &t,
     const Pose3::Jacobian &cov)
   {
-    return transform_covariance<Pose3>(Pose3::Rotation::RzRyRx(r[0] * degree, r[1] * degree, r[2] * degree), t, cov);
+    return transform_covariance<Pose3>
+      (Pose3::Rotation::RzRyRx(r[0] * degree, r[1] * degree, r[2] * degree), t, cov);
   }
 
   template<class TPose>
