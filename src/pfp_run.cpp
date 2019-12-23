@@ -144,12 +144,47 @@ namespace camsim
     std::cout << result_body_f_world << std::endl;
     std::cout << result_body_f_world_covariance << std::endl;
   }
+
+  static void pfp_duplicate_prior()
+  {
+    // Create the world and body poses in the world frame
+    Point3 p0{0., 0., 0.};
+    auto p0_noise = noiseModel::Diagonal::Sigmas(Vector3{0.1, 0.1, 0.1});
+    Point3 p1{10., 10., 10.};
+    auto p1_noise = noiseModel::Diagonal::Sigmas(Vector3{10., 1., 0.1});
+    Pose3 t_world_body{Rot3::RzRyRx(90. * degree, 0. * degree, 0. * degree), Point3{}};
+
+    gtsam::NonlinearFactorGraph graph;
+    gtsam::Values initial;
+
+    // Add factors to the graph
+    graph.emplace_shared<PriorFactor<gtsam::Point3> >(
+      Symbol('w', 0),
+      p0, p0_noise);
+    graph.emplace_shared<PriorFactor<gtsam::Point3> >(
+      Symbol('w', 0),
+      p1, p1_noise);
+
+    // Add the initial estimates
+    initial.insert(Symbol('w', 0), p0);
+
+    // Optimize
+    gtsam::Values result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();
+
+    gtsam::Marginals marginals(graph, result);
+    auto result_p0 = result.at<Point3>(gtsam::Symbol('w', 0));
+    gtsam::Matrix3 result_p0_covariance = marginals.marginalCovariance(gtsam::Symbol('w', 0));
+
+    std::cout << result_p0 << std::endl;
+    std::cout << result_p0_covariance << std::endl;
+  }
 }
 
 int main()
 {
 //  camsim::pfp_simple();
 //  camsim::odometry_example_3d();
+//  camsim::pfp_duplicate_prior();
   camsim::pfp_pose_unit_test();
   return EXIT_SUCCESS;
 }
