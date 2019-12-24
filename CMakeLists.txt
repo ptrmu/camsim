@@ -108,7 +108,10 @@ add_executable(pfp_run
   src/model.cpp
   src/pfp_run.cpp
   src/pose_with_covariance.cpp
-  src/pfp_odometry_example_3d.cpp src/pfp_pose_unit_test.cpp)
+  src/pfp_odometry_example_3d.cpp 
+  src/pfp_pose_unit_test.cpp 
+  src/pfp_marker_pose_from_corners.cpp
+  )
 
 target_link_libraries(pfp_run
   PRIVATE gtsam

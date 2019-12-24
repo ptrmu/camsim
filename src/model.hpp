@@ -19,6 +19,7 @@ namespace camsim
     single_center,
     single_south_west,
     along_x_axis,
+    circle_around_z_axis,
   };
 
   struct MarkerModel

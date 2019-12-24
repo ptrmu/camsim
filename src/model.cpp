@@ -46,6 +46,17 @@ namespace camsim
         marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
                                                   gtsam::Point3(offset * marker_spacing, 0, 0)});
       }
+
+    } else if (marker_configuration == MarkersConfigurations::circle_around_z_axis) {
+      int n = 4;
+      double radius = 2. * marker_size;
+      double delta_theta = M_PI * 2 / n;
+      for (int i = 0; i < n; i += 1) {
+        auto theta = delta_theta * i;
+        marker_f_worlds.emplace_back(gtsam::Pose3{
+          gtsam::Rot3::RzRyRx(0, 0, theta),
+          gtsam::Point3(std::cos(theta) * radius, std::sin(theta) * radius, 0)});
+      }
     }
 
     std::vector<MarkerModel> markers{};
@@ -241,7 +252,7 @@ namespace camsim
 
         if (per_marker.marker_idx_ == 0) {
           auto &camera = cameras_.cameras_[per_marker.camera_idx_];
-          std::cout << "camera_" <<  camera.camera_idx_
+          std::cout << "camera_" << camera.camera_idx_
                     << PoseWithCovariance::to_str(camera.pose_f_world_) << std::endl;
         }
 
