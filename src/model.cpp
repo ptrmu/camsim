@@ -10,8 +10,18 @@
 namespace camsim
 {
 
-  // World Coordinate system: North Weest Up
-  // Marker Coordinate system: Top Left Out when looking at Marker
+  // World Coordinate system: East North Up
+  // Marker Coordinate system: Right Up Out when looking at Marker
+
+  static void add_sphere_points(std::vector<gtsam::Point3> vectors,
+                                double marker_size,
+                                std::vector<gtsam::Pose3> &marker_f_worlds)
+  {
+    for (auto &vector : vectors) {
+      auto t = vector.normalize() * marker_size;
+      
+    }
+  }
 
   static std::vector<MarkerModel> gen_markers(MarkersConfigurations marker_configuration,
                                               double marker_size,
@@ -48,6 +58,26 @@ namespace camsim
       }
 
     } else if (marker_configuration == MarkersConfigurations::circle_around_z_axis) {
+      int n = 4;
+      double radius = 2. * marker_size;
+      double delta_theta = M_PI * 2 / n;
+      for (int i = 0; i < n; i += 1) {
+        auto theta = delta_theta * i;
+        marker_f_worlds.emplace_back(gtsam::Pose3{
+          gtsam::Rot3::RzRyRx(0, 0, theta),
+          gtsam::Point3(std::cos(theta) * radius, std::sin(theta) * radius, 0)});
+      }
+
+    } else if (marker_configuration == MarkersConfigurations::cube) {
+      add_sphere_points({gtsam::Point3{1, 1, 1},
+                         gtsam::Point3{-1, 1, 1},
+                         gtsam::Point3{1, -1, 1},
+                         gtsam::Point3{-1, -1, 1},
+                         gtsam::Point3{1, 1, -1},
+                         gtsam::Point3{-1, 1, -1},
+                         gtsam::Point3{1, -1, -1},
+                         gtsam::Point3{-1, -1, -1},},
+                        marker_size, marker_f_worlds);
       int n = 4;
       double radius = 2. * marker_size;
       double delta_theta = M_PI * 2 / n;
