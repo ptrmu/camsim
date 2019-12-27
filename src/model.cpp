@@ -14,12 +14,37 @@ namespace camsim
   // Marker Coordinate system: Right Up Out when looking at Marker
 
   static void add_sphere_points(std::vector<gtsam::Point3> vectors,
-                                double marker_size,
+                                double radius,
                                 std::vector<gtsam::Pose3> &marker_f_worlds)
   {
     for (auto &vector : vectors) {
-      auto t = vector.normalize() * marker_size;
-      
+      auto n = vector.normalized();
+
+      // Position of marker
+      auto t = n * radius;
+
+      // Rotation of the marker - facing the origin with the x axis horizontal.
+      auto r = gtsam::Rot3::RzRyRx(0, 0, 0);
+      auto d = gtsam::Point2{n.x(), n.y()}.norm();
+
+      // If the normal is close to vertical
+      if (d < 1e-4) {
+        // The initialized r works for normal pointing up.
+        // Flip r if the normal is pointing down.
+        if (n.z() > 0.) {
+          r = gtsam::Rot3::RzRyRx(M_PI, 0., 0.);
+        }
+
+      } else {
+        // For non-vertical normals
+        auto z_axis = -n;
+        auto x_axis = gtsam::Point3{0., 0., 1.}.cross(z_axis).normalized();
+        auto y_axis = z_axis.cross(x_axis);
+        auto mat_r = (gtsam::Matrix3{} << x_axis, y_axis, z_axis).finished();
+        r = gtsam::Rot3{mat_r};
+      }
+
+      marker_f_worlds.emplace_back(gtsam::Pose3{r, t});
     }
   }
 
@@ -68,6 +93,13 @@ namespace camsim
           gtsam::Point3(std::cos(theta) * radius, std::sin(theta) * radius, 0)});
       }
 
+    } else if (marker_configuration == MarkersConfigurations::tetrahedron) {
+      add_sphere_points({gtsam::Point3{1, 1, 1},
+                         gtsam::Point3{-1, -1, 1},
+                         gtsam::Point3{1, -1, -1},
+                         gtsam::Point3{-1, 1, -1},},
+                        marker_size * 4, marker_f_worlds);
+
     } else if (marker_configuration == MarkersConfigurations::cube) {
       add_sphere_points({gtsam::Point3{1, 1, 1},
                          gtsam::Point3{-1, 1, 1},
@@ -77,16 +109,16 @@ namespace camsim
                          gtsam::Point3{-1, 1, -1},
                          gtsam::Point3{1, -1, -1},
                          gtsam::Point3{-1, -1, -1},},
-                        marker_size, marker_f_worlds);
-      int n = 4;
-      double radius = 2. * marker_size;
-      double delta_theta = M_PI * 2 / n;
-      for (int i = 0; i < n; i += 1) {
-        auto theta = delta_theta * i;
-        marker_f_worlds.emplace_back(gtsam::Pose3{
-          gtsam::Rot3::RzRyRx(0, 0, theta),
-          gtsam::Point3(std::cos(theta) * radius, std::sin(theta) * radius, 0)});
-      }
+                        marker_size * 4, marker_f_worlds);
+
+    } else if (marker_configuration == MarkersConfigurations::octahedron) {
+      add_sphere_points({gtsam::Point3{1, 0, 0},
+                         gtsam::Point3{0, 1, 0},
+                         gtsam::Point3{-1, 0, 0},
+                         gtsam::Point3{0, -1, 0},
+                         gtsam::Point3{0, 0, 1},
+                         gtsam::Point3{0, 0, -1},},
+                        marker_size * 4, marker_f_worlds);
     }
 
     std::vector<MarkerModel> markers{};
@@ -242,19 +274,29 @@ namespace camsim
     for (auto &camera : cameras.cameras_) {
       std::vector<CornersFImageModel> per_camera;
       for (auto &marker : markers.markers_) {
-        // Project the corners of this marker into this camera's image plane. There should be more
-        // checks for bad geometries before calling project because it aborts in those cases.
-        std::vector<gtsam::Point2> corners_f_image{
-          camera.project_func_(camera.pose_f_world_, marker.corners_f_world_[0], boost::none),
-          camera.project_func_(camera.pose_f_world_, marker.corners_f_world_[1], boost::none),
-          camera.project_func_(camera.pose_f_world_, marker.corners_f_world_[2], boost::none),
-          camera.project_func_(camera.pose_f_world_, marker.corners_f_world_[3], boost::none)};
+        std::vector<gtsam::Point2> corners_f_image{};
 
-        // If any of the points is outside of the image boundary, then don't save any of the points. This
-        // simulates when a marker can't be seen by a camera.
-        for (auto &corner_f_image : corners_f_image) {
-          if (corner_f_image.x() < 0 || corner_f_image.x() >= 2 * cameras.calibration_.px() ||
-              corner_f_image.y() < 0 || corner_f_image.y() >= 2 * cameras.calibration_.py()) {
+        // Project the corners of this marker into this camera's image plane.
+        for (auto &corner_f_world : marker.corners_f_world_) {
+          try {
+            auto corner_f_image = camera.project_func_(camera.pose_f_world_,
+                                                       corner_f_world,
+                                                       boost::none);
+
+            // If the point is outside of the image boundary, then don't save any of the points. This
+            // simulates when a marker can't be seen by a camera.
+            if (corner_f_image.x() < 0 || corner_f_image.x() >= 2 * cameras.calibration_.px() ||
+                corner_f_image.y() < 0 || corner_f_image.y() >= 2 * cameras.calibration_.py()) {
+              corners_f_image.clear();
+              break;
+            }
+
+            corners_f_image.emplace_back(corner_f_image);
+          }
+
+            // If the point can't be projected, then don't save any of the points. This
+            // simulates when a marker can't be seen by a camera.
+          catch (gtsam::CheiralityException &e) {
             corners_f_image.clear();
             break;
           }
@@ -266,6 +308,7 @@ namespace camsim
 
       corners_f_images.emplace_back(per_camera);
     }
+
     return corners_f_images;
   }
 

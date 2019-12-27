@@ -20,7 +20,9 @@ namespace camsim
     single_south_west,
     along_x_axis,
     circle_around_z_axis,
+    tetrahedron,
     cube,
+    octahedron,
   };
 
   struct MarkerModel

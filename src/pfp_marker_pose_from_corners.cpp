@@ -71,7 +71,7 @@ namespace camsim
 
   void pfp_marker_pose_from_corners()
   {
-    camsim::Model model{camsim::MarkersConfigurations::circle_around_z_axis,
+    camsim::Model model{camsim::MarkersConfigurations::tetrahedron,
                         camsim::CamerasConfigurations::center_facing_markers,
                         camsim::CameraTypes::distorted_camera};
 
