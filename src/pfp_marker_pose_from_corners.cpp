@@ -5,6 +5,7 @@
 #include <gtsam/nonlinear/Marginals.h>
 #include "model.hpp"
 #include "pfp_run.hpp"
+#include "pose_with_covariance.hpp"
 
 using gtsam::symbol_shorthand::X;
 
@@ -48,14 +49,19 @@ namespace camsim
     /* 2. add measurement factors to the graph */
     for (int i = 0; i < corners_f_marker.size(); i += 1) {
       graph.emplace_shared<TransformFromFactor>(measurement_noise, X(1),
-                                               corners_f_marker[i],
-                                               marker_model.corners_f_world_[i]);
+                                                corners_f_marker[i],
+                                                marker_model.corners_f_world_[i]);
     }
 
     /* 3. Create an initial estimate for the camera pose */
-    static Pose3 kDeltaPose(Rot3::Rodrigues(-0.1, 0.2, 0.25),
-                            Point3(0.05, -0.10, 0.20));
-    initial.insert(X(1), marker_model.pose_f_world_.compose(kDeltaPose));
+    auto &cfw = marker_model.corners_f_world_;
+    auto t = (cfw[0] + cfw[1] + cfw[2] + cfw[3]) / 4.;
+    auto x_axis = ((cfw[1] + cfw[2]) / 2. - t).normalized();
+    auto z_axis = x_axis.cross(cfw[1] - t).normalized();
+    auto y_axis = z_axis.cross(x_axis);
+    auto r = gtsam::Rot3{(gtsam::Matrix3{} << x_axis, y_axis, z_axis).finished()};
+    auto camera_f_world_initial = gtsam::Pose3{r, t};
+    initial.insert(X(1), camera_f_world_initial);
 
     /* 4. Optimize the graph using Levenberg-Marquardt*/
     auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();
@@ -63,10 +69,12 @@ namespace camsim
     auto camera_f_world = result.at<gtsam::Pose3>(X(1));
 
     gtsam::Marginals marginals(graph, result);
-    auto camera_f_world_covariance = marginals.marginalCovariance(X(1));
+    gtsam::Matrix6 camera_f_world_covariance = marginals.marginalCovariance(X(1));
 
-    std::cout << marker_model.pose_f_world_ << std::endl;
-    std::cout << camera_f_world << std::endl << camera_f_world_covariance << std::endl;
+    std::cout << PoseWithCovariance::to_str(marker_model.pose_f_world_) << std::endl;
+    std::cout << PoseWithCovariance::to_str(camera_f_world_initial) << std::endl;
+    std::cout << PoseWithCovariance::to_str(camera_f_world) << std::endl;
+    std::cout << PoseWithCovariance::to_str(camera_f_world_covariance) << std::endl;
   }
 
   void pfp_marker_pose_from_corners()
