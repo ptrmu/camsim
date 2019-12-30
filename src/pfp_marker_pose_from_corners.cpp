@@ -72,9 +72,9 @@ namespace camsim
     gtsam::Matrix6 camera_f_world_covariance = marginals.marginalCovariance(X(1));
 
     std::cout << "Marker " << marker_model.marker_idx_ << std::endl;
-    std::cout << PoseWithCovariance::to_str(marker_model.pose_f_world_) << std::endl;
-    std::cout << PoseWithCovariance::to_str(camera_f_world_initial) << std::endl;
-    std::cout << PoseWithCovariance::to_str(camera_f_world) << std::endl;
+    std::cout << "Truth " << PoseWithCovariance::to_str(marker_model.pose_f_world_) << std::endl;
+    std::cout << "Init  " << PoseWithCovariance::to_str(camera_f_world_initial) << std::endl;
+    std::cout << "Found " << PoseWithCovariance::to_str(camera_f_world) << std::endl;
     std::cout << PoseWithCovariance::to_str(camera_f_world_covariance) << std::endl;
   }
 
