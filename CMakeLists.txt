@@ -126,6 +126,9 @@ target_link_libraries(pfp_run
 
 add_executable(map_run
   src/map_run.cpp
+  src/map_global.cpp
+  src/model.cpp
+  src/pose_with_covariance.cpp
   )
 
 target_link_libraries(map_run

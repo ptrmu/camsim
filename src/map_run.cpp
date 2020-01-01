@@ -3,5 +3,6 @@
 
 int main()
 {
+  camsim::map_global();
 }
 

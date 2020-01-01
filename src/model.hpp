@@ -20,6 +20,7 @@ namespace camsim
     single_south_west,
     along_x_axis,
     circle_around_z_axis,
+    upright_circle_around_z_axis,
     tetrahedron,
     cube,
     octahedron,
@@ -52,7 +53,8 @@ namespace camsim
 
   enum CamerasConfigurations
   {
-    center_facing_markers = 0,
+    z2_facing_origin = 0,
+    center_looking_x,
     far_south,
     plus_x_facing_markers,
     square_around_z_axis,
@@ -96,6 +98,8 @@ namespace camsim
                  CamerasConfigurations cameras_configuration,
                  double marker_size);
 
+    CamerasModel(const CamerasModel &cameras_model, double marker_size, const gtsam::Pose3 &camera_transform);
+
     gtsam::Cal3_S2 get_Cal3_S2();
   };
 
@@ -124,7 +128,7 @@ namespace camsim
           CamerasConfigurations cameras_configuration,
           CameraTypes camera_type);
 
-
+    Model(const Model &model, const gtsam::Pose3 &camera_transform);
   };
 }
 #endif //_MODEL_HPP

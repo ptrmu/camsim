@@ -187,7 +187,7 @@ namespace camsim
 int sfm_run_resectioning()
 {
   camsim::Model model{camsim::MarkersConfigurations::square_around_origin_xy_plane,
-                      camsim::CamerasConfigurations::center_facing_markers,
+                      camsim::CamerasConfigurations::z2_facing_origin,
                       camsim::CameraTypes::distorted_camera};
 
   auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(0.5, 0.5));
