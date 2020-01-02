@@ -198,7 +198,7 @@ int sfm_run_resectioning()
               << "camera " << camera.camera_idx_ << std::endl;
 
     camsim::CalcCameraPose ccp{model.cameras_.calibration_,
-                               camera.project_func_,
+                               model.cameras_.project_func_,
                                measurement_noise,
                                model.markers_.corners_f_marker_};
 

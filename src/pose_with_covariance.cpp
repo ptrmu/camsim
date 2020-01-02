@@ -27,7 +27,7 @@ namespace camsim
 
   std::string PoseWithCovariance::to_str() const
   {
-    return to_str(pose_).append(to_str(cov_));
+    return to_str(pose_).append("\n").append(to_str(cov_));
   }
 
   std::string PoseWithCovariance::to_str(const gtsam::Pose3 &pose)

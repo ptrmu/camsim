@@ -212,7 +212,7 @@ std::vector<camsim::PoseWithCovariance> sfm_run_isam2_camera_f_markers(
   std::vector<camsim::PoseWithCovariance> camera_f_markers{};
 
   camsim::CalcCameraPose ccp{model.cameras_.calibration_,
-                             camera.project_func_,
+                             model.cameras_.project_func_,
                              measurement_noise,
                              model.markers_.corners_f_marker_};
 

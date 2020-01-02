@@ -93,16 +93,11 @@ namespace camsim
   {
     const std::size_t camera_idx_;
     const gtsam::Pose3 camera_f_world;
-    const ProjectFunc project_func_;
 
     CameraModel(std::size_t camera_idx,
-                const gtsam::Pose3 &camera_f_world,
-                const std::function<gtsam::Point2(const gtsam::Pose3 &,
-                                                  const gtsam::Point3 &,
-                                                  boost::optional<gtsam::Matrix &>)> &project_func) :
+                const gtsam::Pose3 &camera_f_world) :
       camera_idx_{camera_idx},
-      camera_f_world{camera_f_world},
-      project_func_{project_func}
+      camera_f_world{camera_f_world}
     {}
   };
 
@@ -110,9 +105,7 @@ namespace camsim
   {
     const ModelConfig &cfg_;
     const gtsam::Cal3DS2 calibration_;
-    const std::function<gtsam::Point2(const gtsam::Pose3 &,
-                                      const gtsam::Point3 &,
-                                      boost::optional<gtsam::Matrix &>)> project_func_;
+    const ProjectFunc project_func_;
     const std::vector<CameraModel> cameras_;
 
     CamerasModel(const ModelConfig &cfg);

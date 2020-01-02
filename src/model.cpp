@@ -220,28 +220,6 @@ namespace camsim
     return gtsam::Cal3DS2{1, 1, 0, 50, 50, 0., 0.};
   }
 
-  static gtsam::Point2 project_point(CameraTypes camera_type,
-                                     const gtsam::Cal3DS2 &calibration,
-                                     const gtsam::Pose3 &pose,
-                                     const gtsam::Point3 &pw,
-                                     boost::optional<gtsam::Matrix &> H)
-  {
-    if (camera_type == CameraTypes::simple_camera) {
-      gtsam::Cal3_S2 K{calibration.fx(), calibration.fy(),
-                       calibration.skew(),
-                       calibration.px(), calibration.py()};
-      auto camera = gtsam::SimpleCamera{pose, K};
-      return camera.project(pw, H);
-    }
-
-    if (camera_type == CameraTypes::distorted_camera) {
-      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{pose, calibration};
-      return camera.project(pw, H);
-    }
-
-    return gtsam::Point2{};
-  }
-
   static std::vector<CameraModel> gen_cameras(const ModelConfig &cfg,
                                               const gtsam::Cal3DS2 &calibration,
                                               const gtsam::Pose3 &t_world_base)
@@ -299,15 +277,9 @@ namespace camsim
 
     std::vector<CameraModel> cameras{};
     for (std::size_t idx = 0; idx < camera_f_bases.size(); idx += 1) {
-      auto camera_f_world = t_world_base * camera_f_bases[idx];
 
-      cameras.emplace_back(CameraModel{
-        idx,
-        camera_f_world,
-        [camera_type = cfg.camera_type_, calibration](const gtsam::Pose3 &camera_f_xxx,
-                                                      const gtsam::Point3 &point_f_xxx,
-                                                      boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
-        { return project_point(camera_type, calibration, camera_f_xxx, point_f_xxx, H); }});
+      auto camera_f_world = t_world_base * camera_f_bases[idx];
+      cameras.emplace_back(CameraModel{idx, camera_f_world});
     }
 
     return cameras;
@@ -329,7 +301,7 @@ namespace camsim
       };
     }
 
-    if (cfg.camera_type_ == CameraTypes::simple_camera) {
+    if (cfg.camera_type_ == CameraTypes::distorted_camera) {
       return [calibration](const gtsam::Pose3 &camera_f_xxx,
                            const gtsam::Point3 &point_f_xxx,
                            boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
@@ -382,9 +354,9 @@ namespace camsim
         // Project the corners of this marker into this camera's image plane.
         for (auto &corner_f_world : marker.corners_f_world_) {
           try {
-            auto corner_f_image = camera.project_func_(camera.camera_f_world,
-                                                       corner_f_world,
-                                                       boost::none);
+            auto corner_f_image = cameras.project_func_(camera.camera_f_world,
+                                                        corner_f_world,
+                                                        boost::none);
 
             // If the point is outside of the image boundary, then don't save any of the points. This
             // simulates when a marker can't be seen by a camera.
