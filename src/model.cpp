@@ -13,6 +13,49 @@ namespace camsim
   // World Coordinate system: East North Up
   // Marker Coordinate system: Right Up Out when looking at Marker
 
+  static double gen_marker_size(MarkersConfigurations markers_configuration)
+  {
+    switch (markers_configuration) {
+      default:
+        return 20.0;
+    }
+  }
+
+  static double gen_marker_spacing(MarkersConfigurations markers_configuration, double marker_size)
+  {
+    switch (markers_configuration) {
+      default:
+        return 2. * marker_size;
+    }
+  }
+
+  static double gen_camera_spacing(CamerasConfigurations cameras_configuration, double marker_spacing)
+  {
+    switch (cameras_configuration) {
+      default:
+        return marker_spacing;
+    }
+  }
+
+  ModelConfig::ModelConfig(MarkersConfigurations markers_configuration, CamerasConfigurations cameras_configuration,
+                           CameraTypes camera_type) :
+    markers_configuration_{markers_configuration},
+    camera_type_{camera_type},
+    cameras_configuration_{cameras_configuration},
+    marker_size_{gen_marker_size(markers_configuration)},
+    marker_spacing_{gen_marker_spacing(markers_configuration, marker_size_)},
+    camera_spacing_{gen_camera_spacing(cameras_configuration, marker_spacing_)}
+  {}
+
+  ModelConfig::ModelConfig(const ModelConfig &model_config) :
+    markers_configuration_{model_config.markers_configuration_},
+    camera_type_{model_config.camera_type_},
+    cameras_configuration_{model_config.cameras_configuration_},
+    marker_size_{model_config.marker_size_},
+    marker_spacing_{model_config.marker_spacing_},
+    camera_spacing_{model_config.camera_spacing_}
+  {}
+
   static void add_sphere_points(std::vector<gtsam::Point3> vectors,
                                 double radius,
                                 std::vector<gtsam::Pose3> &marker_f_worlds)
@@ -49,9 +92,10 @@ namespace camsim
   }
 
   static std::vector<MarkerModel> gen_markers(MarkersConfigurations marker_configuration,
-                                              double marker_size,
                                               const std::vector<gtsam::Point3> &corners_f_marker)
   {
+    auto marker_size = gen_marker_size(marker_configuration);
+
     std::vector<gtsam::Pose3> marker_f_worlds{};
 
     if (marker_configuration == MarkersConfigurations::square_around_origin_xy_plane) {
@@ -147,14 +191,13 @@ namespace camsim
     return markers;
   }
 
-  MarkersModel::MarkersModel(MarkersConfigurations markers_configuration) :
-    markers_configuration_{markers_configuration},
-    marker_size_{20.0},
-    corners_f_marker_{gtsam::Point3{-marker_size_ / 2, marker_size_ / 2, 0},
-                      gtsam::Point3{marker_size_ / 2, marker_size_ / 2, 0},
-                      gtsam::Point3{marker_size_ / 2, -marker_size_ / 2, 0},
-                      gtsam::Point3{-marker_size_ / 2, -marker_size_ / 2, 0}},
-    markers_{gen_markers(markers_configuration, marker_size_, corners_f_marker_)}
+  MarkersModel::MarkersModel(const ModelConfig &cfg) :
+    cfg_{cfg},
+    corners_f_marker_{gtsam::Point3{-cfg_.marker_size_ / 2, cfg_.marker_size_ / 2, 0},
+                      gtsam::Point3{cfg_.marker_size_ / 2, cfg_.marker_size_ / 2, 0},
+                      gtsam::Point3{cfg_.marker_size_ / 2, -cfg_.marker_size_ / 2, 0},
+                      gtsam::Point3{-cfg_.marker_size_ / 2, -cfg_.marker_size_ / 2, 0}},
+    markers_{gen_markers(cfg_.markers_configuration_, corners_f_marker_)}
   {
     std::cout << "corners_f_worlds" << std::endl;
     for (auto &marker : markers_) {
@@ -166,7 +209,13 @@ namespace camsim
     }
   }
 
-  static gtsam::Cal3DS2 gen_camera_calibration(CameraTypes camera_type)
+  MarkersModel::MarkersModel(const ModelConfig &cfg, const MarkersModel &copy) :
+    cfg_{cfg},
+    corners_f_marker_{copy.corners_f_marker_},
+    markers_{copy.markers_}
+  {}
+
+  static gtsam::Cal3DS2 gen_camera_calibration(const ModelConfig &cfg_)
   {
     return gtsam::Cal3DS2{1, 1, 0, 50, 50, 0., 0.};
   }
@@ -193,40 +242,39 @@ namespace camsim
     return gtsam::Point2{};
   }
 
-  static std::vector<CameraModel> gen_cameras(CameraTypes camera_type,
-                                              CamerasConfigurations camera_configuration,
+  static std::vector<CameraModel> gen_cameras(const ModelConfig &cfg,
                                               const gtsam::Cal3DS2 &calibration,
-                                              double marker_size)
+                                              const gtsam::Pose3 &t_world_base)
   {
-    std::vector<gtsam::Pose3> camera_f_worlds{};
+    std::vector<gtsam::Pose3> camera_f_bases{};
 
-    if (camera_configuration == CamerasConfigurations::z2_facing_origin) {
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(0, 0, 2)});
+    if (cfg.cameras_configuration_ == CamerasConfigurations::z2_facing_origin) {
+      camera_f_bases.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
+                                               gtsam::Point3(0, 0, 2)});
 
-    } else if (camera_configuration == CamerasConfigurations::center_looking_x) {
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(-M_PI_2, 0., -M_PI_2),
-                                                gtsam::Point3(0., 0., 0.)});
+    } else if (cfg.cameras_configuration_ == CamerasConfigurations::center_looking_x) {
+      camera_f_bases.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(-M_PI_2, 0., -M_PI_2),
+                                               gtsam::Point3(0., 0., 0.)});
 
-    } else if (camera_configuration == CamerasConfigurations::far_south) {
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., 0.),
-                                                gtsam::Point3(0., -100., 2.)});
+    } else if (cfg.cameras_configuration_ == CamerasConfigurations::far_south) {
+      camera_f_bases.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., 0.),
+                                               gtsam::Point3(0., -100., 2.)});
 
-    } else if (camera_configuration == CamerasConfigurations::plus_x_facing_markers) {
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(marker_size, 0, 2)});
+    } else if (cfg.cameras_configuration_ == CamerasConfigurations::plus_x_facing_markers) {
+      camera_f_bases.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
+                                               gtsam::Point3(cfg.marker_size_, 0, 2)});
 
-    } else if (camera_configuration == CamerasConfigurations::square_around_z_axis) {
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(marker_size, marker_size, 2)});
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(marker_size, -marker_size, 2)});
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(-marker_size, -marker_size, 2)});
-      camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(-marker_size, marker_size, 2)});
+    } else if (cfg.cameras_configuration_ == CamerasConfigurations::square_around_z_axis) {
+      camera_f_bases.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
+                                               gtsam::Point3(cfg.marker_size_, cfg.marker_size_, 2)});
+      camera_f_bases.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
+                                               gtsam::Point3(cfg.marker_size_, -cfg.marker_size_, 2)});
+      camera_f_bases.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
+                                               gtsam::Point3(-cfg.marker_size_, -cfg.marker_size_, 2)});
+      camera_f_bases.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
+                                               gtsam::Point3(-cfg.marker_size_, cfg.marker_size_, 2)});
 
-    } else if (camera_configuration == CamerasConfigurations::fly_to_plus_y) {
+    } else if (cfg.cameras_configuration_ == CamerasConfigurations::fly_to_plus_y) {
       const int camera_number = 5;
       const double min = -80.0;
       const double max = 80.0;
@@ -234,63 +282,84 @@ namespace camsim
 
       for (int i = 0; i < camera_number; i += 1) {
         double offset = i * delta + min;
-        camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., 0.),
-                                                  gtsam::Point3(0., offset, 2.)});
+        camera_f_bases.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., 0.),
+                                                 gtsam::Point3(0., offset, 2.)});
       }
 
-    } else if (camera_configuration == CamerasConfigurations::c_along_x_axis) {
+    } else if (cfg.cameras_configuration_ == CamerasConfigurations::c_along_x_axis) {
       int camera_number = 5;
-      double camera_spacing = 1.25 * marker_size;
+      double camera_spacing = 1.25 * cfg.marker_size_;
 
       for (int i = 0; i < camera_number; i += 1) {
         double offset = i - static_cast<double>(camera_number - 1) / 2;
-        camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                  gtsam::Point3(offset * camera_spacing, 0, 2)});
+        camera_f_bases.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
+                                                 gtsam::Point3(offset * camera_spacing, 0, 2)});
       }
     }
 
     std::vector<CameraModel> cameras{};
-    for (std::size_t idx = 0; idx < camera_f_worlds.size(); idx += 1) {
-      auto &camera_f_world = camera_f_worlds[idx];
+    for (std::size_t idx = 0; idx < camera_f_bases.size(); idx += 1) {
+      auto camera_f_world = t_world_base * camera_f_bases[idx];
 
       cameras.emplace_back(CameraModel{
         idx,
         camera_f_world,
-        [camera_type, calibration](const gtsam::Pose3 &camera_f_xxx,
-                                   const gtsam::Point3 &point_f_xxx,
-                                   boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
+        [camera_type = cfg.camera_type_, calibration](const gtsam::Pose3 &camera_f_xxx,
+                                                      const gtsam::Point3 &point_f_xxx,
+                                                      boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
         { return project_point(camera_type, calibration, camera_f_xxx, point_f_xxx, H); }});
     }
 
     return cameras;
   }
 
-  static std::vector<CameraModel> gen_cameras(const CamerasModel &cameras_model,
-                                              double marker_size,
-                                              gtsam::Pose3 camera_transform)
+  static ProjectFunc gen_project_func(const ModelConfig &cfg,
+                                      const gtsam::Cal3DS2 &calibration)
   {
-    return gen_cameras(cameras_model.camera_type_,
-                       cameras_model.cameras_configuration_,
-                       cameras_model.calibration_,
-                       marker_size);
+    if (cfg.camera_type_ == CameraTypes::simple_camera) {
+      gtsam::Cal3_S2 K{calibration.fx(), calibration.fy(),
+                       calibration.skew(),
+                       calibration.px(), calibration.py()};
+      return [K](const gtsam::Pose3 &camera_f_xxx,
+                 const gtsam::Point3 &point_f_xxx,
+                 boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
+      {
+        auto camera = gtsam::SimpleCamera{camera_f_xxx, K};
+        return camera.project(point_f_xxx, H);
+      };
+    }
+
+    if (cfg.camera_type_ == CameraTypes::simple_camera) {
+      return [calibration](const gtsam::Pose3 &camera_f_xxx,
+                           const gtsam::Point3 &point_f_xxx,
+                           boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
+      {
+        auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{camera_f_xxx, calibration};
+        return camera.project(point_f_xxx, H);
+      };
+    }
+
+    return [](const gtsam::Pose3 &camera_f_xxx,
+              const gtsam::Point3 &point_f_xxx,
+              boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
+    {
+      return gtsam::Point2{};
+    };
   }
 
-  CamerasModel::CamerasModel(CameraTypes camera_type,
-                             CamerasConfigurations cameras_configuration,
-                             double marker_size) :
-    camera_type_{camera_type},
-    cameras_configuration_{cameras_configuration},
-    calibration_{gen_camera_calibration(camera_type)},
-    cameras_{gen_cameras(camera_type, cameras_configuration, calibration_, marker_size)}
+  CamerasModel::CamerasModel(const ModelConfig &cfg) :
+    cfg_{cfg},
+    calibration_{gen_camera_calibration(cfg_)},
+    project_func_{gen_project_func(cfg_, calibration_)},
+    cameras_{gen_cameras(cfg, calibration_, gtsam::Pose3{})}
   {}
 
-  CamerasModel::CamerasModel(const CamerasModel &cameras_model,
-                             double marker_size,
-                             const gtsam::Pose3 &camera_transform) :
-    camera_type_{cameras_model.camera_type_},
-    cameras_configuration_{cameras_model.cameras_configuration_},
-    calibration_{gen_camera_calibration(cameras_model.camera_type_)},
-    cameras_{gen_cameras(cameras_model, marker_size, camera_transform)}
+  CamerasModel::CamerasModel(const ModelConfig &cfg,
+                             const gtsam::Pose3 &t_world_base) :
+    cfg_{cfg},
+    calibration_{gen_camera_calibration(cfg_)},
+    project_func_{gen_project_func(cfg_, calibration_)},
+    cameras_{gen_cameras(cfg_, calibration_, t_world_base)}
   {}
 
   gtsam::Cal3_S2 CamerasModel::get_Cal3_S2()
@@ -313,7 +382,7 @@ namespace camsim
         // Project the corners of this marker into this camera's image plane.
         for (auto &corner_f_world : marker.corners_f_world_) {
           try {
-            auto corner_f_image = camera.project_func_(camera.pose_f_world_,
+            auto corner_f_image = camera.project_func_(camera.camera_f_world,
                                                        corner_f_world,
                                                        boost::none);
 
@@ -349,9 +418,20 @@ namespace camsim
   Model::Model(MarkersConfigurations markers_configuration,
                CamerasConfigurations cameras_configuration,
                CameraTypes camera_type) :
-    markers_{markers_configuration},
-    cameras_{camera_type, cameras_configuration, markers_.marker_size_},
+    cfg_{markers_configuration, cameras_configuration, camera_type},
+    markers_{cfg_},
+    cameras_{cfg_},
     corners_f_images_{gen_corners_f_images(markers_, cameras_)}
+  {}
+
+  Model::Model(const Model &model, const gtsam::Pose3 &t_world_base) :
+    cfg_{model.cfg_},
+    markers_{cfg_, model.markers_},
+    cameras_{cfg_, t_world_base},
+    corners_f_images_{gen_corners_f_images(markers_, cameras_)}
+  {}
+
+  void Model::print_corners_f_image()
   {
     std::cout << "corners_f_images" << std::endl;
     for (auto &per_camera : corners_f_images_) {
@@ -360,7 +440,7 @@ namespace camsim
         if (per_marker.marker_idx_ == 0) {
           auto &camera = cameras_.cameras_[per_marker.camera_idx_];
           std::cout << "camera_" << camera.camera_idx_
-                    << PoseWithCovariance::to_str(camera.pose_f_world_) << std::endl;
+                    << PoseWithCovariance::to_str(camera.camera_f_world) << std::endl;
         }
 
         auto &corners_f_image = per_marker.corners_f_image_;
@@ -378,12 +458,5 @@ namespace camsim
       }
     }
     std::cout << std::endl;
-  }
-
-  Model::Model(const Model &model, const gtsam::Pose3 &camera_transform) :
-    markers_{model.markers_.markers_configuration_},
-    cameras_{model.cameras_, markers_.marker_size_, camera_transform},
-    corners_f_images_{gen_corners_f_images(markers_, cameras_)}
-  {
   }
 }

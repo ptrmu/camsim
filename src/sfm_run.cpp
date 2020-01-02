@@ -22,7 +22,7 @@ namespace camsim
     // 10cm std on x,y,z 0.3 rad on roll,pitch,yaw
     auto marker_noise = gtsam::noiseModel::Diagonal::Sigmas(
       (gtsam::Vector(6) << 0.3, 0.3, 0.3, 0.1, 0.1, 0.1).finished());
-    auto prior_marker_f_world = model.markers_.markers_[0].pose_f_world_;
+    auto prior_marker_f_world = model.markers_.markers_[0].marker_f_world_;
     graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(gtsam::Symbol('m', 0),
                                                             prior_marker_f_world,
                                                             marker_noise);
@@ -31,8 +31,8 @@ namespace camsim
     for (auto &per_camera : model.corners_f_images_) {
       for (auto &per_marker : per_camera) {
         gtsam::Pose3 marker_f_camera =
-          model.cameras_.cameras_[per_marker.camera_idx_].pose_f_world_.inverse() *
-          model.markers_.markers_[per_marker.marker_idx_].pose_f_world_;
+          model.cameras_.cameras_[per_marker.camera_idx_].camera_f_world.inverse() *
+          model.markers_.markers_[per_marker.marker_idx_].marker_f_world_;
         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(gtsam::Symbol('c', per_marker.camera_idx_),
                                                                  gtsam::Symbol('m', per_marker.marker_idx_),
                                                                  marker_f_camera, marker_noise);
@@ -45,7 +45,7 @@ namespace camsim
 //      initial.insert(gtsam::Symbol('c', icam), model.cameras_.pose_f_worlds_[icam]);
 //      initial.insert(gtsam::Symbol('c', icam), gtsam::Pose3{});
 //      initial.insert(gtsam::Symbol('c', icam), model.cameras_.pose_f_worlds_[0]);
-      initial.insert(gtsam::Symbol('c', camera.camera_idx_), camera.pose_f_world_
+      initial.insert(gtsam::Symbol('c', camera.camera_idx_), camera.camera_f_world
         .compose(gtsam::Pose3(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25),
                               gtsam::Point3(0.5, -0.10, 0.20))));
     }
@@ -53,7 +53,7 @@ namespace camsim
 //      initial.insert(gtsam::Symbol('m', imar), model.markers_.pose_f_worlds_[imar]);
 //      initial.insert(gtsam::Symbol('m', imar), gtsam::Pose3{});
 //      initial.insert(gtsam::Symbol('m', imar), model.markers_.pose_f_worlds_[0]);
-      initial.insert(gtsam::Symbol('m', marker.marker_idx_), marker.pose_f_world_
+      initial.insert(gtsam::Symbol('m', marker.marker_idx_), marker.marker_f_world_
         .compose(gtsam::Pose3(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25),
                               gtsam::Point3(0.5 * marker.marker_idx_, -0.10, 0.20))));
     }
@@ -75,8 +75,8 @@ namespace camsim
                 CamerasConfigurations::fly_to_plus_y,
                 CameraTypes::simple_camera};
 
-    std::cout << model.cameras_.cameras_[0].pose_f_world_.rotation().xyz() << std::endl;
-    std::cout << model.cameras_.cameras_[0].pose_f_world_.rotation().ypr() << std::endl;
+    std::cout << model.cameras_.cameras_[0].camera_f_world.rotation().xyz() << std::endl;
+    std::cout << model.cameras_.cameras_[0].camera_f_world.rotation().ypr() << std::endl;
 
     simple_sfm(model);
 
@@ -105,7 +105,7 @@ int main()
 //  return camsim::sfm_gtsam_example();
 //  return camsim::sfm_isam_example();
 //  return camsim::sfm_run();
-//  return sfm_run_resectioning();
+  return sfm_run_resectioning();
 //  return sfm_run_isam2();
-  return camsim::sfm_test_clear();
+//  return camsim::sfm_test_clear();
 }

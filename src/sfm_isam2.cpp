@@ -233,7 +233,7 @@ std::vector<camsim::PoseWithCovariance> sfm_run_isam2_camera_f_markers(
 
     // Test that the calculated pose is the same as the original model.
     if (!camera_f_marker.pose_.equals(
-      marker.pose_f_world_.inverse() * camera.pose_f_world_)) {
+      marker.marker_f_world_.inverse() * camera.camera_f_world)) {
       std::cout << "calculated pose does not match the ground truth" << std::endl;
     }
 
@@ -252,7 +252,7 @@ int sfm_run_isam2()
 
   gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(0.5, 0.5));
 
-  camsim::SfmIsam2 sfm_isam2{0, model.markers_.markers_[0].pose_f_world_};
+  camsim::SfmIsam2 sfm_isam2{0, model.markers_.markers_[0].marker_f_world_};
 
   for (auto &camera : model.cameras_.cameras_) {
     std::cout << std::endl

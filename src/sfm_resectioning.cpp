@@ -217,7 +217,7 @@ int sfm_run_resectioning()
 
       // Test that the calculated pose is the same as the original model.
       if (!camera_f_marker.pose_.equals(
-        marker.pose_f_world_.inverse() * camera.pose_f_world_)) {
+        marker.marker_f_world_.inverse() * camera.camera_f_world)) {
         std::cout << "calculated pose does not match the ground truth" << std::endl;
       }
 
