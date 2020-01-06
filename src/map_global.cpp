@@ -15,5 +15,9 @@ namespace camsim
     camsim::Model model_1{model, gtsam::Pose3{gtsam::Rot3::RzRyRx(0., 0., M_PI_2),
                                               gtsam::Point3(0., 0., 0.)}};
     model_1.print_corners_f_image();
+
+    camsim::Model model_2{model, gtsam::Pose3{gtsam::Rot3::RzRyRx(0., 0., M_PI),
+                                              gtsam::Point3(0., 0., 0.)}};
+    model_2.print_corners_f_image();
   }
 }
