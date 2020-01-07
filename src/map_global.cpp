@@ -7,17 +7,10 @@ namespace camsim
 {
   void map_global()
   {
-    camsim::Model model{camsim::MarkersConfigurations::upright_circle_around_z_axis,
-                        camsim::CamerasConfigurations::center_looking_x,
-                        camsim::CameraTypes::distorted_camera};
+    camsim::Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{8, 2.},
+                                    PoseGens::SpinAboutZAtOriginFacingOut{32},
+                                    camsim::CameraTypes::distorted_camera,
+                                    1}};
     model.print_corners_f_image();
-
-    camsim::Model model_1{model, gtsam::Pose3{gtsam::Rot3::RzRyRx(0., 0., M_PI_2),
-                                              gtsam::Point3(0., 0., 0.)}};
-    model_1.print_corners_f_image();
-
-    camsim::Model model_2{model, gtsam::Pose3{gtsam::Rot3::RzRyRx(0., 0., M_PI),
-                                              gtsam::Point3(0., 0., 0.)}};
-    model_2.print_corners_f_image();
   }
 }

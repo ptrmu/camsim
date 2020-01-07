@@ -78,7 +78,7 @@ namespace camsim
                               const CameraModel &camera, const MarkerModel &marker,
                               const std::vector<gtsam::Point2> &corners_f_image)
   {
-    std::cout << "camera_" << camera.camera_idx_ << PoseWithCovariance::to_str(camera.camera_f_world) << std::endl;
+    std::cout << "camera_" << camera.camera_idx_ << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
     std::cout << "marker_" << marker.marker_idx_ << PoseWithCovariance::to_str(marker.marker_f_world_) << std::endl;
 
     // Get gtsam results
@@ -88,7 +88,7 @@ namespace camsim
     pfm_resection_gtsam(camera_calibration,
                         corners_f_image,
                         marker.corners_f_world_,
-                        camera.camera_f_world,
+                        camera.camera_f_world_,
                         measurement_noise,
                         gtsam_camera_f_world, gtsam_camera_f_world_covariance);
 
@@ -103,7 +103,7 @@ namespace camsim
     pfm_resection_projection(camera_calibration,
                              corners_f_image,
                              marker.corners_f_world_,
-                             camera.camera_f_world,
+                             camera.camera_f_world_,
                              measurement_noise,
                              projection_camera_f_world, projection_camera_f_world_covariance);
 
@@ -118,7 +118,7 @@ namespace camsim
     pfm_resection_opencv(camera_calibration,
                          corners_f_image,
                          marker.corners_f_world_,
-                         camera.camera_f_world,
+                         camera.camera_f_world_,
                          measurement_noise,
                          opencv_camera_f_marker, opencv_camera_f_marker_covariance);
 
@@ -133,7 +133,7 @@ namespace camsim
     pfm_resection_monte_carlo(camera_calibration,
                               corners_f_image,
                               marker.corners_f_world_,
-                              camera.camera_f_world,
+                              camera.camera_f_world_,
                               measurement_noise,
                               monte_carlo_camera_f_marker, monte_carlo_camera_f_marker_covariance);
 

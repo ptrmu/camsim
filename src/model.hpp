@@ -13,9 +13,45 @@ namespace camsim
   // The camera coordinate frame has z pointing in the direction it looks, x to the right and y down
   // The image coordinate frame has two dimensions, u,v. u aligns with camera x, v aligns with camera y
   //  the center of the image is aligned with the origin of the camera.
-  enum MarkersConfigurations
+
+  using PoseGenerator = std::function<std::vector<gtsam::Pose3>()>;
+
+  struct PoseGens
   {
-    square_around_origin_xy_plane = 0,
+    class Noop
+    {
+    public:
+      std::vector<gtsam::Pose3> operator()() const;
+    };
+
+    class CircleInXYPlaneFacingOrigin
+    {
+      int n_;
+      double radius_;
+    public:
+      CircleInXYPlaneFacingOrigin(int n, double radius) :
+        n_{n}, radius_{radius}
+      {}
+
+      std::vector<gtsam::Pose3> operator()() const;
+    };
+
+    class SpinAboutZAtOriginFacingOut
+    {
+      int n_;
+    public:
+      SpinAboutZAtOriginFacingOut(int n) :
+        n_{n}
+      {}
+
+      std::vector<gtsam::Pose3> operator()() const;
+    };
+  };
+
+  enum class MarkersConfigurations
+  {
+    generator = 0,
+    square_around_origin_xy_plane,
     single_center,
     single_south_west,
     along_x_axis,
@@ -26,9 +62,10 @@ namespace camsim
     octahedron,
   };
 
-  enum CamerasConfigurations
+  enum class CamerasConfigurations
   {
-    z2_facing_origin = 0,
+    generator = 0,
+    z2_facing_origin,
     center_looking_x,
     far_south,
     plus_x_facing_markers,
@@ -37,11 +74,12 @@ namespace camsim
     c_along_x_axis,
   };
 
-  enum CameraTypes
+  enum class CameraTypes
   {
     simple_camera = 0,
     distorted_camera,
   };
+
 
   struct ModelConfig
   {
@@ -51,10 +89,17 @@ namespace camsim
     double marker_size_;
     double marker_spacing_;
     double camera_spacing_;
+    const PoseGenerator marker_pose_generator_;
+    const PoseGenerator camera_pose_generator_;
 
     ModelConfig(MarkersConfigurations markers_configuration,
                 CamerasConfigurations cameras_configuration,
                 CameraTypes camera_type);
+
+    ModelConfig(PoseGenerator marker_pose_generator,
+                PoseGenerator camera_pose_generator,
+                CameraTypes camera_type,
+                double marker_size);
 
     ModelConfig(const ModelConfig &model_config);
   };
@@ -92,12 +137,12 @@ namespace camsim
   struct CameraModel
   {
     const std::size_t camera_idx_;
-    const gtsam::Pose3 camera_f_world;
+    const gtsam::Pose3 camera_f_world_;
 
     CameraModel(std::size_t camera_idx,
                 const gtsam::Pose3 &camera_f_world) :
       camera_idx_{camera_idx},
-      camera_f_world{camera_f_world}
+      camera_f_world_{camera_f_world}
     {}
   };
 
@@ -109,8 +154,6 @@ namespace camsim
     const std::vector<CameraModel> cameras_;
 
     CamerasModel(const ModelConfig &cfg);
-
-    CamerasModel(const ModelConfig &cfg, const gtsam::Pose3 &t_world_base);
 
     gtsam::Cal3_S2 get_Cal3_S2();
   };
@@ -141,7 +184,7 @@ namespace camsim
           CamerasConfigurations cameras_configuration,
           CameraTypes camera_type);
 
-    Model(const Model &model, const gtsam::Pose3 &t_world_base);
+    Model(ModelConfig cfg);
 
     void print_corners_f_image();
   };

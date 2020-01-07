@@ -58,7 +58,7 @@ namespace camsim
                           camera_f_world, camera_f_world_covariance);
 
       camera_f_worlds.emplace_back(camera_f_world);
-//      std::cout << PoseWithCovariance::to_str(camera_f_world) << std::endl;
+//      std::cout << PoseWithCovariance::to_str(camera_f_world_) << std::endl;
     }
 
     return camera_f_worlds;
