@@ -266,9 +266,14 @@ namespace camsim
     markers_{copy.markers_}
   {}
 
-  static gtsam::Cal3DS2 gen_camera_calibration(const ModelConfig &cfg_)
+  static gtsam::Cal3DS2 gen_camera_calibration(const ModelConfig &cfg)
   {
-    return gtsam::Cal3DS2{1, 1, 0, 50, 50, 0., 0.};
+    switch (cfg.camera_type_) {
+      case CameraTypes::simulation:
+        return gtsam::Cal3DS2{475, 475, 0, 400, 300, 0., 0.};
+      default:
+        return gtsam::Cal3DS2{1, 1, 0, 50, 50, 0., 0.};
+    }
   }
 
   static std::vector<CameraModel> gen_cameras(const ModelConfig &cfg,
@@ -356,21 +361,12 @@ namespace camsim
       };
     }
 
-    if (cfg.camera_type_ == CameraTypes::distorted_camera) {
-      return [calibration](const gtsam::Pose3 &camera_f_xxx,
-                           const gtsam::Point3 &point_f_xxx,
-                           boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
-      {
-        auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{camera_f_xxx, calibration};
-        return camera.project(point_f_xxx, H);
-      };
-    }
-
-    return [](const gtsam::Pose3 &camera_f_xxx,
-              const gtsam::Point3 &point_f_xxx,
-              boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
+    return [calibration](const gtsam::Pose3 &camera_f_xxx,
+                         const gtsam::Point3 &point_f_xxx,
+                         boost::optional<gtsam::Matrix &> H) -> gtsam::Point2
     {
-      return gtsam::Point2{};
+      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{camera_f_xxx, calibration};
+      return camera.project(point_f_xxx, H);
     };
   }
 
@@ -380,10 +376,10 @@ namespace camsim
     project_func_{gen_project_func(cfg_, calibration_)},
     cameras_{gen_cameras(cfg, calibration_)}
   {
-    std::cout << "Cameras" << std::endl;
-    for (auto &camera : cameras_) {
-      std::cout << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
-    }
+//    std::cout << "Cameras" << std::endl;
+//    for (auto &camera : cameras_) {
+//      std::cout << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
+//    }
   }
 
   gtsam::Cal3_S2 CamerasModel::get_Cal3_S2()

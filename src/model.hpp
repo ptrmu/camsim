@@ -78,6 +78,7 @@ namespace camsim
   {
     simple_camera = 0,
     distorted_camera,
+    simulation,
   };
 
 
