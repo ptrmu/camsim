@@ -15,33 +15,25 @@
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/slam/InitializePose3.h>
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/ProjectionFactor.h>
 
 namespace camsim
 {
-  struct MeasurementFactor
+  struct MarkerModelRef
   {
     const MarkerModel &marker_;
-    const gtsam::Pose3 camera_f_marker_;
 
-    MeasurementFactor(const MarkerModel &marker, gtsam::Pose3 camera_f_marker) :
-      marker_{marker}, camera_f_marker_{std::move(camera_f_marker)}
-    {}
+    MarkerModelRef(const MarkerModel &marker) :
+      marker_{marker}
+    {};
   };
-
-//  struct SolverRunner;
-//
-//  using AddFrameMeasurementsFunc = std::function<void(const CameraModel &,
-//                                                      const std::vector<MeasurementFactor> &,
-//                                                      gtsam::Sampler &)>;
-//
-//  using SolverFactoryFunc = AddFrameMeasurementsFunc (*)(SolverRunner &solver_runner);
 
   struct SolverRunner
   {
     typedef std::function<void(const CameraModel &,
-                               const std::vector<MeasurementFactor> &,
+                               const std::vector<MarkerModelRef> &,
                                gtsam::Sampler &)> AddFrameMeasurementsFunc;
 
     typedef std::function<AddFrameMeasurementsFunc(SolverRunner &)> SolverFactoryFunc;
@@ -55,8 +47,8 @@ namespace camsim
     int frames_processed_{0};
 
     SolverRunner(const Model &model,
-                 gtsam::Vector6 sampler_sigmas,
-                 gtsam::Vector6 noise_sigmas,
+                 const gtsam::Vector6 &sampler_sigmas,
+                 const gtsam::Vector6 &noise_sigmas,
                  bool print_covariance) :
       model_{model},
       sampler_sigmas_{std::move(sampler_sigmas)},
@@ -64,24 +56,24 @@ namespace camsim
       noise_{gtsam::noiseModel::Diagonal::Sigmas(noise_sigmas)}
     {}
 
-    void operator()(SolverFactoryFunc solver_factory)
+    void operator()(const SolverFactoryFunc &solver_factory)
     {
       frames_processed_ = 0;
       auto solver{solver_factory(*this)};
       gtsam::Sampler sampler{sampler_sigmas_, 42u};
 
       for (auto &camera : model_.cameras_.cameras_) {
-        std::vector<MeasurementFactor> measurement_factors{};
+        std::vector<MarkerModelRef> marker_refs{};
 
         for (auto &marker : model_.markers_.markers_) {
           if (!model_.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_.empty()) {
             auto camera_f_marker = marker.marker_f_world_.inverse() * camera.camera_f_world_;
-            measurement_factors.emplace_back(MeasurementFactor{marker, camera_f_marker});
+            marker_refs.emplace_back(MarkerModelRef{marker});
           }
         }
 
-        if (measurement_factors.size() > 1) {
-          solver(camera, measurement_factors, sampler);
+        if (marker_refs.size() > 1) {
+          solver(camera, marker_refs, sampler);
           frames_processed_ += 1;
         }
       }
@@ -94,196 +86,22 @@ namespace camsim
         std::cout << PoseWithCovariance::to_str(gtsam::Matrix6{cov}) << std::endl;
       }
     }
+
+    gtsam::Pose3 get_camera_f_marker(const CameraModel &camera, const MarkerModel &marker) const
+    {
+      return marker.marker_f_world_.inverse() * camera.camera_f_world_;
+    }
+
+    std::vector<gtsam::Point2> get_corners_f_images(const CameraModel &camera, const MarkerModel &marker) const
+    {
+      return model_.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
+    }
   };
 
-//  class SolveGlobal
-//  {
-//    gtsam::NonlinearFactorGraph graph_{};
-//    gtsam::Values initial_{};
-//    int frames_processed_{0};
-//    bool loop_closed{false};
-//
-//    void display_results()
-//    {
-//      auto result = gtsam::LevenbergMarquardtOptimizer(graph_, initial_).optimize();
-//      std::cout << "Frame " << frames_processed_ << ": " << std::endl;
-//      std::cout << "initial error = " << graph_.error(initial_) << std::endl;
-//      std::cout << "final error = " << graph_.error(result) << std::endl;
-//
-//      gtsam::Marginals marginals{graph_, result};
-//      for (auto m : result.filter(gtsam::Symbol::ChrTest('m'))) {
-//        std::cout << PoseWithCovariance::to_str(m.value.cast<gtsam::Pose3>()) << std::endl;
-////        std::cout << PoseWithCovariance::to_str(gtsam::Matrix6{marginals.marginalCovariance(m.key)}) << std::endl;
-//      }
-//    }
-//
-//  public:
-//    void add_frame_measurements(const CameraModel &camera,
-//                                const std::vector<MeasurementFactor> &measurement_factors,
-//                                gtsam::SharedNoiseModel &noise,
-//                                gtsam::Sampler &sampler)
-//    {
-//      if (!loop_closed &&
-//          measurement_factors.size() == 2 &&
-//          measurement_factors[0].marker_.marker_idx_ == 0 &&
-//          measurement_factors[1].marker_.marker_idx_ == 7) {
-//        loop_closed = true;
-////        display_results();
-//      }
-//
-//      gtsam::Symbol camera_key{'c', static_cast<std::uint64_t>(camera.camera_idx_)};
-//
-//      // Add the initial camera pose estimate
-//      initial_.insert(camera_key, camera.camera_f_world_.retract(sampler.sample()));
-//
-//      for (auto &mf : measurement_factors) {
-//        gtsam::Symbol marker_key{'m', static_cast<std::uint64_t>(mf.marker_.marker_idx_)};
-//
-//        // Add the measurement factor.
-//        graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-//          marker_key, camera_key,
-//          mf.camera_f_marker_.retract(sampler.sample()), noise);
-//
-//        // Add the initial marker value estimate
-//        if (!initial_.exists(marker_key)) {
-//          initial_.insert(marker_key, mf.marker_.marker_f_world_.retract(sampler.sample()));
-//        }
-//
-//        // Add the prior if this is marker 0
-//        if (mf.marker_.marker_idx_ == 0) {
-//          static auto priorModel = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
-//          graph_.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(marker_key,
-//                                                                   mf.marker_.marker_f_world_,
-//                                                                   priorModel);
-//        }
-//      }
-//
-//      frames_processed_ += 1;
-//    }
-//
-//    void finish()
-//    {
-//      display_results();
-//    }
-//  };
-//
-//
-//  class SolveISAM
-//  {
-//    gtsam::ISAM2 isam2_{get_isam2_params()};
-//    std::map<int, int> marker_seen_counts_{};
-//    int frames_processed_{0};
-//    bool loop_closed{false};
-//
-//    static gtsam::ISAM2Params get_isam2_params()
-//    {
-//      gtsam::ISAM2Params isam2_params;
-//      isam2_params.relinearizeThreshold = 0.01;
-//      isam2_params.relinearizeSkip = 1;
-//      return isam2_params;
-//    }
-//
-//    void display_results()
-//    {
-//      gtsam::Values currentEstimate = isam2_.calculateEstimate();
-//      std::cout << "****************************************************" << std::endl;
-//      std::cout << "Frame " << frames_processed_ << ": " << std::endl;
-//      for (auto m : currentEstimate.filter(gtsam::Symbol::ChrTest('m'))) {
-//        std::cout << PoseWithCovariance::to_str(m.value.cast<gtsam::Pose3>()) << std::endl;
-////        std::cout << PoseWithCovariance::to_str(gtsam::Matrix6{isam2_.marginalCovariance(m.key)}) << std::endl;
-//      }
-//    }
-//
-//  public:
-//    void add_frame_measurements(const CameraModel &camera,
-//                                const std::vector<MeasurementFactor> &measurement_factors,
-//                                gtsam::SharedNoiseModel &noise,
-//                                gtsam::Sampler &sampler)
-//    {
-//      if (!loop_closed &&
-//          measurement_factors.size() == 2 &&
-//          measurement_factors[0].marker_.marker_idx_ == 0 &&
-//          measurement_factors[1].marker_.marker_idx_ == 7) {
-//        loop_closed = true;
-////        display_results();
-//      }
-//
-//      gtsam::Symbol camera_key{'c', static_cast<std::uint64_t>(camera.camera_idx_)};
-//
-//      gtsam::NonlinearFactorGraph graph{};
-//      gtsam::Values initial{};
-//
-//      // Add the initial camera pose estimate
-//      initial.insert(camera_key, camera.camera_f_world_.retract(sampler.sample()));
-//
-//      for (auto &mf : measurement_factors) {
-//        gtsam::Symbol marker_key{'m', static_cast<std::uint64_t>(mf.marker_.marker_idx_)};
-//
-//        // Add the measurement factor.
-//        graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-//          marker_key, camera_key,
-//          mf.camera_f_marker_.retract(sampler.sample()), noise);
-//
-//        // update the marker seen counts
-//        auto pair = marker_seen_counts_.find(mf.marker_.marker_idx_);
-//        if (pair == marker_seen_counts_.end()) {
-//          marker_seen_counts_.insert(std::pair<int, int>{mf.marker_.marker_idx_, 1});
-//        } else {
-//          pair->second += 1;
-//        }
-//
-//        // Add the initial marker value estimate only if this marker has not been seen.
-//        if (pair == marker_seen_counts_.end()) {
-//          std::cout << "Adding marker " << mf.marker_.marker_idx_ << " at frame " << frames_processed_ + 1 << std::endl;
-//          initial.insert(marker_key, mf.marker_.marker_f_world_.retract(sampler.sample()));
-//        }
-//
-//        // Add the prior if this is marker 0
-//        if (mf.marker_.marker_idx_ == 0) {
-//          static auto priorModel = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
-//          graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(marker_key,
-//                                                                  mf.marker_.marker_f_world_,
-//                                                                  priorModel);
-//        }
-//      }
-//
-//      // Update iSAM with the new factors
-//      isam2_.update(graph, initial);
-//      isam2_.update();
-//
-//      frames_processed_ += 1;
-//    }
-//
-//    void finish()
-//    {
-//      display_results();
-//    }
-//  };
-//
-//  template<class TSolve>
-//  void run(Model &model, TSolve &solver, gtsam::SharedNoiseModel &noise, gtsam::Sampler &sampler)
-//  {
-//    for (auto &camera : model.cameras_.cameras_) {
-//      std::vector<MeasurementFactor> measurement_factors{};
-//
-//      for (auto &marker : model.markers_.markers_) {
-//        if (!model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_.empty()) {
-//          auto camera_f_marker = marker.marker_f_world_.inverse() * camera.camera_f_world_;
-//          measurement_factors.emplace_back(MeasurementFactor{marker, camera_f_marker});
-//        }
-//      }
-//
-//      if (measurement_factors.size() > 1) {
-//        solver.add_frame_measurements(camera, measurement_factors, noise, sampler);
-//      }
-//    }
-//
-//    solver.finish();
-//  }
-//
   class SolverGlobal
   {
-    const SolverRunner &solver_runner_;
+    const SolverRunner &sr_;
+    const bool auto_initial_;
 
     gtsam::NonlinearFactorGraph graph_{};
     gtsam::Values initial_{};
@@ -293,25 +111,45 @@ namespace camsim
       // These objects get copy constructed and will sometimes get destructed without
       // being "solved". I can't figure out how to avoid the copies when they are passed
       // around as functors.
-      if (initial_.size() < 1) {
+      if (graph_.empty()) {
         return;
       }
 
-      auto result = gtsam::LevenbergMarquardtOptimizer(graph_, initial_).optimize();
-      std::cout << "Frame " << solver_runner_.frames_processed_ << ": " << std::endl;
+      if (auto_initial_) {
+        initial_ = gtsam::InitializePose3::initialize(graph_);
+      }
+
+      auto params = gtsam::LevenbergMarquardtParams();
+      params.setVerbosityLM("TERMINATION");
+      params.setVerbosity("TERMINATION");
+      params.setRelativeErrorTol(1e-8);
+      params.setAbsoluteErrorTol(1e-8);
+
+      auto result = gtsam::LevenbergMarquardtOptimizer(graph_, initial_, params).optimize();
+      std::cout << "Frame " << sr_.frames_processed_ << ": " << std::endl;
       std::cout << "initial error = " << graph_.error(initial_) << std::endl;
       std::cout << "final error = " << graph_.error(result) << std::endl;
 
       gtsam::Marginals marginals{graph_, result};
       for (auto m : result.filter(gtsam::Symbol::ChrTest('m'))) {
-        solver_runner_.display_results(m.value.cast<gtsam::Pose3>(),
-                                       marginals.marginalCovariance(m.key));
+        sr_.display_results(m.value.cast<gtsam::Pose3>(),
+                            marginals.marginalCovariance(m.key));
       }
     }
 
+    void add_priors()
+    {
+      // Add the prior for marker 0
+      gtsam::Symbol marker_key{'m', 0};
+      static auto priorModel = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
+      graph_.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(marker_key,
+                                                               sr_.model_.markers_.markers_[0].marker_f_world_,
+                                                               priorModel);
+    }
+
   public:
-    SolverGlobal(SolverRunner &solver_runner) :
-      solver_runner_{solver_runner}
+    explicit SolverGlobal(SolverRunner &sr, bool auto_initial) :
+      sr_{sr}, auto_initial_{auto_initial}
     {}
 
     ~SolverGlobal()
@@ -320,41 +158,127 @@ namespace camsim
     }
 
     void operator()(const CameraModel &camera,
-                    const std::vector<MeasurementFactor> &measurement_factors,
+                    const std::vector<MarkerModelRef> &marker_refs,
                     gtsam::Sampler &sampler)
     {
+      if (sr_.frames_processed_ == 0) {
+        add_priors();
+      }
+
       gtsam::Symbol camera_key{'c', static_cast<std::uint64_t>(camera.camera_idx_)};
 
       // Add the initial camera pose estimate
-      initial_.insert(camera_key, camera.camera_f_world_.retract(sampler.sample()));
+      if (!auto_initial_) {
+        initial_.insert(camera_key, camera.camera_f_world_.retract(sampler.sample()));
+      }
 
-      for (auto &mf : measurement_factors) {
-        gtsam::Symbol marker_key{'m', static_cast<std::uint64_t>(mf.marker_.marker_idx_)};
+      for (auto marker_ref : marker_refs) {
+        gtsam::Symbol marker_key{'m', static_cast<std::uint64_t>(marker_ref.marker_.marker_idx_)};
 
         // Add the measurement factor.
         graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
           marker_key, camera_key,
-          mf.camera_f_marker_.retract(sampler.sample()), solver_runner_.noise_);
+          sr_.get_camera_f_marker(camera, marker_ref.marker_).retract(sampler.sample()),
+          sr_.noise_);
 
         // Add the initial marker value estimate
-        if (!initial_.exists(marker_key)) {
-          initial_.insert(marker_key, mf.marker_.marker_f_world_.retract(sampler.sample()));
+        if (!auto_initial_ && !initial_.exists(marker_key)) {
+          initial_.insert(marker_key, marker_ref.marker_.marker_f_world_.retract(sampler.sample()));
         }
+      }
+    }
+  };
 
-        // Add the prior if this is marker 0
-        if (mf.marker_.marker_idx_ == 0) {
-          static auto priorModel = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
-          graph_.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(marker_key,
-                                                                   mf.marker_.marker_f_world_,
-                                                                   priorModel);
-        }
+  class SolverGlobalSFM
+  {
+    const SolverRunner &sr_;
+
+    gtsam::NonlinearFactorGraph graph_slam_{};
+    gtsam::NonlinearFactorGraph graph_sfm_{};
+
+    void display_results()
+    {
+      // These objects get copy constructed and will sometimes get destructed without
+      // being "solved". I can't figure out how to avoid the copies when they are passed
+      // around as functors.
+      if (graph_slam_.empty()) {
+        return;
+      }
+
+      auto initial = gtsam::InitializePose3::initialize(graph_slam_);
+
+      auto params = gtsam::LevenbergMarquardtParams();
+      params.setVerbosityLM("TERMINATION");
+      params.setVerbosity("TERMINATION");
+      params.setRelativeErrorTol(1e-8);
+      params.setAbsoluteErrorTol(1e-8);
+
+      auto result = gtsam::LevenbergMarquardtOptimizer(graph_slam_, initial, params).optimize();
+      std::cout << "Frame " << sr_.frames_processed_ << ": " << std::endl;
+      std::cout << "initial error = " << graph_slam_.error(initial) << std::endl;
+      std::cout << "final error = " << graph_slam_.error(result) << std::endl;
+
+      gtsam::Marginals marginals{graph_slam_, result};
+      for (auto m : result.filter(gtsam::Symbol::ChrTest('m'))) {
+        sr_.display_results(m.value.cast<gtsam::Pose3>(),
+                            marginals.marginalCovariance(m.key));
+      }
+    }
+
+    void add_priors()
+    {
+      // Add the prior for marker 0
+      gtsam::Symbol marker_key{'m', 0};
+      static auto priorModel = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
+      graph_slam_.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(marker_key,
+                                                                    sr_.model_.markers_.markers_[0].marker_f_world_,
+                                                                    priorModel);
+    }
+
+    PoseWithCovariance calc_camera_f_marker(std::vector<gtsam::Point2> &corners_f_image)
+    {
+    }
+
+    PoseWithCovariance calc_marker_f_world(std::vector<PointWithCovariance> &corners_f_world)
+    {
+
+    }
+
+
+  public:
+    explicit SolverGlobalSFM(SolverRunner &sr) :
+      sr_{sr}
+    {}
+
+    ~SolverGlobalSFM()
+    {
+      display_results();
+    }
+
+    void operator()(const CameraModel &camera,
+                    const std::vector<MarkerModelRef> &marker_refs,
+                    gtsam::Sampler &sampler)
+    {
+      if (sr_.frames_processed_ == 0) {
+        add_priors();
+      }
+
+      gtsam::Symbol camera_key{'c', static_cast<std::uint64_t>(camera.camera_idx_)};
+
+      for (auto &marker_ref : marker_refs) {
+        gtsam::Symbol marker_key{'m', static_cast<std::uint64_t>(marker_ref.marker_.marker_idx_)};
+
+        // Add the measurement factor.
+        graph_slam_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+          marker_key, camera_key,
+          sr_.get_camera_f_marker(camera, marker_ref.marker_).retract(sampler.sample()), sr_.noise_);
       }
     }
   };
 
   class SolverISAM
   {
-    const SolverRunner &solver_runner_;
+    const SolverRunner &sr_;
 
     gtsam::ISAM2 isam2_{get_isam2_params()};
     std::map<int, int> marker_seen_counts_{};
@@ -369,18 +293,32 @@ namespace camsim
 
     void display_results()
     {
+      if (isam2_.empty()) {
+        return;
+      }
+
       gtsam::Values currentEstimate = isam2_.calculateEstimate();
       std::cout << "****************************************************" << std::endl;
-      std::cout << "Frame " << solver_runner_.frames_processed_ << ": " << std::endl;
+      std::cout << "Frame " << sr_.frames_processed_ << ": " << std::endl;
       for (auto m : currentEstimate.filter(gtsam::Symbol::ChrTest('m'))) {
-        solver_runner_.display_results(m.value.cast<gtsam::Pose3>(),
-                                       isam2_.marginalCovariance(m.key));
+        sr_.display_results(m.value.cast<gtsam::Pose3>(),
+                            isam2_.marginalCovariance(m.key));
       }
     }
 
+    void add_priors(gtsam::NonlinearFactorGraph &graph)
+    {
+      // Add the prior for marker 0
+      gtsam::Symbol marker_key{'m', 0};
+      static auto priorModel = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
+      graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(marker_key,
+                                                              sr_.model_.markers_.markers_[0].marker_f_world_,
+                                                              priorModel);
+    }
+
   public:
-    SolverISAM(SolverRunner &solver_runner) :
-      solver_runner_{solver_runner}
+    explicit SolverISAM(SolverRunner &sr) :
+      sr_{sr}
     {}
 
     ~SolverISAM()
@@ -389,46 +327,42 @@ namespace camsim
     }
 
     void operator()(const CameraModel &camera,
-                    const std::vector<MeasurementFactor> &measurement_factors,
+                    const std::vector<MarkerModelRef> &marker_refs,
                     gtsam::Sampler &sampler)
     {
-      gtsam::Symbol camera_key{'c', static_cast<std::uint64_t>(camera.camera_idx_)};
-
       gtsam::NonlinearFactorGraph graph{};
       gtsam::Values initial{};
+
+      if (sr_.frames_processed_ == 0) {
+        add_priors(graph);
+      }
+
+      gtsam::Symbol camera_key{'c', static_cast<std::uint64_t>(camera.camera_idx_)};
 
       // Add the initial camera pose estimate
       initial.insert(camera_key, camera.camera_f_world_.retract(sampler.sample()));
 
-      for (auto &mf : measurement_factors) {
-        gtsam::Symbol marker_key{'m', static_cast<std::uint64_t>(mf.marker_.marker_idx_)};
+      for (auto &marker_ref : marker_refs) {
+        gtsam::Symbol marker_key{'m', static_cast<std::uint64_t>(marker_ref.marker_.marker_idx_)};
 
         // Add the measurement factor.
         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
           marker_key, camera_key,
-          mf.camera_f_marker_.retract(sampler.sample()), solver_runner_.noise_);
+          sr_.get_camera_f_marker(camera, marker_ref.marker_).retract(sampler.sample()), sr_.noise_);
 
         // update the marker seen counts
-        auto pair = marker_seen_counts_.find(mf.marker_.marker_idx_);
+        auto pair = marker_seen_counts_.find(marker_ref.marker_.marker_idx_);
         if (pair == marker_seen_counts_.end()) {
-          marker_seen_counts_.insert(std::pair<int, int>{mf.marker_.marker_idx_, 1});
+          marker_seen_counts_.insert(std::pair<int, int>{marker_ref.marker_.marker_idx_, 1});
         } else {
           pair->second += 1;
         }
 
         // Add the initial marker value estimate only if this marker has not been seen.
         if (pair == marker_seen_counts_.end()) {
-          std::cout << "Adding marker " << mf.marker_.marker_idx_
-                    << " at frame " << solver_runner_.frames_processed_ + 1 << std::endl;
-          initial.insert(marker_key, mf.marker_.marker_f_world_.retract(sampler.sample()));
-        }
-
-        // Add the prior if this is marker 0
-        if (mf.marker_.marker_idx_ == 0) {
-          static auto priorModel = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
-          graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(marker_key,
-                                                                  mf.marker_.marker_f_world_,
-                                                                  priorModel);
+          std::cout << "Adding marker " << marker_ref.marker_.marker_idx_
+                    << " at frame " << sr_.frames_processed_ + 1 << std::endl;
+          initial.insert(marker_key, marker_ref.marker_.marker_f_world_.retract(sampler.sample()));
         }
       }
 
@@ -442,7 +376,7 @@ namespace camsim
   void map_global()
   {
     Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{8, 2.},
-                            PoseGens::SpinAboutZAtOriginFacingOut{4096},
+                            PoseGens::SpinAboutZAtOriginFacingOut{256},
                             camsim::CameraTypes::simulation,
                             0.1775}};
 
@@ -457,27 +391,15 @@ namespace camsim
                                false};
 
     solver_runner([](SolverRunner &solver_runner)
-                  { return SolverGlobal{solver_runner}; });
-//
-//
-//    auto sampler_dist = (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
-//      gtsam::Vector3::Constant(t_sigma)).finished();;
-//
-//    gtsam::SharedNoiseModel noise = gtsam::noiseModel::Diagonal::Sigmas(
-//      (gtsam::Vector(6) << gtsam::Vector3::Constant(r_sigma),
-//        gtsam::Vector3::Constant(t_sigma)).finished());
-//
-//    SolveGlobal solve_global{};
-//
-//    SolveISAM solve_isam{};
-//
-//    gtsam::Sampler sampler_global{sampler_dist, 42u};
-//    run(model, solve_global, noise, sampler_global);
+                  { return SolverGlobal{solver_runner, false}; });
+
+    solver_runner([](SolverRunner &solver_runner)
+                  { return SolverGlobal{solver_runner, true}; });
 
     solver_runner([](SolverRunner &solver_runner)
                   { return SolverISAM{solver_runner}; });
-//
-//    gtsam::Sampler sampler_isam{sampler_dist, 42u};
-//    run(model, solve_isam, noise, sampler_isam);
+
+    solver_runner([](SolverRunner &solver_runner)
+                  { return SolverGlobalSFM{solver_runner}; });
   }
 }
