@@ -235,7 +235,14 @@ namespace camsim
         corners_f_world.emplace_back(marker_f_world * corner_f_marker);
       }
 
-      markers.emplace_back(MarkerModel{idx, marker_f_world, std::move(corners_f_world)});
+      std::array<CornerModel, 4> corners {
+        CornerModel(0, gtsam::Point3{}),
+        CornerModel(0, gtsam::Point3{}),
+        CornerModel(0, gtsam::Point3{}),
+        CornerModel(0, gtsam::Point3{})
+      };
+
+      markers.emplace_back(MarkerModel{idx, marker_f_world, corners, std::move(corners_f_world)});
     }
 
     return markers;

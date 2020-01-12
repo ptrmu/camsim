@@ -1,6 +1,9 @@
 
 #include "pose_with_covariance.hpp"
 
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/nonlinear/Marginals.h>
+
 namespace camsim
 {
 
@@ -38,6 +41,16 @@ namespace camsim
     }
   };
 
+  PoseWithCovariance PoseWithCovariance::Extract(gtsam::NonlinearFactorGraph &graph,
+    gtsam::Values &result,
+    gtsam::Key key)
+  {
+    gtsam::Marginals marginals(graph, result);
+    return PoseWithCovariance{static_cast<int>(gtsam::symbolIndex(key)),
+                              result.at<gtsam::Pose3>(key),
+                              marginals.marginalCovariance(key)};
+  }
+
   std::string PoseWithCovariance::to_str() const
   {
     return to_str(pose_).append("\n").append(to_str(cov_));
@@ -68,6 +81,11 @@ namespace camsim
        << nf(v(5, 0)) << " " << nf(v(5, 1)) << " " << nf(v(5, 2)) << " " << nf(v(5, 3)) << " " << nf(v(5, 4)) << " "
        << nf(v(5, 5));
     return ss.str();
+  }
+
+  static std::string to_eigen_values_str(const gtsam::Matrix6 &cov)
+  {
+    return std::string{};
   }
 
 }

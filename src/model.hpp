@@ -105,17 +105,44 @@ namespace camsim
     ModelConfig(const ModelConfig &model_config);
   };
 
+  class Model;
+
+  class MarkerModel;
+
+  struct CornerModel
+  {
+    const std::uint64_t corner_key_;
+    const gtsam::Point3 corner_f_world_;
+
+    CornerModel(std::uint64_t corner_key,
+                gtsam::Point3 corner_f_world) :
+      corner_key_{corner_key},
+      corner_f_world_{std::move(corner_f_world)}
+    {}
+  };
+
+  struct CornersModel
+  {
+    const Model &model_;
+    const std::array<CornerModel, 4> corners_;
+
+    CornersModel(MarkerModel &marker);
+  };
+
   struct MarkerModel
   {
     const std::size_t marker_idx_;
     const gtsam::Pose3 marker_f_world_;
+    const std::array<CornerModel, 4> corners_;
     const std::vector<gtsam::Point3> corners_f_world_;
 
     MarkerModel(std::size_t marker_idx,
                 const gtsam::Pose3 &marker_f_world,
+                std::array<CornerModel, 4> corners,
                 std::vector<gtsam::Point3> corners_f_world) :
       marker_idx_{marker_idx},
       marker_f_world_{marker_f_world},
+      corners_{std::move(corners)},
       corners_f_world_{std::move(corners_f_world)}
     {}
   };

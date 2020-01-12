@@ -3,6 +3,14 @@
 #define _SFM_POSE_WITH_COVARIANCE_HPP
 
 #include <gtsam/geometry/Pose3.h>
+#include "gtsam/inference/Symbol.h"
+
+namespace gtsam
+{
+  class NonlinearFactorGraph;
+
+  class Values;
+}
 
 namespace camsim
 {
@@ -15,6 +23,8 @@ namespace camsim
     PoseWithCovariance(int id, const gtsam::Pose3 &pose, const gtsam::Matrix6 &cov) :
       id_{id}, pose_{pose}, cov_{cov}
     {}
+
+    static PoseWithCovariance Extract(gtsam::NonlinearFactorGraph &graph, gtsam::Values &result, gtsam::Key key);
 
     std::string to_str() const;
 
