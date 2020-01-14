@@ -10,18 +10,21 @@ namespace gtsam
   class NonlinearFactorGraph;
 
   class Values;
+
+  class Marginals;
 }
 
 namespace camsim
 {
   struct PoseWithCovariance
   {
-    const int id_;
+    const std::uint64_t key_;
+    const int id_; // remove someday
     const gtsam::Pose3 pose_;
     const gtsam::Matrix6 cov_;
 
-    PoseWithCovariance(int id, const gtsam::Pose3 &pose, const gtsam::Matrix6 &cov) :
-      id_{id}, pose_{pose}, cov_{cov}
+    PoseWithCovariance(std::uint64_t key, const gtsam::Pose3 &pose, const gtsam::Matrix6 &cov) :
+      key_{key}, id_{static_cast<int>(key)}, pose_{pose}, cov_{cov}
     {}
 
     static PoseWithCovariance Extract(gtsam::NonlinearFactorGraph &graph, gtsam::Values &result, gtsam::Key key);
@@ -31,24 +34,39 @@ namespace camsim
     static std::string to_str(const gtsam::Pose3 &pose);
 
     static std::string to_str(const gtsam::Matrix6 &cov);
+
+    static std::string to_eigenvalues_str(const gtsam::Matrix6 &cov);
+
+    static std::string to_stddev_str(const gtsam::Matrix6 &cov);
   };
 
   struct PointWithCovariance
   {
-    const int id_;
-    const int corner_id_;
+    const std::uint64_t key_;
     const gtsam::Point3 point_;
     const gtsam::Matrix3 cov_;
 
-    PointWithCovariance(int id, int corner_id, const gtsam::Point3 &point, const gtsam::Matrix3 &cov) :
-      id_{id}, corner_id_{corner_id}, point_{point}, cov_{cov}
+    PointWithCovariance(std::uint64_t key, const gtsam::Point3 &point, const gtsam::Matrix3 &cov) :
+      key_{key}, point_{point}, cov_{cov}
     {}
+
+    static PointWithCovariance Extract(const gtsam::Values &result,
+                                       const gtsam::Marginals &marginals,
+                                       gtsam::Key key);
+
+    static std::array<PointWithCovariance, 4> Extract4(const gtsam::Values &result,
+                                                       const gtsam::Marginals &marginals,
+                                                       gtsam::Key marker_key);
 
     std::string to_str() const;
 
-    static std::string to_str(const gtsam::Point3);
+    static std::string to_str(const gtsam::Point3 &point);
 
-    static std::string to_str(const gtsam::Matrix3);
+    static std::string to_str(const gtsam::Matrix3 &cov);
+
+    static std::string to_eigenvalues_str(const gtsam::Matrix3 &cov);
+
+    static std::string to_stddev_str(const gtsam::Matrix3 &cov);
   };
 }
 

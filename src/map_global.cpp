@@ -72,7 +72,7 @@ namespace camsim
 
         // Figure out which markers are visible from this camera
         for (auto &marker : model_.markers_.markers_) {
-          if (!model_.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_.empty()) {
+          if (!model_.corners_f_images_[camera.index()][marker.index()].corners_f_image_.empty()) {
             marker_refs.emplace_back(MarkerModelRef{marker});
           }
         }
@@ -85,11 +85,26 @@ namespace camsim
       }
     }
 
-    void display_results(const gtsam::Pose3 &pose, const gtsam::Matrix &cov) const
+    void display_results(const gtsam::Pose3 &pose, const gtsam::Matrix6 &cov) const
     {
-      std::cout << PoseWithCovariance::to_str(pose) << std::endl;
+      std::cout << PoseWithCovariance::to_str(pose)
+                << " std: " << PoseWithCovariance::to_stddev_str(cov)
+                << std::endl;
       if (print_covariance_) {
-        std::cout << PoseWithCovariance::to_str(gtsam::Matrix6{cov}) << std::endl;
+        std::cout << PoseWithCovariance::to_str(cov) << std::endl;
+      }
+    }
+
+    void display_results(const std::array<camsim::PointWithCovariance, 4> &corners_f_world) const
+    {
+      std::cout << "m" << std::endl;
+      for (auto const &corner_f_world : corners_f_world) {
+        std::cout << PointWithCovariance::to_str(corner_f_world.point_)
+                  << " std: " << PointWithCovariance::to_stddev_str(corner_f_world.cov_)
+                  << std::endl;
+        if (print_covariance_) {
+          std::cout << PointWithCovariance::to_str(corner_f_world.cov_) << std::endl;
+        }
       }
     }
 
@@ -118,45 +133,18 @@ namespace camsim
     std::vector<gtsam::Point2> get_perturbed_corners_f_images(const CameraModel &camera,
                                                               const MarkerModel &marker)
     {
-      auto corners_f_image{model_.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_};
+      auto corners_f_image{model_.corners_f_images_[camera.index()][marker.index()].corners_f_image_};
       for (auto &corner_f_image : corners_f_image) {
         corner_f_image = corner_f_image.retract(point2_sampler_.sample());
       }
       return corners_f_image;
     }
 
-    gtsam::Key camera_key(const CameraModel &camera)
-    {
-      return gtsam::Symbol('c', static_cast<std::uint64_t>(camera.camera_idx_));
-    }
-
-    gtsam::Key camera_key()
-    {
-      return camera_key(model_.cameras_.cameras_[0]);
-    }
-
-    gtsam::Key marker_key(const MarkerModel &marker)
-    {
-      return gtsam::Symbol('m', static_cast<std::uint64_t>(marker.marker_idx_));
-    }
-
-    gtsam::Key corner_key(gtsam::Key marker_key, int corner_idx)
-    {
-      auto key_index = gtsam::Symbol{marker_key}.index();
-      static char codes[] = {'i', 'j', 'k', 'l'};
-      return gtsam::Symbol(codes[corner_idx % sizeof(codes)], key_index);
-    }
-
-    gtsam::Key corner_key(const MarkerModel &marker, int corner_idx)
-    {
-      return corner_key(marker_key(marker), corner_idx);
-    }
-
     void add_marker_0_prior(gtsam::NonlinearFactorGraph &graph)
     {
       // Add the prior for marker 0
       static auto priorModel = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
-      graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(marker_key(model_.markers_.markers_[0]),
+      graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(model_.markers_.markers_[0].key_,
                                                               model_.markers_.markers_[0].marker_f_world_,
                                                               priorModel);
     }
@@ -219,7 +207,7 @@ namespace camsim
         sr_.add_marker_0_prior(graph_);
       }
 
-      auto camera_key{sr_.camera_key(camera)};
+      auto camera_key{camera.key_};
 
       // Add the initial camera pose estimate
       if (!auto_initial_) {
@@ -227,7 +215,7 @@ namespace camsim
       }
 
       for (auto marker_ref : marker_refs) {
-        auto marker_key{sr_.marker_key(marker_ref)};
+        auto marker_key{marker_ref.get().key_};
 
         // Add the measurement factor.
         graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
@@ -312,13 +300,13 @@ namespace camsim
       for (size_t j = 0; j < corners_f_image.size(); j += 1) {
         graph.emplace_shared<ResectioningFactor>(
           sr_.point2_noise_,
-          sr_.camera_key(), *shared_calibration_,
+          CameraModel::default_key(), *shared_calibration_,
           corners_f_image[j],
           sr_.model_.markers_.corners_f_marker_[j]);
       }
 
       // Add the initial estimate for the camera pose in the marker frame
-      initial.insert(sr_.camera_key(), camera_f_marker_initial);
+      initial.insert(CameraModel::default_key(), camera_f_marker_initial);
 
       // Optimize the graph using Levenberg-Marquardt
       auto params = gtsam::LevenbergMarquardtParams();
@@ -330,7 +318,7 @@ namespace camsim
 //      std::cout << "final error = " << graph.error(result) << std::endl;
 
       // return the result
-      return PoseWithCovariance::Extract(graph, result, sr_.camera_key());
+      return PoseWithCovariance::Extract(graph, result, CameraModel::default_key());
     }
 
     PoseWithCovariance calc_marker_f_world(std::vector<PointWithCovariance> &corners_f_world)
@@ -397,10 +385,10 @@ namespace camsim
       std::cout << "initial error = " << graph_slam_.error(initial_slam) << std::endl;
       std::cout << "final error = " << graph_slam_.error(result_slam) << std::endl;
 
-      gtsam::Marginals marginals{graph_slam_, result_slam};
+      gtsam::Marginals marginals_slam{graph_slam_, result_slam};
       for (auto m : result_slam.filter(gtsam::Symbol::ChrTest('m'))) {
         sr_.display_results(m.value.cast<gtsam::Pose3>(),
-                            marginals.marginalCovariance(m.key));
+                            marginals_slam.marginalCovariance(m.key));
       }
 
       // Take initial_slam (or result_slam) and initialize initial_sfm
@@ -414,28 +402,33 @@ namespace camsim
         auto marker_key{m.key};
         auto t_world_marker{m.value.cast<gtsam::Pose3>()};
         for (size_t j = 0; j < sr_.model_.markers_.corners_f_marker_.size(); j += 1) {
-          initial_sfm.insert(sr_.corner_key(marker_key, j),
+          initial_sfm.insert(CornerModel::corner_key(marker_key, j),
                              t_world_marker * sr_.model_.markers_.corners_f_marker_[j]);
         }
       }
+
+//      initial_sfm.print("initial_sfm");
 
       auto result_sfm = gtsam::LevenbergMarquardtOptimizer(graph_sfm_, initial_sfm, params).optimize();
       std::cout << "Frame " << sr_.frames_processed_ << ": " << std::endl;
       std::cout << "initial error = " << graph_sfm_.error(initial_sfm) << std::endl;
       std::cout << "final error = " << graph_sfm_.error(result_sfm) << std::endl;
 
-
-      result_sfm.print("result_sfm ");
+//      result_sfm.print("result_sfm\n");
+      gtsam::Marginals marginals_sfm{};
+      for (auto const &m : result_slam.filter(gtsam::Symbol::ChrTest('m'))) {
+        sr_.display_results(PointWithCovariance::Extract4(result_sfm, marginals_sfm, m.key));
+      }
     }
 
     void add_marker_0_corner_priors()
     {
-      auto marker_key{sr_.model_.markers_.markers_[0]};
+      auto marker_key{MarkerModel::default_key()};
       auto t_world_marker{sr_.model_.markers_.markers_[0].marker_f_world_};
       static auto priorModel = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_3x1);
       for (size_t j = 0; j < sr_.model_.markers_.corners_f_marker_.size(); j += 1) {
         graph_sfm_.emplace_shared<gtsam::PriorFactor<gtsam::Point3> >(
-          sr_.corner_key(marker_key, j),
+          CornerModel::corner_key(marker_key, j),
           t_world_marker * sr_.model_.markers_.corners_f_marker_[j],
           priorModel);
       }
@@ -468,10 +461,10 @@ namespace camsim
         add_marker_0_corner_priors();
       }
 
-      auto camera_key{sr_.camera_key(camera)};
+      auto camera_key{camera.key_};
 
       for (auto &marker_ref : marker_refs) {
-        auto marker_key{sr_.marker_key(marker_ref)};
+        auto marker_key{marker_ref.get().key_};
 
         // The marker corners as seen in the image.
         auto corners_f_image = sr_.get_perturbed_corners_f_images(camera, marker_ref);
@@ -486,7 +479,7 @@ namespace camsim
 
         // Add the measurement factor for sfm as a general projection factor
         for (size_t j = 0; j < corners_f_image.size(); j += 1) {
-          auto corner_key{sr_.corner_key(marker_ref, j)};
+          auto corner_key{CornerModel::corner_key(marker_key, j)};
           graph_sfm_.emplace_shared<gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2>>(
             corners_f_image[j], sr_.point2_noise_,
             camera_key, corner_key,
@@ -501,7 +494,7 @@ namespace camsim
     SolverRunner &sr_;
 
     gtsam::ISAM2 isam2_{get_isam2_params()};
-    std::map<int, int> marker_seen_counts_{};
+    std::map<std::uint64_t, int> marker_seen_counts_{};
 
     static gtsam::ISAM2Params get_isam2_params()
     {
@@ -546,13 +539,13 @@ namespace camsim
         sr_.add_marker_0_prior(graph);
       }
 
-      auto camera_key{sr_.camera_key(camera)};
+      auto camera_key{camera.key_};
 
       // Add the initial camera pose estimate
       initial.insert(camera_key, sr_.get_perturbed_camera_f_world(camera));
 
       for (auto &marker_ref : marker_refs) {
-        auto marker_key{sr_.marker_key(marker_ref)};
+        auto marker_key{marker_ref.get().key_};
 
         // Add the measurement factor.
         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
@@ -560,16 +553,16 @@ namespace camsim
           sr_.get_perturbed_camera_f_marker(camera, marker_ref), sr_.pose3_noise_);
 
         // update the marker seen counts
-        auto pair = marker_seen_counts_.find(marker_ref.get().marker_idx_);
+        auto pair = marker_seen_counts_.find(marker_ref.get().key_);
         if (pair == marker_seen_counts_.end()) {
-          marker_seen_counts_.insert(std::pair<int, int>{marker_ref.get().marker_idx_, 1});
+          marker_seen_counts_.insert(std::pair<std::uint64_t, int>{marker_ref.get().key_, 1});
         } else {
           pair->second += 1;
         }
 
         // Add the initial marker value estimate only if this marker has not been seen.
         if (pair == marker_seen_counts_.end()) {
-          std::cout << "Adding marker " << marker_ref.get().marker_idx_
+          std::cout << "Adding marker " << marker_ref.get().index()
                     << " at frame " << sr_.frames_processed_ + 1 << std::endl;
           initial.insert(marker_key, sr_.get_perturbed_marker_f_world(marker_ref));
         }
@@ -584,14 +577,21 @@ namespace camsim
 
   void map_global()
   {
-    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{8, 2.},
-                            PoseGens::SpinAboutZAtOriginFacingOut{256},
+//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{8, 2.},
+//                            PoseGens::SpinAboutZAtOriginFacingOut{32},
+//                            camsim::CameraTypes::simulation,
+//                            0.1775}};
+
+    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{8, 2., 2., false},
+                            PoseGens::CircleInXYPlaneFacingAlongZ{1024, 2., 0., true},
                             camsim::CameraTypes::simulation,
                             0.1775}};
 
-    double r_sigma = 0.1;
-    double t_sigma = 0.3;
-    double u_sigma = 0.0001;
+    model.print_corners_f_image();
+
+    double r_sigma = 0.01;
+    double t_sigma = 0.03;
+    double u_sigma = 0.01;
 
     SolverRunner solver_runner{model,
                                (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),

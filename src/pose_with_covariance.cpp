@@ -3,6 +3,8 @@
 
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Marginals.h>
+#include <gtsam/3rdparty/Eigen/Eigen/Eigenvalues>
+#include "model.hpp"
 
 namespace camsim
 {
@@ -41,12 +43,45 @@ namespace camsim
     }
   };
 
+  // Return a vector as a string containing a row of numbers
+  static std::string to_row_str(gtsam::Vector v)
+  {
+    std::stringstream ss{};
+    NumFmt nf(9, 3);
+    for (auto p = v.data(); p < v.data() + v.size(); ++p) {
+      if (p != v.data()) {
+        ss << " ";
+      }
+      ss << nf(*p);
+    }
+    return ss.str();
+  }
+
+  // Return a matrix as a string containing the lower half of the matrix
+  static std::string to_lower_str(gtsam::Matrix m)
+  {
+    std::stringstream ss{};
+    NumFmt nf(9, 3);
+    for (int r = 0; r < m.rows(); r += 1) {
+      if (r != 0) {
+        ss << std::endl;
+      }
+      for (int c = 0; c <= r; c += 1) {
+        if (c != 0) {
+          ss << " ";
+        }
+        ss << nf(m(r, c));
+      }
+    }
+    return ss.str();
+  }
+
   PoseWithCovariance PoseWithCovariance::Extract(gtsam::NonlinearFactorGraph &graph,
-    gtsam::Values &result,
-    gtsam::Key key)
+                                                 gtsam::Values &result,
+                                                 gtsam::Key key)
   {
     gtsam::Marginals marginals(graph, result);
-    return PoseWithCovariance{static_cast<int>(gtsam::symbolIndex(key)),
+    return PoseWithCovariance{key,
                               result.at<gtsam::Pose3>(key),
                               marginals.marginalCovariance(key)};
   }
@@ -58,34 +93,75 @@ namespace camsim
 
   std::string PoseWithCovariance::to_str(const gtsam::Pose3 &pose)
   {
-    NumFmt nf(9, 3);
-    auto r = pose.rotation().xyz();
-    auto &t = pose.translation();
-    std::stringstream ss{};
-    ss << nf(r(0)) << " " << nf(r(1)) << " " << nf(r(2)) << " "
-       << nf(t(0)) << " " << nf(t(1)) << " " << nf(t(2));
-    return ss.str();
+    return to_row_str((gtsam::Vector{6} << pose.rotation().xyz(), pose.translation()).finished());
   }
 
   std::string PoseWithCovariance::to_str(const gtsam::Matrix6 &cov)
   {
-    NumFmt nf(9, 3);
-    auto &v = cov;
-    std::stringstream ss{};
-    ss << nf(v(0, 0)) << std::endl
-       << nf(v(1, 0)) << " " << nf(v(1, 1)) << std::endl
-       << nf(v(2, 0)) << " " << nf(v(2, 1)) << " " << nf(v(2, 2)) << std::endl
-       << nf(v(3, 0)) << " " << nf(v(3, 1)) << " " << nf(v(3, 2)) << " " << nf(v(3, 3)) << std::endl
-       << nf(v(4, 0)) << " " << nf(v(4, 1)) << " " << nf(v(4, 2)) << " " << nf(v(4, 3)) << " " << nf(v(4, 4))
-       << std::endl
-       << nf(v(5, 0)) << " " << nf(v(5, 1)) << " " << nf(v(5, 2)) << " " << nf(v(5, 3)) << " " << nf(v(5, 4)) << " "
-       << nf(v(5, 5));
-    return ss.str();
+    return to_lower_str(cov);
   }
 
-  static std::string to_eigen_values_str(const gtsam::Matrix6 &cov)
+  std::string PoseWithCovariance::to_eigenvalues_str(const gtsam::Matrix6 &cov)
   {
-    return std::string{};
+    Eigen::EigenSolver<gtsam::Matrix6> es(cov);
+    gtsam::Vector6 evs{es.eigenvalues().real()};
+    std::sort(evs.data(), evs.data() + evs.size(), std::greater<double>());
+    return to_row_str(evs);
+  }
+
+  std::string PoseWithCovariance::to_stddev_str(const gtsam::Matrix6 &cov)
+  {
+    return to_row_str(cov.diagonal().array().sqrt());
+  }
+
+
+  PointWithCovariance PointWithCovariance::Extract(const gtsam::Values &result,
+                                                   const gtsam::Marginals &marginals,
+                                                   gtsam::Key key)
+  {
+//    return PointWithCovariance{key, result.at<gtsam::Point3>(key), marginals.marginalCovariance(key)};
+    return PointWithCovariance{key, result.at<gtsam::Point3>(key), gtsam::Z_3x3};
+  }
+
+  std::array<PointWithCovariance, 4> PointWithCovariance::Extract4(const gtsam::Values &result,
+                                                                   const gtsam::Marginals &marginals,
+                                                                   gtsam::Key marker_key)
+  {
+    return std::array<PointWithCovariance, 4> {
+      Extract(result, marginals, CornerModel::corner_key(marker_key, 0)),
+      Extract(result, marginals, CornerModel::corner_key(marker_key, 1)),
+      Extract(result, marginals, CornerModel::corner_key(marker_key, 2)),
+      Extract(result, marginals, CornerModel::corner_key(marker_key, 3)),
+    };
+  }
+
+
+  std::string PointWithCovariance::to_str() const
+  {
+    return to_str(point_).append("\n").append(to_str(cov_));
+  }
+
+  std::string PointWithCovariance::to_str(const gtsam::Point3 &point)
+  {
+    return to_row_str(point);
+  }
+
+  std::string PointWithCovariance::to_str(const gtsam::Matrix3 &cov)
+  {
+    return to_lower_str(cov);
+  }
+
+  std::string PointWithCovariance::to_eigenvalues_str(const gtsam::Matrix3 &cov)
+  {
+    Eigen::EigenSolver<gtsam::Matrix3> es(cov);
+    gtsam::Vector3 evs{es.eigenvalues().real()};
+    std::sort(evs.data(), evs.data() + evs.size(), std::greater<double>());
+    return to_row_str(evs);
+  }
+
+  std::string PointWithCovariance::to_stddev_str(const gtsam::Matrix3 &cov)
+  {
+    return to_row_str(cov.diagonal().array().sqrt());
   }
 
 }

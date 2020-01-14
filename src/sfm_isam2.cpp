@@ -182,7 +182,7 @@ namespace camsim
 
         // Add the new marker pose
         markers_known_.emplace(camera_f_marker.id_,
-                               PoseWithCovariance{camera_f_marker.id_,
+                               PoseWithCovariance{camera_f_marker.key_,
                                                   result.at<gtsam::Pose3>(key),
                                                   marginals.marginalCovariance(key)});
       }
@@ -218,7 +218,7 @@ std::vector<camsim::PoseWithCovariance> sfm_run_isam2_camera_f_markers(
 
   for (auto &marker : model.markers_.markers_) {
 
-    auto &corners_f_image = model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
+    auto &corners_f_image = model.corners_f_images_[camera.index()][marker.index()].corners_f_image_;
 
     // If the marker was not visible in the image then, obviously, a pose calculation can not be done.
     if (corners_f_image.empty()) {
@@ -227,7 +227,7 @@ std::vector<camsim::PoseWithCovariance> sfm_run_isam2_camera_f_markers(
     }
 
     // Find the camera pose in the marker frame using the GTSAM library and add it to the list
-    camera_f_markers.emplace_back(ccp.camera_f_marker(marker.marker_idx_, corners_f_image));
+    camera_f_markers.emplace_back(ccp.camera_f_marker(marker.index(), corners_f_image));
 
     const auto &camera_f_marker = camera_f_markers.back();
 
@@ -257,9 +257,9 @@ int sfm_run_isam2()
   for (auto &camera : model.cameras_.cameras_) {
     std::cout << std::endl
               << "************************" << std::endl
-              << "camera " << camera.camera_idx_ << " measurements of camera_f_marker" << std::endl;
+              << "camera " << camera.index() << " measurements of camera_f_marker" << std::endl;
 
-    sfm_isam2.add_measurements(camera.camera_idx_,
+    sfm_isam2.add_measurements(camera.index(),
                                sfm_run_isam2_camera_f_markers(model, measurement_noise, camera));
   }
 

@@ -41,6 +41,17 @@ namespace camsim
     return rotate_around_z(n_, base);
   }
 
+  std::vector<gtsam::Pose3> PoseGens::CircleInXYPlaneFacingAlongZ::operator()() const
+  {
+    auto poses_in_circle = rotate_around_z(n_, gtsam::Pose3{gtsam::Rot3{},
+                                                            gtsam::Point3{radius_, 0., 0.}});
+    auto rot = facing_z_plus_not_z_negative_ ? gtsam::Rot3{} : gtsam::Rot3::RzRyRx(M_PI, 0., M_PI_2);
+    for (auto &pose : poses_in_circle) {
+      pose = gtsam::Pose3{rot, gtsam::Point3{pose.translation().x(), pose.translation().y(), z_offset_}};
+    }
+    return poses_in_circle;
+  }
+
   static double gen_marker_size(MarkersConfigurations markers_configuration)
   {
     switch (markers_configuration) {
@@ -91,18 +102,59 @@ namespace camsim
     camera_pose_generator_{std::move(camera_pose_generator)}
   {}
 
-  ModelConfig::ModelConfig(const ModelConfig &model_config) :
-    markers_configuration_{model_config.markers_configuration_},
-    camera_type_{model_config.camera_type_},
-    cameras_configuration_{model_config.cameras_configuration_},
-    marker_size_{model_config.marker_size_},
-    marker_spacing_{model_config.marker_spacing_},
-    camera_spacing_{model_config.camera_spacing_},
-    marker_pose_generator_{model_config.marker_pose_generator_},
-    camera_pose_generator_{model_config.camera_pose_generator_}
+  std::size_t CornerModel::index() const
+  {
+    return gtsam::Symbol(key_).index();
+  }
+
+
+  std::uint64_t CornerModel::default_key(int corner_idx)
+  {
+    return corner_key(MarkerModel::default_key(), corner_idx);
+  }
+
+  std::uint64_t CornerModel::corner_key(std::uint64_t marker_key, int corner_idx)
+  {
+    auto marker_index = gtsam::Symbol{marker_key}.index();
+    static char codes[] = {'i', 'j', 'k', 'l'};
+    return gtsam::Symbol(codes[corner_idx % sizeof(codes)], marker_index);
+  }
+
+  static std::array<CornerModel, 4> gen_corners(std::uint64_t marker_key,
+                                                const gtsam::Pose3 &marker_f_world,
+                                                const std::vector<gtsam::Point3> &corners_f_marker)
+  {
+    auto marker_index{gtsam::Symbol{marker_key}.index()};
+    return std::array<CornerModel, 4>{
+      CornerModel(CornerModel::corner_key(marker_key, 0), marker_f_world * corners_f_marker[0]),
+      CornerModel(CornerModel::corner_key(marker_key, 1), marker_f_world * corners_f_marker[1]),
+      CornerModel(CornerModel::corner_key(marker_key, 2), marker_f_world * corners_f_marker[2]),
+      CornerModel(CornerModel::corner_key(marker_key, 3), marker_f_world * corners_f_marker[3]),
+    };
+  }
+
+  CornersModel::CornersModel(std::uint64_t marker_key_,
+                             const gtsam::Pose3 &marker_f_world,
+                             const std::vector<gtsam::Point3> &corners_f_marker) :
+    corners_{gen_corners(marker_key_, marker_f_world, corners_f_marker)}
   {}
 
-  static void add_sphere_points(std::vector<gtsam::Point3> vectors,
+  std::size_t MarkerModel::index() const
+  {
+    return gtsam::Symbol(key_).index();
+  }
+
+  std::uint64_t MarkerModel::default_key()
+  {
+    return marker_key(0);
+  }
+
+  std::uint64_t MarkerModel::marker_key(std::size_t idx)
+  {
+    return gtsam::Symbol{'m', idx}.key();
+  }
+
+  static void add_sphere_points(const std::vector<gtsam::Point3> &vectors,
                                 double radius,
                                 std::vector<gtsam::Pose3> &marker_f_worlds)
   {
@@ -235,14 +287,10 @@ namespace camsim
         corners_f_world.emplace_back(marker_f_world * corner_f_marker);
       }
 
-      std::array<CornerModel, 4> corners {
-        CornerModel(0, gtsam::Point3{}),
-        CornerModel(0, gtsam::Point3{}),
-        CornerModel(0, gtsam::Point3{}),
-        CornerModel(0, gtsam::Point3{})
-      };
-
-      markers.emplace_back(MarkerModel{idx, marker_f_world, corners, std::move(corners_f_world)});
+      auto marker_key{MarkerModel::marker_key(idx)};
+      markers.emplace_back(MarkerModel{MarkerModel::marker_key(idx), marker_f_world,
+                                       CornersModel(idx, marker_f_world, corners_f_marker),
+                                       std::move(corners_f_world)});
     }
 
     return markers;
@@ -258,20 +306,29 @@ namespace camsim
   {
     std::cout << "Markers" << std::endl;
     for (auto &marker : markers_) {
-      auto &corner_f_world = marker.corners_f_world_;
+      auto &corners = marker.corners_;
       std::cout << PoseWithCovariance::to_str(marker.marker_f_world_) << " ";
-      std::cout << corner_f_world[0]
-                << corner_f_world[1]
-                << corner_f_world[2]
-                << corner_f_world[3] << std::endl;
+      std::cout << corners.corners_[0].point_f_world_
+                << corners.corners_[1].point_f_world_
+                << corners.corners_[2].point_f_world_
+                << corners.corners_[3].point_f_world_ << std::endl;
     }
   }
 
-  MarkersModel::MarkersModel(const ModelConfig &cfg, const MarkersModel &copy) :
-    cfg_{cfg},
-    corners_f_marker_{copy.corners_f_marker_},
-    markers_{copy.markers_}
-  {}
+  std::size_t CameraModel::index() const
+  {
+    return gtsam::Symbol(key_).index();
+  }
+
+  std::uint64_t CameraModel::default_key()
+  {
+    return camera_key(0);
+  }
+
+  std::uint64_t CameraModel::camera_key(std::size_t idx)
+  {
+    return gtsam::Symbol{'c', idx}.key();
+  }
 
   static gtsam::Cal3DS2 gen_camera_calibration(const ModelConfig &cfg)
   {
@@ -346,7 +403,7 @@ namespace camsim
 
     std::vector<CameraModel> cameras{};
     for (std::size_t idx = 0; idx < camera_f_worlds.size(); idx += 1) {
-      cameras.emplace_back(CameraModel{idx, camera_f_worlds[idx]});
+      cameras.emplace_back(CameraModel{CameraModel::camera_key(idx), camera_f_worlds[idx]});
     }
 
     return cameras;
@@ -407,10 +464,10 @@ namespace camsim
         std::vector<gtsam::Point2> corners_f_image{};
 
         // Project the corners of this marker into this camera's image plane.
-        for (auto &corner_f_world : marker.corners_f_world_) {
+        for (auto &corner : marker.corners_.corners_) {
           try {
             auto corner_f_image = cameras.project_func_(camera.camera_f_world_,
-                                                        corner_f_world,
+                                                        corner.point_f_world_,
                                                         boost::none);
 
             // If the point is outside of the image boundary, then don't save any of the points. This
@@ -433,13 +490,23 @@ namespace camsim
         }
 
         // Add an entry for this marker's corners in the camera's array
-        per_camera.emplace_back(CornersFImageModel{marker.marker_idx_, camera.camera_idx_, corners_f_image});
+        per_camera.emplace_back(CornersFImageModel{marker.key_, camera.key_, corners_f_image});
       }
 
       corners_f_images.emplace_back(per_camera);
     }
 
     return corners_f_images;
+  }
+
+  std::size_t CornersFImageModel::marker_index() const
+  {
+    return gtsam::Symbol(marker_key_).index();
+  }
+
+  std::size_t CornersFImageModel::camera_index() const
+  {
+    return gtsam::Symbol(camera_key_).index();
   }
 
   Model::Model(MarkersConfigurations markers_configuration,
@@ -451,8 +518,8 @@ namespace camsim
     corners_f_images_{gen_corners_f_images(markers_, cameras_)}
   {}
 
-  Model::Model(ModelConfig cfg) :
-    cfg_{std::move(cfg)},
+  Model::Model(const ModelConfig &cfg) :
+    cfg_{cfg},
     markers_{cfg_},
     cameras_{cfg_},
     corners_f_images_{gen_corners_f_images(markers_, cameras_)}
@@ -464,9 +531,9 @@ namespace camsim
     for (auto &per_camera : corners_f_images_) {
       for (auto &per_marker : per_camera) {
 
-        if (per_marker.marker_idx_ == 0) {
-          auto &camera = cameras_.cameras_[per_marker.camera_idx_];
-          std::cout << "camera_" << camera.camera_idx_
+        if (per_marker.marker_index() == 0) {
+          auto &camera = cameras_.cameras_[per_marker.camera_index()];
+          std::cout << "camera_" << camera.index()
                     << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
         }
 

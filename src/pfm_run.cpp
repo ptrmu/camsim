@@ -78,8 +78,8 @@ namespace camsim
                               const CameraModel &camera, const MarkerModel &marker,
                               const std::vector<gtsam::Point2> &corners_f_image)
   {
-    std::cout << "camera_" << camera.camera_idx_ << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
-    std::cout << "marker_" << marker.marker_idx_ << PoseWithCovariance::to_str(marker.marker_f_world_) << std::endl;
+    std::cout << "camera_" << camera.index() << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
+    std::cout << "marker_" << marker.index() << PoseWithCovariance::to_str(marker.marker_f_world_) << std::endl;
 
     // Get gtsam results
     gtsam::Pose3 gtsam_camera_f_world;
@@ -151,7 +151,7 @@ namespace camsim
 
     for (auto &camera : model.cameras_.cameras_) {
       for (auto &marker : model.markers_.markers_) {
-        auto &corners_f_image = model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
+        auto &corners_f_image = model.corners_f_images_[camera.index()][marker.index()].corners_f_image_;
         if (!corners_f_image.empty()) {
           compare_results(camera_calibration, measurement_noise,
                           camera, marker, corners_f_image);

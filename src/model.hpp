@@ -40,8 +40,26 @@ namespace camsim
     {
       int n_;
     public:
-      SpinAboutZAtOriginFacingOut(int n) :
+      explicit SpinAboutZAtOriginFacingOut(int n) :
         n_{n}
+      {}
+
+      std::vector<gtsam::Pose3> operator()() const;
+    };
+
+    class CircleInXYPlaneFacingAlongZ
+    {
+      int n_;
+      double radius_;
+      double z_offset_;
+      bool facing_z_plus_not_z_negative_;
+
+    public:
+      explicit CircleInXYPlaneFacingAlongZ(int n,
+                                           double radius,
+                                           double z_offset,
+                                           bool facing_z_plus_not_z_negative) :
+        n_{n}, radius_{radius}, z_offset_{z_offset}, facing_z_plus_not_z_negative_{facing_z_plus_not_z_negative}
       {}
 
       std::vector<gtsam::Pose3> operator()() const;
@@ -102,49 +120,64 @@ namespace camsim
                 CameraTypes camera_type,
                 double marker_size);
 
-    ModelConfig(const ModelConfig &model_config);
+    ModelConfig(const ModelConfig &model_config) = default;
   };
 
   class Model;
 
   class MarkerModel;
 
+  class MarkersModel;
+
   struct CornerModel
   {
-    const std::uint64_t corner_key_;
-    const gtsam::Point3 corner_f_world_;
+    const std::uint64_t key_;
+    const gtsam::Point3 point_f_world_;
 
-    CornerModel(std::uint64_t corner_key,
-                gtsam::Point3 corner_f_world) :
-      corner_key_{corner_key},
-      corner_f_world_{std::move(corner_f_world)}
+    CornerModel(std::uint64_t key,
+                gtsam::Point3 point_f_world) :
+      key_{key},
+      point_f_world_{std::move(point_f_world)}
     {}
+
+    std::size_t index() const;
+
+    static std::uint64_t default_key(int corner_idx);
+
+    static std::uint64_t corner_key(std::uint64_t marker_key, int corner_idx);
   };
 
   struct CornersModel
   {
-    const Model &model_;
     const std::array<CornerModel, 4> corners_;
 
-    CornersModel(MarkerModel &marker);
+    CornersModel(std::uint64_t marker_key_,
+                 const gtsam::Pose3 &marker_f_world,
+                 const std::vector<gtsam::Point3> &corners_f_marker);
   };
 
   struct MarkerModel
   {
-    const std::size_t marker_idx_;
+    const std::uint64_t key_;
     const gtsam::Pose3 marker_f_world_;
-    const std::array<CornerModel, 4> corners_;
-    const std::vector<gtsam::Point3> corners_f_world_;
+    const CornersModel corners_;
+    const std::vector<gtsam::Point3> corners_f_world_; // remove this at sometime
 
-    MarkerModel(std::size_t marker_idx,
+    MarkerModel(const std::uint64_t key,
                 const gtsam::Pose3 &marker_f_world,
-                std::array<CornerModel, 4> corners,
+                CornersModel corners,
                 std::vector<gtsam::Point3> corners_f_world) :
-      marker_idx_{marker_idx},
+      key_{key},
       marker_f_world_{marker_f_world},
       corners_{std::move(corners)},
       corners_f_world_{std::move(corners_f_world)}
     {}
+
+    std::size_t index() const;
+
+    static std::uint64_t default_key();
+
+    static std::uint64_t marker_key(std::size_t idx);
   };
 
   struct MarkersModel
@@ -154,8 +187,6 @@ namespace camsim
     const std::vector<MarkerModel> markers_;
 
     explicit MarkersModel(const ModelConfig &cfg);
-
-    MarkersModel(const ModelConfig &cfg, const MarkersModel &copy);
   };
 
   using ProjectFunc = std::function<gtsam::Point2(const gtsam::Pose3 &,
@@ -164,14 +195,20 @@ namespace camsim
 
   struct CameraModel
   {
-    const std::size_t camera_idx_;
+    const std::uint64_t key_;
     const gtsam::Pose3 camera_f_world_;
 
-    CameraModel(std::size_t camera_idx,
+    CameraModel(const std::uint64_t key,
                 const gtsam::Pose3 &camera_f_world) :
-      camera_idx_{camera_idx},
+      key_{key},
       camera_f_world_{camera_f_world}
     {}
+
+    std::size_t index() const;
+
+    static std::uint64_t default_key();
+
+    static std::uint64_t camera_key(std::size_t idx);
   };
 
   struct CamerasModel
@@ -181,24 +218,28 @@ namespace camsim
     const ProjectFunc project_func_;
     const std::vector<CameraModel> cameras_;
 
-    CamerasModel(const ModelConfig &cfg);
+    explicit CamerasModel(const ModelConfig &cfg);
 
     gtsam::Cal3_S2 get_Cal3_S2();
   };
 
   struct CornersFImageModel
   {
-    const std::size_t marker_idx_;
-    const std::size_t camera_idx_;
+    const std::uint64_t marker_key_;
+    const std::uint64_t camera_key_;
     const std::vector<gtsam::Point2> corners_f_image_;
 
-    CornersFImageModel(std::size_t marker_idx,
-                       std::size_t camera_idx,
+    CornersFImageModel(std::uint64_t marker_key,
+                       std::uint64_t camera_key,
                        std::vector<gtsam::Point2> corners_f_image) :
-      marker_idx_{marker_idx},
-      camera_idx_{camera_idx},
+      marker_key_{marker_key},
+      camera_key_{camera_key},
       corners_f_image_{std::move(corners_f_image)}
     {}
+
+    std::size_t marker_index() const;
+
+    std::size_t camera_index() const;
   };
 
   struct Model
@@ -212,7 +253,7 @@ namespace camsim
           CamerasConfigurations cameras_configuration,
           CameraTypes camera_type);
 
-    Model(ModelConfig cfg);
+    explicit Model(const ModelConfig &cfg);
 
     void print_corners_f_image();
   };

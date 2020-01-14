@@ -156,7 +156,7 @@ namespace camsim
       auto camera_f_marker_covariance = marginals.marginalCovariance(X1_);
 
       return PoseWithCovariance{
-        marker_id,
+        static_cast<std::uint64_t>(marker_id),
         camera_f_marker,
         camera_f_marker_covariance};
     }
@@ -195,7 +195,7 @@ int sfm_run_resectioning()
   for (auto &camera : model.cameras_.cameras_) {
     std::cout << std::endl
               << "************************" << std::endl
-              << "camera " << camera.camera_idx_ << std::endl;
+              << "camera " << camera.index() << std::endl;
 
     camsim::CalcCameraPose ccp{model.cameras_.calibration_,
                                model.cameras_.project_func_,
@@ -204,7 +204,7 @@ int sfm_run_resectioning()
 
     for (auto &marker : model.markers_.markers_) {
 
-      auto &corners_f_image = model.corners_f_images_[camera.camera_idx_][marker.marker_idx_].corners_f_image_;
+      auto &corners_f_image = model.corners_f_images_[camera.index()][marker.index()].corners_f_image_;
 
       // If the marker was not visible in the image then, obviously, a pose calculation can not be done.
       if (corners_f_image.empty()) {
@@ -213,7 +213,7 @@ int sfm_run_resectioning()
       }
 
       // Find the camera pose in the marker frame using the GTSAM library
-      auto camera_f_marker = ccp.camera_f_marker(marker.marker_idx_, corners_f_image);
+      auto camera_f_marker = ccp.camera_f_marker(marker.index(), corners_f_image);
 
       // Test that the calculated pose is the same as the original model.
       if (!camera_f_marker.pose_.equals(
