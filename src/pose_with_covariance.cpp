@@ -76,14 +76,12 @@ namespace camsim
     return ss.str();
   }
 
-  PoseWithCovariance PoseWithCovariance::Extract(gtsam::NonlinearFactorGraph &graph,
-                                                 gtsam::Values &result,
+  PoseWithCovariance PoseWithCovariance::Extract(const gtsam::Values &result,
+                                                 const gtsam::Marginals *marginals,
                                                  gtsam::Key key)
   {
-    gtsam::Marginals marginals(graph, result);
-    return PoseWithCovariance{key,
-                              result.at<gtsam::Pose3>(key),
-                              marginals.marginalCovariance(key)};
+    return PoseWithCovariance{key, result.at<gtsam::Pose3>(key),
+                              marginals != nullptr ? marginals->marginalCovariance(key) : gtsam::Z_6x6};
   }
 
   std::string PoseWithCovariance::to_str() const
@@ -116,18 +114,18 @@ namespace camsim
 
 
   PointWithCovariance PointWithCovariance::Extract(const gtsam::Values &result,
-                                                   const gtsam::Marginals &marginals,
+                                                   const gtsam::Marginals *marginals,
                                                    gtsam::Key key)
   {
-//    return PointWithCovariance{key, result.at<gtsam::Point3>(key), marginals.marginalCovariance(key)};
-    return PointWithCovariance{key, result.at<gtsam::Point3>(key), gtsam::Z_3x3};
+    return PointWithCovariance{key, result.at<gtsam::Point3>(key),
+                               marginals != nullptr ? marginals->marginalCovariance(key) : gtsam::Z_3x3};
   }
 
-  std::array<PointWithCovariance, 4> PointWithCovariance::Extract4(const gtsam::Values &result,
-                                                                   const gtsam::Marginals &marginals,
-                                                                   gtsam::Key marker_key)
+  PointWithCovariance::FourPoints PointWithCovariance::Extract4(const gtsam::Values &result,
+                                                                const gtsam::Marginals *marginals,
+                                                                gtsam::Key marker_key)
   {
-    return std::array<PointWithCovariance, 4> {
+    return std::array<PointWithCovariance, 4>{
       Extract(result, marginals, CornerModel::corner_key(marker_key, 0)),
       Extract(result, marginals, CornerModel::corner_key(marker_key, 1)),
       Extract(result, marginals, CornerModel::corner_key(marker_key, 2)),

@@ -154,6 +154,12 @@ namespace camsim
     return gtsam::Symbol{'m', idx}.key();
   }
 
+
+  std::uint64_t MarkerModel::marker_key_from_corner_key(std::uint64_t corner_key)
+  {
+    return marker_key(gtsam::Symbol{corner_key}.index());
+  }
+
   static void add_sphere_points(const std::vector<gtsam::Point3> &vectors,
                                 double radius,
                                 std::vector<gtsam::Pose3> &marker_f_worlds)

@@ -178,6 +178,8 @@ namespace camsim
     static std::uint64_t default_key();
 
     static std::uint64_t marker_key(std::size_t idx);
+
+    static std::uint64_t marker_key_from_corner_key(std::uint64_t corner_key);
   };
 
   struct MarkersModel

@@ -27,7 +27,9 @@ namespace camsim
       key_{key}, id_{static_cast<int>(key)}, pose_{pose}, cov_{cov}
     {}
 
-    static PoseWithCovariance Extract(gtsam::NonlinearFactorGraph &graph, gtsam::Values &result, gtsam::Key key);
+    static PoseWithCovariance Extract(const gtsam::Values &result,
+                                      const gtsam::Marginals *marginals,
+                                      gtsam::Key key);
 
     std::string to_str() const;
 
@@ -42,6 +44,8 @@ namespace camsim
 
   struct PointWithCovariance
   {
+    typedef std::array<PointWithCovariance, 4> FourPoints;
+
     const std::uint64_t key_;
     const gtsam::Point3 point_;
     const gtsam::Matrix3 cov_;
@@ -51,12 +55,12 @@ namespace camsim
     {}
 
     static PointWithCovariance Extract(const gtsam::Values &result,
-                                       const gtsam::Marginals &marginals,
+                                       const gtsam::Marginals *marginals,
                                        gtsam::Key key);
 
-    static std::array<PointWithCovariance, 4> Extract4(const gtsam::Values &result,
-                                                       const gtsam::Marginals &marginals,
-                                                       gtsam::Key marker_key);
+    static FourPoints Extract4(const gtsam::Values &result,
+                               const gtsam::Marginals *marginals,
+                               gtsam::Key marker_key);
 
     std::string to_str() const;
 

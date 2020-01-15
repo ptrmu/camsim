@@ -85,19 +85,20 @@ namespace camsim
       }
     }
 
-    void display_results(const gtsam::Pose3 &pose, const gtsam::Matrix6 &cov) const
+    void display_results(const PoseWithCovariance &pose_f_world) const
     {
-      std::cout << PoseWithCovariance::to_str(pose)
-                << " std: " << PoseWithCovariance::to_stddev_str(cov)
+      gtsam::Symbol sym{pose_f_world.key_};
+      std::cout << sym.chr() << sym.index() << PoseWithCovariance::to_str(pose_f_world.pose_)
+                << " std: " << PoseWithCovariance::to_stddev_str(pose_f_world.cov_)
                 << std::endl;
       if (print_covariance_) {
-        std::cout << PoseWithCovariance::to_str(cov) << std::endl;
+        std::cout << PoseWithCovariance::to_str(pose_f_world.cov_) << std::endl;
       }
     }
 
     void display_results(const std::array<camsim::PointWithCovariance, 4> &corners_f_world) const
     {
-      std::cout << "m" << std::endl;
+      std::cout << "m" << gtsam::Symbol(corners_f_world[0].key_).index() << std::endl;
       for (auto const &corner_f_world : corners_f_world) {
         std::cout << PointWithCovariance::to_str(corner_f_world.point_)
                   << " std: " << PointWithCovariance::to_stddev_str(corner_f_world.cov_)
@@ -148,6 +149,25 @@ namespace camsim
                                                               model_.markers_.markers_[0].marker_f_world_,
                                                               priorModel);
     }
+
+    std::unique_ptr<gtsam::Marginals> get_marginals(gtsam::NonlinearFactorGraph &graph, gtsam::Values &values)
+    {
+      try {
+        return std::make_unique<gtsam::Marginals>(graph, values);
+      }
+      catch (gtsam::IndeterminantLinearSystemException &ex) {
+      }
+      std::cout << "Could not create marginals, trying QR" << std::endl;
+
+      try {
+        return std::make_unique<gtsam::Marginals>(graph, values, gtsam::Marginals::QR);
+      }
+      catch (gtsam::IndeterminantLinearSystemException &ex) {
+      }
+      std::cout << "Could not create marginals, returning null" << std::endl;
+
+      return std::unique_ptr<gtsam::Marginals>{};
+    }
   };
 
   class SolverBatch
@@ -183,10 +203,9 @@ namespace camsim
       std::cout << "initial error = " << graph_.error(initial_) << std::endl;
       std::cout << "final error = " << graph_.error(result) << std::endl;
 
-      gtsam::Marginals marginals{graph_, result};
+      auto marginals_slam_ptr{sr_.get_marginals(graph_, result)};
       for (auto m : result.filter(gtsam::Symbol::ChrTest('m'))) {
-        sr_.display_results(m.value.cast<gtsam::Pose3>(),
-                            marginals.marginalCovariance(m.key));
+        sr_.display_results(PoseWithCovariance::Extract(result, marginals_slam_ptr.get(), m.key));
       }
     }
 
@@ -318,49 +337,52 @@ namespace camsim
 //      std::cout << "final error = " << graph.error(result) << std::endl;
 
       // return the result
-      return PoseWithCovariance::Extract(graph, result, CameraModel::default_key());
+      auto marginals_ptr{sr_.get_marginals(graph, result)};
+      return PoseWithCovariance::Extract(result, marginals_ptr.get(), CameraModel::default_key());
     }
 
-    PoseWithCovariance calc_marker_f_world(std::vector<PointWithCovariance> &corners_f_world)
+    PoseWithCovariance calc_marker_f_world(const PointWithCovariance::FourPoints &corners_f_world)
     {
-#if 0
-      auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector3(.5, .5, .5));
+      auto marker_key{MarkerModel::marker_key_from_corner_key(corners_f_world[0].key_)};
 
-      /* 1. create graph */
-      gtsam::NonlinearFactorGraph graph;
-      gtsam::Values initial;
+      /* Create graph */
+      gtsam::NonlinearFactorGraph graph{};
+      gtsam::Values initial{};
 
-      /* 2. add measurement factors to the graph */
-      for (int i = 0; i < corners_f_marker.size(); i += 1) {
-        graph.emplace_shared<TransformFromFactor>(measurement_noise, X(1),
-                                                  corners_f_marker[i],
-                                                  marker_model.corners_f_world_[i]);
+      /* Add measurement factors to the graph */
+      for (std::size_t j = 0; j < corners_f_world.size(); j += 1) {
+        auto const &corner_f_world = corners_f_world[j];
+        graph.emplace_shared<TransformFromFactor>(
+          gtsam::noiseModel::Gaussian::Covariance(corner_f_world.cov_), marker_key,
+          sr_.model_.markers_.corners_f_marker_[j], corner_f_world.point_);
       }
 
       /* 3. Create an initial estimate for the camera pose */
-      auto &cfw = marker_model.corners_f_world_;
-      auto t = (cfw[0] + cfw[1] + cfw[2] + cfw[3]) / 4.;
-      auto x_axis = ((cfw[1] + cfw[2]) / 2. - t).normalized();
-      auto z_axis = x_axis.cross(cfw[1] - t).normalized();
+      auto &cfw = corners_f_world;
+      auto t = (cfw[0].point_ + cfw[1].point_ + cfw[2].point_ + cfw[3].point_) / 4.;
+      auto x_axis = ((cfw[1].point_ + cfw[2].point_) / 2. - t).normalized();
+      auto z_axis = x_axis.cross(cfw[1].point_ - t).normalized();
       auto y_axis = z_axis.cross(x_axis);
       auto r = gtsam::Rot3{(gtsam::Matrix3{} << x_axis, y_axis, z_axis).finished()};
       auto camera_f_world_initial = gtsam::Pose3{r, t};
-      initial.insert(X(1), camera_f_world_initial);
+      initial.insert(marker_key, camera_f_world_initial);
 
       /* 4. Optimize the graph using Levenberg-Marquardt*/
-      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();
+      auto params = gtsam::LevenbergMarquardtParams();
+//      params.setVerbosityLM("TERMINATION");
+//      params.setVerbosity("TERMINATION");
+      params.setRelativeErrorTol(1e-8);
+      params.setAbsoluteErrorTol(1e-8);
 
-      auto camera_f_world = result.at<gtsam::Pose3>(X(1));
+      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
+//      std::cout << "initial error = " << graph.error(initial) << std::endl;
+//      std::cout << "final error = " << graph.error(result) << std::endl;
 
+      auto camera_f_world = result.at<gtsam::Pose3>(marker_key);
       gtsam::Marginals marginals(graph, result);
-      gtsam::Matrix6 camera_f_world_covariance = marginals.marginalCovariance(X(1));
+      gtsam::Matrix6 camera_f_world_covariance = marginals.marginalCovariance(marker_key);
 
-      std::cout << "Marker " << marker_model.marker_idx_ << std::endl;
-      std::cout << "Truth " << PoseWithCovariance::to_str(marker_model.marker_f_world_) << std::endl;
-      std::cout << "Init  " << PoseWithCovariance::to_str(camera_f_world_initial) << std::endl;
-      std::cout << "Found " << PoseWithCovariance::to_str(camera_f_world) << std::endl;
-      std::cout << PoseWithCovariance::to_str(camera_f_world_covariance) << std::endl;
-#endif
+      return PoseWithCovariance(marker_key, camera_f_world, camera_f_world_covariance);
     }
 
     void display_results()
@@ -385,10 +407,9 @@ namespace camsim
       std::cout << "initial error = " << graph_slam_.error(initial_slam) << std::endl;
       std::cout << "final error = " << graph_slam_.error(result_slam) << std::endl;
 
-      gtsam::Marginals marginals_slam{graph_slam_, result_slam};
+      auto marginals_slam_ptr{sr_.get_marginals(graph_slam_, result_slam)};
       for (auto m : result_slam.filter(gtsam::Symbol::ChrTest('m'))) {
-        sr_.display_results(m.value.cast<gtsam::Pose3>(),
-                            marginals_slam.marginalCovariance(m.key));
+        sr_.display_results(PoseWithCovariance::Extract(result_slam, marginals_slam_ptr.get(), m.key));
       }
 
       // Take initial_slam (or result_slam) and initialize initial_sfm
@@ -407,17 +428,25 @@ namespace camsim
         }
       }
 
-//      initial_sfm.print("initial_sfm");
-
+      params.maxIterations = 1000;
       auto result_sfm = gtsam::LevenbergMarquardtOptimizer(graph_sfm_, initial_sfm, params).optimize();
       std::cout << "Frame " << sr_.frames_processed_ << ": " << std::endl;
       std::cout << "initial error = " << graph_sfm_.error(initial_sfm) << std::endl;
       std::cout << "final error = " << graph_sfm_.error(result_sfm) << std::endl;
 
-//      result_sfm.print("result_sfm\n");
-      gtsam::Marginals marginals_sfm{};
+      auto marginals_sfm_ptr{sr_.get_marginals(graph_sfm_, result_sfm)};
+      std::vector<PointWithCovariance::FourPoints> corner_points_list{};
       for (auto const &m : result_slam.filter(gtsam::Symbol::ChrTest('m'))) {
-        sr_.display_results(PointWithCovariance::Extract4(result_sfm, marginals_sfm, m.key));
+        corner_points_list.emplace_back(PointWithCovariance::Extract4(result_sfm, marginals_sfm_ptr.get(), m.key));
+      }
+
+      for (auto const &corner_points : corner_points_list) {
+        sr_.display_results(corner_points);
+      }
+
+      for (auto const &corner_points : corner_points_list) {
+        auto marker_f_world{calc_marker_f_world(corner_points)};
+        sr_.display_results(marker_f_world);
       }
     }
 
@@ -514,8 +543,8 @@ namespace camsim
       std::cout << "****************************************************" << std::endl;
       std::cout << "Frame " << sr_.frames_processed_ << ": " << std::endl;
       for (auto m : currentEstimate.filter(gtsam::Symbol::ChrTest('m'))) {
-        sr_.display_results(m.value.cast<gtsam::Pose3>(),
-                            isam2_.marginalCovariance(m.key));
+        sr_.display_results(PoseWithCovariance(m.key, m.value.cast<gtsam::Pose3>(),
+                                               isam2_.marginalCovariance(m.key)));
       }
     }
 
@@ -575,41 +604,47 @@ namespace camsim
   };
 
 
-  void map_global()
+  void map_global(double r_sigma,
+                  double t_sigma,
+                  double u_sampler_sigma,
+                  double u_noise_sigma)
   {
-//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{8, 2.},
-//                            PoseGens::SpinAboutZAtOriginFacingOut{32},
+    int n_markers = 8;
+    int n_cameras = 1024;
+
+//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
+//                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
 //                            camsim::CameraTypes::simulation,
 //                            0.1775}};
 
-    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{8, 2., 2., false},
-                            PoseGens::CircleInXYPlaneFacingAlongZ{1024, 2., 0., true},
+    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
+                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
                             camsim::CameraTypes::simulation,
                             0.1775}};
 
-    model.print_corners_f_image();
+//    model.print_corners_f_image();
 
-    double r_sigma = 0.01;
-    double t_sigma = 0.03;
-    double u_sigma = 0.01;
+//    double r_sigma = 0.1;
+//    double t_sigma = 0.3;
+//    double u_sigma = 0.5;
 
     SolverRunner solver_runner{model,
                                (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
                                  gtsam::Vector3::Constant(t_sigma)).finished(),
                                (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
                                  gtsam::Vector3::Constant(t_sigma)).finished(),
-                               gtsam::Vector2::Constant(u_sigma),
-                               gtsam::Vector2::Constant(u_sigma),
+                               gtsam::Vector2::Constant(u_sampler_sigma),
+                               gtsam::Vector2::Constant(u_noise_sigma),
                                false};
 
-    solver_runner([](SolverRunner &solver_runner)
-                  { return SolverBatch{solver_runner, false}; });
-
-    solver_runner([](SolverRunner &solver_runner)
-                  { return SolverBatch{solver_runner, true}; });
-
-    solver_runner([](SolverRunner &solver_runner)
-                  { return SolverISAM{solver_runner}; });
+//    solver_runner([](SolverRunner &solver_runner)
+//                  { return SolverBatch{solver_runner, false}; });
+//
+//    solver_runner([](SolverRunner &solver_runner)
+//                  { return SolverBatch{solver_runner, true}; });
+//
+//    solver_runner([](SolverRunner &solver_runner)
+//                  { return SolverISAM{solver_runner}; });
 
     solver_runner([](SolverRunner &solver_runner)
                   { return SolverBatchSFM{solver_runner}; });
