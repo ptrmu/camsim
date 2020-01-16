@@ -3,6 +3,7 @@
 #include "map_run.hpp"
 #include "model.hpp"
 #include "pose_with_covariance.hpp"
+#include "task_thread.hpp"
 
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/PinholeCamera.h>
@@ -648,5 +649,62 @@ namespace camsim
 
     solver_runner([](SolverRunner &solver_runner)
                   { return SolverBatchSFM{solver_runner}; });
+  }
+
+  void map_global_thread(double r_sigma,
+                         double t_sigma,
+                         double u_sampler_sigma,
+                         double u_noise_sigma)
+  {
+    int n_markers = 8;
+    int n_cameras = 1024;
+
+//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
+//                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
+//                            camsim::CameraTypes::simulation,
+//                            0.1775}};
+
+    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
+                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
+                            camsim::CameraTypes::simulation,
+                            0.1775}};
+
+
+    auto solver_runner = std::make_unique<SolverRunner>(model,
+                                                        (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                                          gtsam::Vector3::Constant(t_sigma)).finished(),
+                                                        (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                                          gtsam::Vector3::Constant(t_sigma)).finished(),
+                                                        gtsam::Vector2::Constant(u_sampler_sigma),
+                                                        gtsam::Vector2::Constant(u_noise_sigma),
+                                                        false);
+
+    task_thread::TaskThread<SolverRunner> tt(solver_runner);
+
+    tt.push([](SolverRunner &sr) -> void
+            {
+              sr([](SolverRunner &solver_runner)
+                 { return SolverBatch{solver_runner, false}; });
+            });
+
+    tt.push([](SolverRunner &sr) -> void
+            {
+              sr([](SolverRunner &solver_runner)
+                 { return SolverBatch{solver_runner, true}; });
+            });
+
+    tt.push([](SolverRunner &sr) -> void
+            {
+              sr([](SolverRunner &solver_runner)
+                 { return SolverISAM{solver_runner}; });
+            });
+
+    tt.push([](SolverRunner &sr) -> void
+            {
+              sr([](SolverRunner &solver_runner)
+                 { return SolverBatchSFM{solver_runner}; });
+            });
+
+    tt.wait_until_empty();
   }
 }
