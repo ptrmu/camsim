@@ -8,18 +8,31 @@
 int main()
 {
 
-  task_thread::ConcurrentQueue<std::unique_ptr<int>> cq{};
-  cq.push(std::make_unique<int>(5));
+  task_thread::ConcurrentQueue<std::unique_ptr<int>> cqi{};
+  cqi.push(std::make_unique<int>(5));
   auto i6 = std::make_unique<int>(6);
-  cq.push(std::move(i6));
+  cqi.push(std::move(i6));
   std::unique_ptr<int> pi5;
-  std::unique_ptr<int> pi6;
-  cq.try_pop(pi5);
-  cq.try_pop(pi6);
-  std::cout << *pi5 << " " << *pi6 << std::endl;
+  cqi.try_pop(pi5);
+  std::cout << *pi5 << " " << *cqi.pop() << std::endl;
+
+  struct Constructed
+  {
+    int i_;
+
+    Constructed(int i) : i_{i}
+    {}
+  };
+  task_thread::ConcurrentQueue<Constructed> cqc{};
+  Constructed c3{3};
+  cqc.push(c3);
+  cqc.push(Constructed{7});
+  Constructed c3a{-3};
+  cqc.try_pop(c3a);
+  std::cout << c3a.i_ << " " << cqc.pop().i_ << std::endl;
 
 
-  task_thread::ConcurrentQueue<int> out_q{}; // Make output queue have longer life than TaskThread
+  task_thread::ConcurrentQueue<int> out_q{}; // The output queue must have a longer life than the TaskThread
   auto work = std::make_unique<int>(5);
   task_thread::TaskThread<int> tti{std::move(work)};
   tti.push([&out_q](int &i)
@@ -32,12 +45,7 @@ int main()
              i += 3;
              out_q.push(i);
            });
-  std::cout << "queued tasks " << tti.tasks_queued() << std::endl;
-  std::cout << "queued output " << out_q.size() << std::endl;
-  std::cout << "first output " << out_q.wait_and_pop() << std::endl;
-  std::cout << "second output " << out_q.wait_and_pop() << std::endl;
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  std::cout << "queued tasks " << tti.tasks_queued() << std::endl;
+  std::cout << out_q.pop() << " " << out_q.pop() << std::endl;
 
 //  camsim::map_global(0.1, 0.3, 01.0, 0.5);
   camsim::map_global_thread(0.1, 0.3, 01.0, 0.5);

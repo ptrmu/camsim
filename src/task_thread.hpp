@@ -13,7 +13,18 @@
 namespace task_thread
 {
   // Items are moved into the queue. In other words, The queue takes
-  // ownership of the items placed in it.
+  // ownership of the items placed in it. TItem must be movable but
+  // it does not need a default constructor.
+  //
+  // Sample code:
+  //  task_thread::ConcurrentQueue<std::unique_ptr<int>> cqi{};
+  //  cqi.push(std::make_unique<int>(5));
+  //  auto i6 = std::make_unique<int>(6);
+  //  cqi.push(std::move(i6));
+  //  std::unique_ptr<int> pi5;
+  //  cqi.try_pop(pi5);
+  //  std::cout << *pi5 << " " << *cqi.pop() << std::endl;
+  //
   template<typename TItem>
   class ConcurrentQueue
   {
@@ -21,19 +32,40 @@ namespace task_thread
     std::mutex m_{};
     std::condition_variable cv_{};
 
+    // This class is needed in order to return
+    // an object with no default constructor from
+    // the pop() method.
+    class Popper
+    {
+      std::queue<TItem> &q_;
+
+    public:
+      Popper(std::queue<TItem> &q) : q_{q}
+      {}
+
+      ~Popper()
+      { q_.pop(); } // Do the pop after the item has been moved from the queue.
+
+      TItem pop()
+      { return std::move(q_.front()); }
+    };
+
   public:
     void push(TItem item)
     {
       std::unique_lock<std::mutex> lock{m_};
       q_.push(std::move(item));
-      lock.unlock();
+      lock.unlock(); // Unlock so the notify-ee can access the resource immediately
       cv_.notify_one();
     }
 
-    bool empty()
+    TItem pop()
     {
       std::unique_lock<std::mutex> lock{m_};
-      return q_.empty();
+      while (q_.empty()) {
+        cv_.wait_for(lock, std::chrono::milliseconds(250));
+      }
+      return Popper(q_).pop();
     }
 
     bool try_pop(TItem &popped_item)
@@ -43,32 +75,33 @@ namespace task_thread
         return false;
       }
 
-      popped_item = std::move(q_.front());
-      q_.pop();
+      popped_item = std::move(Popper(q_).pop());
       return true;
     }
 
-    void wait_for()
+    bool pop_or_abort(TItem &popped_item, volatile int &abort)
     {
       std::unique_lock<std::mutex> lock{m_};
-      cv_.wait_for(lock, std::chrono::milliseconds(250));
-    }
-
-    TItem wait_and_pop()
-    {
-      std::unique_lock<std::mutex> lock{m_};
-      while (q_.empty()) {
+      while (!abort && q_.empty()) {
         cv_.wait_for(lock, std::chrono::milliseconds(250));
       }
+      if (abort) {
+        return false;
+      }
 
-      TItem popped_item{std::move(q_.front())};
-      q_.pop();
-      return popped_item;
+      popped_item = std::move(Popper(q_).pop());
+      return true;
     }
 
     void notify_one()
     {
       cv_.notify_one();
+    }
+
+    bool empty()
+    {
+      std::unique_lock<std::mutex> lock{m_};
+      return q_.empty();
     }
 
     std::size_t size()
@@ -82,28 +115,36 @@ namespace task_thread
   // contain code that operates on the work object. The functors are executed
   // on a thread. A convenient way to return results from a functor calculation
   // is with another ConcurrentQueue.
+  //
+  // Sample code:
+  //  task_thread::ConcurrentQueue<int> out_q{}; // The output queue must have a longer life than the TaskThread
+  //  auto work = std::make_unique<int>(5);
+  //  task_thread::TaskThread<int> tti{std::move(work)};
+  //  tti.push([&out_q](int &i)
+  //           {
+  //             i += 2;
+  //             out_q.push(i);
+  //           });
+  //  tti.push([&out_q](int &i)
+  //           {
+  //             i += 3;
+  //             out_q.push(i);
+  //           });
+  //  std::cout << out_q.pop() << " " << out_q.pop() << std::endl;
+  //
   template<class TWork>
   class TaskThread
   {
     ConcurrentQueue<std::function<void(TWork &)>> q_{};
     std::unique_ptr<TWork> work_;
     std::thread thread_;
-    int abort_{0};
+    volatile int abort_{0};
 
     static void run(TaskThread *tt)
     {
-      while (true) {
-        std::function<void(TWork &)> task{};
-        bool run_task = tt->q_.try_pop(task);
-        if (tt->abort_) {
-          break;
-        }
-        if (run_task) {
-          task(*tt->work_);
-        }
-        if (tt->q_.empty()) {
-          tt->q_.wait_for();
-        }
+      std::function<void(TWork &)> task{};
+      while (tt->q_.pop_or_abort(task, tt->abort_)) {
+        task(*tt->work_);
       }
     }
 
@@ -135,7 +176,7 @@ namespace task_thread
       return q_.empty();
     }
 
-    std::size_t tasks_queued()
+    std::size_t tasks_in_queue()
     {
       return q_.size();
     }
