@@ -679,7 +679,7 @@ namespace camsim
                                                         gtsam::Vector2::Constant(u_noise_sigma),
                                                         false);
 
-    task_thread::TaskThread<SolverRunner> tt(solver_runner);
+    task_thread::TaskThread<SolverRunner> tt(std::move(solver_runner));
 
     tt.push([](SolverRunner &sr) -> void
             {
