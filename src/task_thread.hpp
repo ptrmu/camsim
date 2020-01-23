@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <chrono>
 #include <functional>
+#include <future>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -114,7 +115,10 @@ namespace task_thread
   // TaskThread is instantiated with a work object. The functors in the queue
   // contain code that operates on the work object. The functors are executed
   // on a thread. A convenient way to return results from a functor calculation
-  // is with another ConcurrentQueue.
+  // is with another ConcurrentQueue. Or promise/future can be used to return
+  // results. NOTE: std::packaged_task objects are used to hold the callable
+  // object instead of std::function objects. This is because std::function
+  // is not movable. The future functionality of std::packaged_task is not used.
   //
   // Sample code:
   //  task_thread::ConcurrentQueue<int> out_q{}; // The output queue must have a longer life than the TaskThread
@@ -135,14 +139,18 @@ namespace task_thread
   template<class TWork>
   class TaskThread
   {
-    ConcurrentQueue<std::function<void(TWork &)>> q_{};
+    ConcurrentQueue<std::packaged_task<void(TWork &)>> q_{};
     std::unique_ptr<TWork> work_;
     std::thread thread_;
     volatile int abort_{0};
 
     static void run(TaskThread *tt)
     {
-      std::function<void(TWork &)> task{};
+      // Occasionally when running under the debugger, this thread will hang
+      // and not get started. The following line seems to fix the problem.
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+      std::packaged_task<void(TWork &)> task{};
       while (tt->q_.pop_or_abort(task, tt->abort_)) {
         task(*tt->work_);
       }
@@ -166,9 +174,10 @@ namespace task_thread
       q_.notify_one();
     }
 
-    void push(const std::function<void(TWork &)> &task)
+    template <class TTask>
+    void push(TTask task)
     {
-      q_.push(task);
+      q_.push(std::packaged_task<void(TWork &)>{std::move(task)});
     }
 
     bool empty()
