@@ -9,30 +9,53 @@
 int main()
 {
 
-  task_thread::ConcurrentQueue<std::unique_ptr<int>> cqi{};
-  cqi.push(std::make_unique<int>(5));
-  auto i6 = std::make_unique<int>(6);
-  cqi.push(std::move(i6));
-  std::unique_ptr<int> pi5;
-  cqi.try_pop(pi5);
-  std::cout << *pi5 << " " << *cqi.pop() << std::endl;
-
-  struct Constructed
-  {
-    int i_;
-
-    Constructed(int i) : i_{i}
-    {}
-  };
-  task_thread::ConcurrentQueue<Constructed> cqc{};
-  Constructed c3{3};
-  cqc.push(c3);
-  cqc.push(Constructed{7});
-  Constructed c3a{-3};
-  cqc.try_pop(c3a);
-  std::cout << c3a.i_ << " " << cqc.pop().i_ << std::endl;
+  { // ConcurentQueue with int as argument
+    task_thread::ConcurrentQueue<int> cqi{};
+    cqi.push(2);
+    auto i1 = 1;
+    cqi.push(i1);
+    int pi2;
+    cqi.try_pop(pi2);
+    std::cout << pi2 << " " << cqi.pop() << std::endl;
+  }
 
   {
+    // ConcurentQueue with unique ptr to int as payload.
+    // This demonstrates how the queue manages ownership.
+    task_thread::ConcurrentQueue<std::unique_ptr<int>> cqi{};
+    cqi.push(std::make_unique<int>(5));
+    auto i6 = std::make_unique<int>(6);
+    cqi.push(std::move(i6));
+    std::unique_ptr<int> pi5;
+    cqi.try_pop(pi5);
+    std::cout << *pi5 << " " << *cqi.pop() << std::endl;
+  }
+
+  {
+    // ConcurrentQueue with a struct/class as the payload.
+    // This demonstrates that classes without default constructors
+    // can be payloads.
+    struct Constructed
+    {
+      int i_;
+
+      Constructed(int i) : i_{i}
+      {}
+
+      Constructed() = delete;
+    };
+    task_thread::ConcurrentQueue<Constructed> cqc{};
+    Constructed c3{3};
+    cqc.push(c3);
+    cqc.push(Constructed{7});
+    Constructed c3a{-3};
+    cqc.try_pop(c3a);
+    std::cout << c3a.i_ << " " << cqc.pop().i_ << std::endl;
+  }
+
+  {
+    // TaskThread demonstrating how to use a ConcurrentQueue
+    // to return results from task.
     task_thread::ConcurrentQueue<int> out_q{}; // The output queue must have a longer life than the TaskThread
     auto work = std::make_unique<int>(3);
     task_thread::TaskThread<int> tti{std::move(work)};
@@ -50,6 +73,8 @@ int main()
   }
 
   {
+    // TaskThread demonstrating how to use promise/future pairs
+    // to return results from a task.
     auto work = std::make_unique<int>(14);
     task_thread::TaskThread<int> tti{std::move(work)};
     std::promise<int> p1;
@@ -70,26 +95,31 @@ int main()
   }
 
   {
+    // TaskThread demonstrating how to pass a functor that hos no
+    // default constructor and is movable but not copyable.
     task_thread::ConcurrentQueue<int> out_q{}; // The output queue must have a longer life than the TaskThread
     auto work = std::make_unique<int>(21);
     task_thread::TaskThread<int> tti{std::move(work)};
     class ATask
     {
-      int i_inc_;
       task_thread::ConcurrentQueue<int> &out_q_;
+      std::unique_ptr<int> pi;
+
     public:
-      ATask(int i_inc, task_thread::ConcurrentQueue<int> &out_q) : i_inc_{i_inc}, out_q_{out_q}
+      ATask(int i_inc, task_thread::ConcurrentQueue<int> &out_q) : out_q_{out_q}, pi{std::make_unique<int>(i_inc)}
       {}
+
+      ATask() = delete;
 
       void operator()(int &i)
       {
-        i = i + i_inc_;
+        i = i + *pi;
         out_q_.push(i);
       }
     };
     ATask atask{4, out_q};
-    tti.push(atask);
-    tti.push(atask);
+    tti.push(std::move(atask)); // atask has been moved and can not used again
+    tti.push(ATask{3, out_q});
     std::cout << out_q.pop() << " " << out_q.pop() << std::endl;
   }
 
