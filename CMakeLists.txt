@@ -111,6 +111,7 @@ add_executable(pfp_run
   src/pfp_odometry_example_3d.cpp
   src/pfp_pose_unit_test.cpp
   src/pfp_marker_pose_from_corners.cpp
+  src/pfp_gspnp.cpp
   )
 
 target_link_libraries(pfp_run
