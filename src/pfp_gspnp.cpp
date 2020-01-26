@@ -4,4 +4,8 @@
 namespace camsim
 {
 
+  void pfp_gspnp()
+  {
+
+  }
 }
