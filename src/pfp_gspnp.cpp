@@ -7,6 +7,25 @@ namespace camsim
 {
   typedef std::reference_wrapper<const MarkerModel> MarkerModelRef;
 
+  class TestGspnp
+  {
+    Model &model_;
+
+  public:
+    TestGspnp(Model &model) :
+      model_{model}
+    {}
+
+    void operator()(const CameraModel &camera,
+                    const std::vector<MarkerModelRef> &marker_refs)
+    {
+      for (auto &marker : marker_refs) {
+
+        
+      }
+    }
+  };
+
   static void test_one_camera(const CameraModel &camera,
                               const std::vector<MarkerModelRef> &marker_refs)
   {
@@ -22,6 +41,8 @@ namespace camsim
                             camsim::CameraTypes::simulation,
                             0.1775}};
 
+    TestGspnp test_gspnp{model};
+
     // Loop over all the cameras
     for (auto &camera : model.cameras_.cameras_) {
       std::vector<MarkerModelRef> marker_refs{};
@@ -35,9 +56,8 @@ namespace camsim
 
       // Let the solver work on these measurements.
       if (marker_refs.size() > 1) {
-        test_one_camera(camera, marker_refs);
+        test_gspnp(camera, marker_refs);
       }
     }
-
   }
 }
