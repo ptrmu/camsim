@@ -12,12 +12,40 @@ namespace camsim
   {
     Model &model_;
 
+    double calc_tz(gtsam::Point2 corner_f_image0,
+                   gtsam::Point2 corner_f_image1,
+                   gtsam::Point3 corner_f_world0,
+                   gtsam::Point3 corner_f_world1)
+    {
+      // t/f = d_world / d_image
+      auto d_image = (corner_f_image1 - corner_f_image0).norm();
+      auto d_world = (corner_f_world1 - corner_f_world0).norm();
+
+      return model_.cameras_.calibration_.fx() * d_world / d_image;
+    }
+
     void calc_gspnp(const CameraModel &camera,
                     const MarkerModel &marker,
                     const std::vector<gtsam::Point2> corners_f_image)
     {
       auto camera_f_marker = camera.camera_f_world_.inverse() * marker.marker_f_world_;
       std::cout << PoseWithCovariance::to_str(camera_f_marker) << std::endl;
+      std::cout << calc_tz(corners_f_image[0],
+                           corners_f_image[1],
+                           model_.markers_.corners_f_marker_[0],
+                           model_.markers_.corners_f_marker_[1]) << " "
+                << calc_tz(corners_f_image[1],
+                           corners_f_image[2],
+                           model_.markers_.corners_f_marker_[1],
+                           model_.markers_.corners_f_marker_[2]) << " "
+                << calc_tz(corners_f_image[2],
+                           corners_f_image[3],
+                           model_.markers_.corners_f_marker_[2],
+                           model_.markers_.corners_f_marker_[3]) << " "
+                << calc_tz(corners_f_image[3],
+                           corners_f_image[0],
+                           model_.markers_.corners_f_marker_[3],
+                           model_.markers_.corners_f_marker_[0]) << std::endl;
     }
 
   public:
@@ -46,15 +74,15 @@ namespace camsim
     int n_markers = 8;
     int n_cameras = 8;
 
-    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
-                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
-                            camsim::CameraTypes::simulation,
-                            0.1775}};
-
-//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
-//                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
+//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
+//                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
 //                            camsim::CameraTypes::simulation,
 //                            0.1775}};
+
+    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
+                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
+                            camsim::CameraTypes::simulation,
+                            0.1775}};
 
     TestGspnp test_gspnp{model};
 
@@ -70,9 +98,7 @@ namespace camsim
       }
 
       // Let the solver work on these measurements.
-      if (marker_refs.size() > 1) {
-        test_gspnp(camera, marker_refs);
-      }
+      test_gspnp(camera, marker_refs);
     }
   }
 }

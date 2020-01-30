@@ -446,10 +446,10 @@ namespace camsim
     project_func_{gen_project_func(cfg_, calibration_)},
     cameras_{gen_cameras(cfg, calibration_)}
   {
-    std::cout << "Cameras" << std::endl;
-    for (auto &camera : cameras_) {
-      std::cout << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
-    }
+//    std::cout << "Cameras" << std::endl;
+//    for (auto &camera : cameras_) {
+//      std::cout << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
+//    }
   }
 
   gtsam::Cal3_S2 CamerasModel::get_Cal3_S2()
