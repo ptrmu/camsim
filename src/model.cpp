@@ -52,6 +52,26 @@ namespace camsim
     return poses_in_circle;
   }
 
+  std::vector<gtsam::Pose3> PoseGens::CubeAlongZFacingOrigin::operator()() const
+  {
+    std::vector<gtsam::Pose3> pose_f_worlds{};
+
+    auto side_offset = -side_length_ / 2.;
+    auto side_delta = side_length_ / (per_side_ - 1);
+    for (int ix = 0; ix < per_side_; ix += 1) {
+      for (int iy = 0; iy < per_side_; iy += 1) {
+        for (int iz = 0; iz < per_side_; iz += 1) {
+          pose_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., M_PI),
+                                                  gtsam::Point3{ix * side_delta + side_offset,
+                                                                iy * side_delta + side_offset,
+                                                                iz * side_delta + side_offset + z_offset_}});
+        }
+      }
+    }
+
+    return pose_f_worlds;
+  }
+
   static double gen_marker_size(MarkersConfigurations markers_configuration)
   {
     switch (markers_configuration) {

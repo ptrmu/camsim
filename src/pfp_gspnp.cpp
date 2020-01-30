@@ -34,18 +34,14 @@ namespace camsim
                            corners_f_image[1],
                            model_.markers_.corners_f_marker_[0],
                            model_.markers_.corners_f_marker_[1]) << " "
-                << calc_tz(corners_f_image[1],
+                << calc_tz(corners_f_image[0],
                            corners_f_image[2],
-                           model_.markers_.corners_f_marker_[1],
+                           model_.markers_.corners_f_marker_[0],
                            model_.markers_.corners_f_marker_[2]) << " "
-                << calc_tz(corners_f_image[2],
+                << calc_tz(corners_f_image[0],
                            corners_f_image[3],
-                           model_.markers_.corners_f_marker_[2],
-                           model_.markers_.corners_f_marker_[3]) << " "
-                << calc_tz(corners_f_image[3],
-                           corners_f_image[0],
-                           model_.markers_.corners_f_marker_[3],
-                           model_.markers_.corners_f_marker_[0]) << std::endl;
+                           model_.markers_.corners_f_marker_[0],
+                           model_.markers_.corners_f_marker_[3]) << std::endl;
     }
 
   public:
@@ -74,15 +70,27 @@ namespace camsim
     int n_markers = 8;
     int n_cameras = 8;
 
+    ModelConfig model_config{[]() -> std::vector<gtsam::Pose3>
+                             {
+                               return std::vector<gtsam::Pose3>{gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI / 20, 0., 0.),
+                                                                             gtsam::Point3{}}};
+                             },
+                             PoseGens::CubeAlongZFacingOrigin{3, 2., 2.},
+                             camsim::CameraTypes::simulation,
+                             0.1775
+
+    };
 //    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
 //                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
 //                            camsim::CameraTypes::simulation,
 //                            0.1775}};
 
-    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
-                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
-                            camsim::CameraTypes::simulation,
-                            0.1775}};
+//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
+//                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
+//                            camsim::CameraTypes::simulation,
+//                            0.1775}};
+
+    Model model{model_config};
 
     TestGspnp test_gspnp{model};
 

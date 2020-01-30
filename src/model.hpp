@@ -64,6 +64,22 @@ namespace camsim
 
       std::vector<gtsam::Pose3> operator()() const;
     };
+
+    class CubeAlongZFacingOrigin
+    {
+      int per_side_;
+      double side_length_;
+      double z_offset_;
+
+    public:
+      explicit CubeAlongZFacingOrigin(int per_side,
+                                           double side_length,
+                                           double z_offset) :
+        per_side_{per_side}, side_length_{side_length}, z_offset_{z_offset}
+      {}
+
+      std::vector<gtsam::Pose3> operator()() const;
+    };
   };
 
   enum class MarkersConfigurations
