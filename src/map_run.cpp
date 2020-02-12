@@ -8,7 +8,7 @@
 
 int main()
 {
-
+#if 0
   { // ConcurentQueue with int as argument
     task_thread::ConcurrentQueue<int> cqi{};
     cqi.push(2);
@@ -123,7 +123,9 @@ int main()
     std::cout << out_q.pop() << " " << out_q.pop() << std::endl;
   }
 
-//  camsim::map_global(0.1, 0.3, 01.0, 0.5);
   camsim::map_global_thread(0.1, 0.3, 01.0, 0.5);
+#else
+  camsim::map_global(0.1, 0.3, 01.0, 0.5);
+#endif
 }
 

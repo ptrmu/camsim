@@ -130,6 +130,7 @@ add_executable(map_run
   src/map_global.cpp
   src/model.cpp
   src/pose_with_covariance.cpp
+  src/map_solver_marker_marker.cpp
   )
 
 target_link_libraries(map_run
