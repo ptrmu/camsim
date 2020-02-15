@@ -169,13 +169,65 @@ namespace camsim
       return PoseWithCovariance::Extract(result, marginals_ptr.get(), CameraModel::default_key());
     }
 
+    PoseWithCovariance calc_marker1_f_marker0(const std::vector<gtsam::Point2> &corners0_f_image,
+                                              const std::vector<gtsam::Point2> &corners1_f_image,
+                                              const gtsam::Pose3 &camera_f_marker0_initial,
+                                              const gtsam::Pose3 &camera_f_marker1_initial)
+    {
+      gtsam::NonlinearFactorGraph graph{};
+      gtsam::Values initial{};
+
+      // Determine camera-marker measurements from the image corners.
+      auto camera_f_marker0 = calc_camera_f_marker(corners0_f_image, camera_f_marker0_initial);
+      auto camera_f_marker1 = calc_camera_f_marker(corners1_f_image, camera_f_marker1_initial);
+
+      // Add the measurements to the graph
+      graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+        MarkerModel::marker_key(0), CameraModel::default_key(),
+        camera_f_marker0.pose_,
+        gtsam::noiseModel::Gaussian::Covariance(camera_f_marker0.cov_ * 4.));
+
+      graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+        MarkerModel::marker_key(1), CameraModel::default_key(),
+        camera_f_marker1.pose_,
+        gtsam::noiseModel::Gaussian::Covariance(camera_f_marker1.cov_ * 4.));
+
+      // Constrain marker0 to be at the origin
+      static auto priorModel = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
+      graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(
+        MarkerModel::marker_key(0),
+        gtsam::Pose3{}, priorModel);
+
+
+      // Add the initial estimates for the poses of the two markers and the camera.
+      initial.insert(MarkerModel::marker_key(0), gtsam::Pose3{});
+      initial.insert(CameraModel::default_key(), camera_f_marker0.pose_);
+      auto marker1_f_marker0 = camera_f_marker0.pose_ * camera_f_marker1.pose_.inverse();
+      initial.insert(MarkerModel::marker_key(1), marker1_f_marker0);
+
+
+      // Optimize the graph using Levenberg-Marquardt
+      auto params = gtsam::LevenbergMarquardtParams();
+      params.setRelativeErrorTol(1e-8);
+      params.setAbsoluteErrorTol(1e-8);
+
+      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
+//      std::cout << "initial error = " << graph.error(initial) << std::endl;
+//      std::cout << "final error = " << graph.error(result) << std::endl;
+
+      // return the result
+      auto marginals_ptr{sr_.get_marginals(graph, result)};
+      return PoseWithCovariance::Extract(result, marginals_ptr.get(), MarkerModel::marker_key(1));
+    }
+
+
     void display_results()
     {
       // These objects get copy constructed and will sometimes get destructed without
       // being "solved". Not quite sure why the RVO doesn't prevent this but it might
       // be because the object is passed by the operator() member and not by the
       // class itself.
-      if (graph_.empty()) {
+      if (initial_.empty()) {
         return;
       }
 
@@ -208,7 +260,9 @@ namespace camsim
       sr_.model_.cameras_.calibration_.k2(),
       sr_.model_.cameras_.calibration_.p1(),
       sr_.model_.cameras_.calibration_.p2())}
-    {}
+    {
+      sr_.add_marker_0_prior(graph_);
+    }
 
     ~SolverMarkerMarker()
     {
@@ -218,24 +272,33 @@ namespace camsim
     void operator()(const CameraModel &camera,
                     const std::vector<MarkerModelRef> &marker_refs)
     {
-      if (sr_.frames_processed_ == 0) {
-        sr_.add_marker_0_prior(graph_);
-      }
-
       auto camera_key{camera.key_};
 
-      for (auto marker_ref : marker_refs) {
-        auto marker_key{marker_ref.get().key_};
+      for (std::size_t i = 0; i < marker_refs.size(); i += 1) {
+        for (std::size_t j = i + 1; j < marker_refs.size(); j += 1) {
+          auto &marker0{marker_refs[i].get()};
+          auto &marker1{marker_refs[j].get()};
 
-        // The marker corners as seen in the image.
-        auto corners_f_image = sr_.get_corners_f_images(camera, marker_ref);
+          // Determine the marker-marker relative pose measurement
+          auto marker1_f_marker0 = calc_marker1_f_marker0(sr_.get_perturbed_corners_f_images(camera, marker0),
+                                                          sr_.get_perturbed_corners_f_images(camera, marker1),
+                                                          sr_.get_perturbed_camera_f_marker(camera, marker0),
+                                                          sr_.get_perturbed_camera_f_marker(camera, marker1));
 
-        // The measurement
-        auto camera_f_marker = calc_camera_f_marker_aruco(corners_f_image,
-                                                          sr_.get_perturbed_camera_f_marker(camera, marker_ref));
+          // Add the marker-marker factor to the graph
+          graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+            marker0.key_, marker1.key_,
+            marker1_f_marker0.pose_,
+            gtsam::noiseModel::Gaussian::Covariance(marker1_f_marker0.cov_ * 4.));
 
-        std::cout << PoseWithCovariance::to_str(camera_f_marker.pose_) << " "
-                  << PoseWithCovariance::to_str(sr_.get_camera_f_marker(camera, marker_ref)) << std::endl;
+          // Add the initial estimates for both markers.
+          if (!initial_.exists(marker0.key_)) {
+            initial_.insert(marker0.key_, sr_.get_perturbed_marker_f_world(marker0));
+          }
+          if (!initial_.exists(marker1.key_)) {
+            initial_.insert(marker1.key_, sr_.get_perturbed_marker_f_world(marker1));
+          }
+        }
       }
     }
   };
@@ -246,5 +309,4 @@ namespace camsim
   {
     return SolverMarkerMarker(sr, false);
   }
-
 }

@@ -5,6 +5,8 @@
 #include "model.hpp"
 #include "pose_with_covariance.hpp"
 
+#define ENABLE_TIMING
+#include <gtsam/base/timing.h>
 #include <gtsam/linear/NoiseModel.h>
 #include "gtsam/linear/Sampler.h"
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -57,26 +59,33 @@ namespace camsim
       point2_sampler_ = gtsam::Sampler{point2_sampler_sigmas_, 42u};
       frames_processed_ = 0;
 
-      // Instantiate the solver
-      auto solver{solver_factory(*this)};
+      gttic(solver);
 
-      // Loop over all the cameras
-      for (auto &camera : model_.cameras_.cameras_) {
-        std::vector<MarkerModelRef> marker_refs{};
+      {
+        // Instantiate the solver
+        auto solver{solver_factory(*this)};
 
-        // Figure out which markers are visible from this camera
-        for (auto &marker : model_.markers_.markers_) {
-          if (!model_.corners_f_images_[camera.index()][marker.index()].corners_f_image_.empty()) {
-            marker_refs.emplace_back(MarkerModelRef{marker});
+        // Loop over all the cameras
+        for (auto &camera : model_.cameras_.cameras_) {
+          std::vector<MarkerModelRef> marker_refs{};
+
+          // Figure out which markers are visible from this camera
+          for (auto &marker : model_.markers_.markers_) {
+            if (!model_.corners_f_images_[camera.index()][marker.index()].corners_f_image_.empty()) {
+              marker_refs.emplace_back(MarkerModelRef{marker});
+            }
+          }
+
+          // Let the solver work on these measurements.
+          if (marker_refs.size() > 1) {
+            solver(camera, marker_refs);
+            frames_processed_ += 1;
           }
         }
-
-        // Let the solver work on these measurements.
-        if (marker_refs.size() > 1) {
-          solver(camera, marker_refs);
-          frames_processed_ += 1;
-        }
       }
+
+      gttoc(solver);
+      gtsam::tictoc_print();
     }
 
     void display_results(const PoseWithCovariance &pose_f_world) const

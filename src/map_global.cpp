@@ -457,17 +457,17 @@ namespace camsim
                   double u_noise_sigma)
   {
     int n_markers = 8;
-    int n_cameras = 32;
+    int n_cameras = 4096;
 
-//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
-//                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
-//                            camsim::CameraTypes::simulation,
-//                            0.1775}};
-
-    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
-                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
+    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
+                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
                             camsim::CameraTypes::simulation,
                             0.1775}};
+
+//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
+//                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
+//                            camsim::CameraTypes::simulation,
+//                            0.1775}};
 
 //    model.print_corners_f_image();
 
