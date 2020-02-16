@@ -26,6 +26,9 @@ namespace camsim
 
   std::function<void(const CameraModel &, const std::vector<std::reference_wrapper<const MarkerModel>> &)>
   solver_marker_marker_factory(SolverRunner &sr);
+
+  std::function<void(const CameraModel &, const std::vector<std::reference_wrapper<const MarkerModel>> &)>
+  solver_project_between_factory(SolverRunner &sr);
 }
 
 #endif //_MAP_RUN_HPP

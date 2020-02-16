@@ -457,23 +457,40 @@ namespace camsim
                   double u_noise_sigma)
   {
     int n_markers = 8;
-    int n_cameras = 4096;
+    int n_cameras = 32;
 
-    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
-                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
-                            camsim::CameraTypes::simulation,
-                            0.1775}};
+    ModelConfig model_config{[]() -> std::vector<gtsam::Pose3>
+                             {
+                               return std::vector<gtsam::Pose3>{gtsam::Pose3{gtsam::Rot3::RzRyRx(0.1, 0., 0.),
+                                                                             gtsam::Point3{1., 0., 0.}}};
+                             },
+                             []() -> std::vector<gtsam::Pose3>
+                             {
+                               return std::vector<gtsam::Pose3>{gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., M_PI),
+                                                                             gtsam::Point3{0., 0., 2.}}};
+                             },
+                             camsim::CameraTypes::simulation,
+                             0.1775};
 
-//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
+//    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
+//                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
+//                            camsim::CameraTypes::simulation,
+//                            0.1775};
+
+//    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
 //                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
 //                            camsim::CameraTypes::simulation,
-//                            0.1775}};
+//                            0.1775};
 
 //    model.print_corners_f_image();
 
 //    double r_sigma = 0.1;
 //    double t_sigma = 0.3;
 //    double u_sigma = 0.5;
+
+    Model model{model_config};
+
+//    model.print_corners_f_image();
 
     SolverRunner solver_runner{model,
                                (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
@@ -496,8 +513,11 @@ namespace camsim
 //    solver_runner([](SolverRunner &solver_runner)
 //                  { return SolverBatchSFM{solver_runner}; });
 
+//    solver_runner([](SolverRunner &solver_runner)
+//                  { return solver_marker_marker_factory(solver_runner); });
+
     solver_runner([](SolverRunner &solver_runner)
-                  { return solver_marker_marker_factory(solver_runner); });
+                  { return solver_project_between_factory(solver_runner); });
   }
 
   void map_global_thread(double r_sigma,
@@ -505,19 +525,20 @@ namespace camsim
                          double u_sampler_sigma,
                          double u_noise_sigma)
   {
-    int n_markers = 8;
-    int n_cameras = 1024;
+    int n_markers = 4;
+    int n_cameras = 4;
 
-    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
-                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
-                            camsim::CameraTypes::simulation,
-                            0.1775}};
+    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
+                             PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
+                             camsim::CameraTypes::simulation,
+                             0.1775};
 
-//    Model model{ModelConfig{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
+//    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
 //                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
 //                            camsim::CameraTypes::simulation,
-//                            0.1775}};
+//                            0.1775};
 
+    Model model{model_config};
 
     auto solver_runner = std::make_unique<SolverRunner>(model,
                                                         (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
