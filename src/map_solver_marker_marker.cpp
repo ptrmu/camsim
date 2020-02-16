@@ -35,7 +35,12 @@ namespace camsim
                                 boost::optional<gtsam::Matrix &> H) const override
     {
       auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{pose, cal3ds2_};
-      return camera.project(P_, H) - p_;
+      try {
+        return camera.project(P_, H) - p_;
+      } catch (gtsam::CheiralityException &e) {
+      }
+      if (H) *H = gtsam::Matrix::Zero(2, 6);
+      return gtsam::Vector2::Constant(2.0 * cal3ds2_.fx());
     }
   };
 
@@ -222,7 +227,7 @@ namespace camsim
       // being "solved". Not quite sure why the RVO doesn't prevent this but it might
       // be because the object is passed by the operator() member and not by the
       // class itself.
-      if (initial_.empty()) {
+      if (graph_.size() < 2) {
         return;
       }
 
@@ -256,7 +261,7 @@ namespace camsim
       sr_.model_.cameras_.calibration_.p1(),
       sr_.model_.cameras_.calibration_.p2())}
     {
-      sr_.add_marker_0_prior(graph_);
+      sr_.add_marker_0_prior(graph_, initial_);
     }
 
     ~SolverMarkerMarker()

@@ -86,6 +86,7 @@ namespace camsim
 
       gttoc(solver);
       gtsam::tictoc_print();
+      gtsam::tictoc_reset_();
     }
 
     void display_results(const PoseWithCovariance &pose_f_world) const
@@ -148,6 +149,13 @@ namespace camsim
         corner_f_image = corner_f_image.retract(point2_sampler_.sample());
       }
       return corners_f_image;
+    }
+
+    void add_marker_0_prior(gtsam::NonlinearFactorGraph &graph, gtsam::Values &initial)
+    {
+      add_marker_0_prior(graph);
+      initial.insert(model_.markers_.markers_[0].key_,
+                     model_.markers_.markers_[0].marker_f_world_);
     }
 
     void add_marker_0_prior(gtsam::NonlinearFactorGraph &graph)

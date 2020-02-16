@@ -18,12 +18,12 @@ namespace camsim
     const gtsam::Point2 point_f_image_;
 
   public:
-    ProjectBetweenFactor(const gtsam::SharedNoiseModel &model,
+    ProjectBetweenFactor(gtsam::Point2 point_f_image,
+                         const gtsam::SharedNoiseModel &model,
                          const gtsam::Key key_marker,
+                         gtsam::Point3 point_f_marker,
                          const gtsam::Key key_camera,
-                         const gtsam::Cal3DS2 &cal3ds2,
-                         gtsam::Point2 point_f_image,
-                         gtsam::Point3 point_f_marker) :
+                         const gtsam::Cal3DS2 &cal3ds2) :
       NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(model, key_marker, key_camera),
       cal3ds2_{cal3ds2},
       point_f_marker_(std::move(point_f_marker)),
@@ -41,99 +41,36 @@ namespace camsim
       gtsam::Matrix26 d_point2_wrt_pose3;
       gtsam::Matrix23 d_point2_wrt_point3;
 
-      gtsam::Point3 point_f_world = marker_f_world.transform_from(point_f_marker_, d_point3_wrt_pose3);
+      // Transform the point from the Marker frame to the World frame
+      gtsam::Point3 point_f_world = marker_f_world.transform_from(
+        point_f_marker_,
+        H1 ? gtsam::OptionalJacobian<3, 6>(d_point3_wrt_pose3) : boost::none);
 
+      // Project this point to the camera's image frame. Catch and return a default
+      // value on a CheiralityException.
       auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{camera_f_world, cal3ds2_};
-      gtsam::Point2 point_f_image = camera.project(point_f_world, d_point2_wrt_pose3, d_point2_wrt_point3);
+      try {
+        gtsam::Point2 point_f_image = camera.project(
+          point_f_world,
+          H2 ? gtsam::OptionalJacobian<2, 6>(d_point2_wrt_pose3) : boost::none,
+          H1 ? gtsam::OptionalJacobian<2, 3>(d_point2_wrt_point3) : boost::none);
 
-      if (H1) {
-        (*H1) = d_point2_wrt_point3 * d_point3_wrt_pose3;
+        // Return the Jacobian for each input
+        if (H1) {
+          *H1 = d_point2_wrt_point3 * d_point3_wrt_pose3;
+        }
+        if (H2) {
+          *H2 = d_point2_wrt_pose3;
+        }
+
+        // Return the error.
+        return point_f_image - point_f_image_;
+
+      } catch (gtsam::CheiralityException &e) {
       }
-
-      if (H2) {
-        (*H2) = d_point2_wrt_pose3;
-      }
-
-      return point_f_image - point_f_image_;
-    }
-  };
-
-  class ResectioningFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
-  {
-    const gtsam::Cal3DS2 &cal3ds2_;
-    const gtsam::Point3 P_;       ///< 3D point on the calibration rig
-    const gtsam::Point2 p_;       ///< 2D measurement of the 3D point
-
-  public:
-    /// Construct factor given known point P and its projection p
-    ResectioningFactor(const gtsam::SharedNoiseModel &model,
-                       const gtsam::Key key,
-                       const gtsam::Cal3DS2 &cal3ds2,
-                       gtsam::Point2 p,
-                       gtsam::Point3 P) :
-      NoiseModelFactor1<gtsam::Pose3>(model, key),
-      cal3ds2_{cal3ds2},
-      P_(std::move(P)),
-      p_(std::move(p))
-    {}
-
-    /// evaluate the error
-    gtsam::Vector evaluateError(const gtsam::Pose3 &pose,
-                                boost::optional<gtsam::Matrix &> H) const override
-    {
-      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{pose, cal3ds2_};
-      return camera.project(P_, H) - p_;
-    }
-  };
-
-  class ArucoFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
-  {
-    const gtsam::Cal3DS2 &cal3ds2_;
-    const std::vector<gtsam::Point2> &corners_f_image_;
-    const std::vector<gtsam::Point3> &corners_f_marker_;
-
-  public:
-    /// Construct factor given known point P and its projection p
-    ArucoFactor(const gtsam::SharedNoiseModel &model,
-                const gtsam::Key key,
-                const gtsam::Cal3DS2 &cal3ds2,
-                const std::vector<gtsam::Point2> &corners_f_image,
-                const std::vector<gtsam::Point3> &corners_f_marker) :
-      NoiseModelFactor1<gtsam::Pose3>(model, key),
-      cal3ds2_{cal3ds2},
-      corners_f_image_{corners_f_image},
-      corners_f_marker_{corners_f_marker}
-    {}
-
-    /// evaluate the error
-    gtsam::Vector evaluateError(const gtsam::Pose3 &pose,
-                                boost::optional<gtsam::Matrix &> H) const override
-    {
-      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{pose, cal3ds2_};
-
-      gtsam::Vector2 p0, p1, p2, p3;
-      if (H) {
-        gtsam::Matrix26 Dpose0, Dpose1, Dpose2, Dpose3;
-
-        p0 = camera.project(corners_f_marker_[0], Dpose0);
-        p1 = camera.project(corners_f_marker_[1], Dpose1);
-        p2 = camera.project(corners_f_marker_[2], Dpose2);
-        p3 = camera.project(corners_f_marker_[3], Dpose3);
-
-        (*H) = (gtsam::Matrix86{} << Dpose0, Dpose1, Dpose2, Dpose3).finished();
-
-      } else {
-
-        p0 = camera.project(corners_f_marker_[0], boost::none);
-        p1 = camera.project(corners_f_marker_[1], boost::none);
-        p2 = camera.project(corners_f_marker_[2], boost::none);
-        p3 = camera.project(corners_f_marker_[3], boost::none);
-      }
-
-      return (gtsam::Vector8{} << p0 - corners_f_image_[0],
-        p1 - corners_f_image_[1],
-        p2 - corners_f_image_[2],
-        p3 - corners_f_image_[3]).finished();
+      if (H1) *H1 = gtsam::Matrix::Zero(2, 6);
+      if (H2) *H2 = gtsam::Matrix::Zero(2, 6);
+      return gtsam::Vector2::Constant(2.0 * cal3ds2_.fx());
     }
   };
 
@@ -164,12 +101,12 @@ namespace camsim
 
       // Add factors to the graph
       for (size_t j = 0; j < corners_f_image.size(); j += 1) {
-        graph.emplace_shared<ProjectBetweenFactor>(sr_.point2_noise_,
+        graph.emplace_shared<ProjectBetweenFactor>(corners_f_image[j],
+                                                   sr_.point2_noise_,
                                                    MarkerModel::default_key(),
+                                                   sr_.model_.markers_.corners_f_marker_[j],
                                                    CameraModel::default_key(),
-                                                   *shared_calibration_,
-                                                   corners_f_image[j],
-                                                   sr_.model_.markers_.corners_f_marker_[j]);
+                                                   *shared_calibration_);
       }
 
       // Add the initial estimate for the camera poses
@@ -207,48 +144,16 @@ namespace camsim
 
       // Add factors to the graph
       for (size_t j = 0; j < corners_f_image.size(); j += 1) {
-        graph.emplace_shared<ProjectBetweenFactor>(sr_.point2_noise_,
+        graph.emplace_shared<ProjectBetweenFactor>(corners_f_image[j],
+                                                   sr_.point2_noise_,
                                                    MarkerModel::default_key(),
+                                                   sr_.model_.markers_.corners_f_marker_[j],
                                                    CameraModel::default_key(),
-                                                   *shared_calibration_,
-                                                   corners_f_image[j],
-                                                   sr_.model_.markers_.corners_f_marker_[j]);
+                                                   *shared_calibration_);
       }
 
       // Add the initial estimate for the camera poses
       initial.insert(CameraModel::default_key(), camera_f_world_initial);
-
-      // Optimize the graph using Levenberg-Marquardt
-      auto params = gtsam::LevenbergMarquardtParams();
-      params.setRelativeErrorTol(1e-8);
-      params.setAbsoluteErrorTol(1e-8);
-
-      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
-//      std::cout << "initial error = " << graph.error(initial) << std::endl;
-//      std::cout << "final error = " << graph.error(result) << std::endl;
-
-      // return the result
-      auto marginals_ptr{sr_.get_marginals(graph, result)};
-      return PoseWithCovariance::Extract(result, marginals_ptr.get(), CameraModel::default_key());
-    }
-
-    PoseWithCovariance calc_camera_f_marker(const std::vector<gtsam::Point2> &corners_f_image,
-                                            const gtsam::Pose3 &camera_f_marker_initial)
-    {
-      gtsam::NonlinearFactorGraph graph{};
-      gtsam::Values initial{};
-
-      // Add factors to the graph
-      for (size_t j = 0; j < corners_f_image.size(); j += 1) {
-        graph.emplace_shared<ResectioningFactor>(
-          sr_.point2_noise_,
-          CameraModel::default_key(), *shared_calibration_,
-          corners_f_image[j],
-          sr_.model_.markers_.corners_f_marker_[j]);
-      }
-
-      // Add the initial estimate for the camera pose in the marker frame
-      initial.insert(CameraModel::default_key(), camera_f_marker_initial);
 
       // Optimize the graph using Levenberg-Marquardt
       auto params = gtsam::LevenbergMarquardtParams();
@@ -271,7 +176,7 @@ namespace camsim
       // being "solved". Not quite sure why the RVO doesn't prevent this but it might
       // be because the object is passed by the operator() member and not by the
       // class itself.
-      if (initial_.empty()) {
+      if (graph_.size() < 2) {
         return;
       }
 
@@ -305,7 +210,7 @@ namespace camsim
       sr_.model_.cameras_.calibration_.p1(),
       sr_.model_.cameras_.calibration_.p2())}
     {
-      sr_.add_marker_0_prior(graph_);
+      sr_.add_marker_0_prior(graph_, initial_);
     }
 
     ~SolverProjectBetween()
@@ -313,6 +218,7 @@ namespace camsim
       display_results();
     }
 
+#if 0
     void operator()(const CameraModel &camera,
                     const std::vector<MarkerModelRef> &marker_refs)
     {
@@ -341,13 +247,41 @@ namespace camsim
         std::cout << "Marker "
                   << PoseWithCovariance::to_str(marker_f_world.pose_) << " "
                   << PoseWithCovariance::to_str(marker_ref.get().marker_f_world_) << std::endl;
-
-        auto camera_f_marker = calc_camera_f_marker(corners_f_image,
-                                                    sr_.get_perturbed_camera_f_marker(camera, marker_ref));
-
-        std::cout << PoseWithCovariance::to_str(camera_f_marker.pose_) << " "
-                  << PoseWithCovariance::to_str(sr_.get_camera_f_marker(camera, marker_ref)) << std::endl;
       }
+#else
+
+    void operator()(const CameraModel &camera,
+                    const std::vector<MarkerModelRef> &marker_refs)
+    {
+      auto camera_key{camera.key_};
+
+      // Add the initial estimate for the camera pose
+      auto camera_f_world_initial = sr_.get_perturbed_camera_f_world(camera);
+      initial_.insert(camera_key, camera_f_world_initial);
+
+      for (auto &marker_ref : marker_refs) {
+        auto marker_key{marker_ref.get().key_};
+
+        // The marker corners as seen in the image.
+        auto corners_f_image = sr_.get_perturbed_corners_f_images(camera, marker_ref);
+
+        // Add factors to the graph
+        for (size_t j = 0; j < corners_f_image.size(); j += 1) {
+          graph_.emplace_shared<ProjectBetweenFactor>(corners_f_image[j],
+                                                      sr_.point2_noise_,
+                                                      marker_key,
+                                                      sr_.model_.markers_.corners_f_marker_[j],
+                                                      camera_key,
+                                                      *shared_calibration_);
+        }
+
+        // Add the initial estimate for the marker pose
+        if (!initial_.exists(marker_key)) {
+          auto marker_f_world_initial = sr_.get_perturbed_marker_f_world(marker_ref);
+          initial_.insert(marker_key, marker_f_world_initial);
+        }
+      }
+#endif
     }
   };
 

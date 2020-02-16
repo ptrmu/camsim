@@ -31,7 +31,7 @@ namespace camsim
       // being "solved". Not quite sure why the RVO doesn't prevent this but it might
       // be because the object is passed by the operator() member and not by the
       // class itself.
-      if (graph_.empty()) {
+      if (graph_.size() < 2) {
         return;
       }
 
@@ -59,7 +59,9 @@ namespace camsim
   public:
     explicit SolverBatch(SolverRunner &sr, bool auto_initial) :
       sr_{sr}, auto_initial_{auto_initial}
-    {}
+    {
+      sr_.add_marker_0_prior(graph_, initial_);
+    }
 
     ~SolverBatch()
     {
@@ -69,10 +71,6 @@ namespace camsim
     void operator()(const CameraModel &camera,
                     const std::vector<MarkerModelRef> &marker_refs)
     {
-      if (sr_.frames_processed_ == 0) {
-        sr_.add_marker_0_prior(graph_);
-      }
-
       auto camera_key{camera.key_};
 
       // Add the initial camera pose estimate
@@ -236,7 +234,7 @@ namespace camsim
     {
       // These objects get copy constructed and will sometimes get destructed without
       // being "solved".
-      if (graph_slam_.empty()) {
+      if (graph_slam_.size() < 2) {
         return;
       }
 
@@ -322,7 +320,10 @@ namespace camsim
       sr_.model_.cameras_.calibration_.k2(),
       sr_.model_.cameras_.calibration_.p1(),
       sr_.model_.cameras_.calibration_.p2())}
-    {}
+    {
+      sr_.add_marker_0_prior(graph_slam_);
+      add_marker_0_corner_priors();
+    }
 
     ~SolverBatchSFM()
     {
@@ -332,11 +333,6 @@ namespace camsim
     void operator()(const CameraModel &camera,
                     const std::vector<MarkerModelRef> &marker_refs)
     {
-      if (sr_.frames_processed_ == 0) {
-        sr_.add_marker_0_prior(graph_slam_);
-        add_marker_0_corner_priors();
-      }
-
       auto camera_key{camera.key_};
 
       for (auto &marker_ref : marker_refs) {
@@ -346,7 +342,8 @@ namespace camsim
         auto corners_f_image = sr_.get_perturbed_corners_f_images(camera, marker_ref);
 
         // The slam measurement
-        auto camera_f_marker = calc_camera_f_marker(corners_f_image, sr_.get_camera_f_marker(camera, marker_ref));
+        auto camera_f_marker = calc_camera_f_marker(corners_f_image,
+                                                    sr_.get_perturbed_camera_f_marker(camera, marker_ref));
 
         // Add the measurement factor for slam.
         graph_slam_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
@@ -412,7 +409,7 @@ namespace camsim
       gtsam::Values initial{};
 
       if (sr_.frames_processed_ == 0) {
-        sr_.add_marker_0_prior(graph);
+        sr_.add_marker_0_prior(graph, initial);
       }
 
       auto camera_key{camera.key_};
@@ -437,7 +434,7 @@ namespace camsim
         }
 
         // Add the initial marker value estimate only if this marker has not been seen.
-        if (pair == marker_seen_counts_.end()) {
+        if (pair == marker_seen_counts_.end() && !initial.exists(marker_key)) {
           std::cout << "Adding marker " << marker_ref.get().index()
                     << " at frame " << sr_.frames_processed_ + 1 << std::endl;
           initial.insert(marker_key, sr_.get_perturbed_marker_f_world(marker_ref));
@@ -457,30 +454,30 @@ namespace camsim
                   double u_noise_sigma)
   {
     int n_markers = 8;
-    int n_cameras = 32;
+    int n_cameras = 4096;
 
-    ModelConfig model_config{[]() -> std::vector<gtsam::Pose3>
-                             {
-                               return std::vector<gtsam::Pose3>{gtsam::Pose3{gtsam::Rot3::RzRyRx(0.1, 0., 0.),
-                                                                             gtsam::Point3{1., 0., 0.}}};
-                             },
-                             []() -> std::vector<gtsam::Pose3>
-                             {
-                               return std::vector<gtsam::Pose3>{gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., M_PI),
-                                                                             gtsam::Point3{0., 0., 2.}}};
-                             },
-                             camsim::CameraTypes::simulation,
-                             0.1775};
+//    ModelConfig model_config{[]() -> std::vector<gtsam::Pose3>
+//                             {
+//                               return std::vector<gtsam::Pose3>{gtsam::Pose3{gtsam::Rot3::RzRyRx(0.1, 0., 0.),
+//                                                                             gtsam::Point3{1., 0., 0.}}};
+//                             },
+//                             []() -> std::vector<gtsam::Pose3>
+//                             {
+//                               return std::vector<gtsam::Pose3>{gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., M_PI),
+//                                                                             gtsam::Point3{0., 0., 2.}}};
+//                             },
+//                             camsim::CameraTypes::simulation,
+//                             0.1775};
 
 //    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
-//                            PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
-//                            camsim::CameraTypes::simulation,
-//                            0.1775};
+//                             PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
+//                             camsim::CameraTypes::simulation,
+//                             0.1775};
 
-//    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
-//                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
-//                            camsim::CameraTypes::simulation,
-//                            0.1775};
+    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
+                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
+                            camsim::CameraTypes::simulation,
+                            0.1775};
 
 //    model.print_corners_f_image();
 
@@ -513,8 +510,8 @@ namespace camsim
 //    solver_runner([](SolverRunner &solver_runner)
 //                  { return SolverBatchSFM{solver_runner}; });
 
-//    solver_runner([](SolverRunner &solver_runner)
-//                  { return solver_marker_marker_factory(solver_runner); });
+    solver_runner([](SolverRunner &solver_runner)
+                  { return solver_marker_marker_factory(solver_runner); });
 
     solver_runner([](SolverRunner &solver_runner)
                   { return solver_project_between_factory(solver_runner); });
