@@ -453,7 +453,7 @@ namespace camsim
                   double u_noise_sigma)
   {
     int n_markers = 16;
-    int n_cameras = 257;
+    int n_cameras = 1009;
 
 //    ModelConfig model_config{[]() -> std::vector<gtsam::Pose3>
 //                             {
@@ -506,17 +506,20 @@ namespace camsim
 //    solver_runner([](SolverRunner &solver_runner)
 //                  { return solver_marker_marker_factory(solver_runner); });
 
-    solver_runner([](SolverRunner &solver_runner)
-                  { return solver_project_between_factory(solver_runner, false); });
-
-    solver_runner([](SolverRunner &solver_runner)
-                  { return solver_project_between_factory(solver_runner, true); });
-
-    solver_runner([](SolverRunner &solver_runner)
-                  { return solver_project_between_repeated_factory(solver_runner); });
+//    solver_runner([](SolverRunner &solver_runner)
+//                  { return solver_project_between_factory(solver_runner, false); });
+//
+//    solver_runner([](SolverRunner &solver_runner)
+//                  { return solver_project_between_factory(solver_runner, true); });
+//
+//    solver_runner([](SolverRunner &solver_runner)
+//                  { return solver_project_between_repeated_factory(solver_runner); });
 
     solver_runner([](SolverRunner &solver_runner)
                   { return solver_project_between_isam_factory(solver_runner); });
+
+    solver_runner([](SolverRunner &solver_runner)
+                  { return solver_project_between_opencv_factory(solver_runner); });
   }
 
   void map_global_thread(double r_sigma,

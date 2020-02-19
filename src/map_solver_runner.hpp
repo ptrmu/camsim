@@ -24,15 +24,21 @@ namespace camsim
     const gtsam::Pose3 marker_f_world_perturbed_;
     const gtsam::Pose3 camera_f_marker_perturbed_;
     const std::vector<gtsam::Point2> corners_f_image_perturbed_;
+    const gtsam::Pose3 camera_f_marker_;
+    const std::vector<gtsam::Point2> corners_f_image_;
 
     MarkerData(const MarkerModel &marker,
                gtsam::Pose3 marker_f_world_perturbed,
                gtsam::Pose3 camera_f_marker_perturbed,
-               std::vector<gtsam::Point2> corners_f_image_perturbed) :
+               std::vector<gtsam::Point2> corners_f_image_perturbed,
+               gtsam::Pose3 camera_f_marker,
+               std::vector<gtsam::Point2> corners_f_image) :
       marker_{marker},
       marker_f_world_perturbed_{marker_f_world_perturbed},
       camera_f_marker_perturbed_{camera_f_marker_perturbed},
-      corners_f_image_perturbed_{std::move(corners_f_image_perturbed)}
+      corners_f_image_perturbed_{corners_f_image_perturbed},
+      camera_f_marker_{camera_f_marker},
+      corners_f_image_{corners_f_image}
     {}
   };
 
@@ -111,7 +117,9 @@ namespace camsim
               marker_datas.emplace_back(MarkerData{marker,
                                                    get_perturbed_marker_f_world(marker),
                                                    get_perturbed_camera_f_marker(camera, marker),
-                                                   get_perturbed_corners_f_image(camera, marker)});
+                                                   get_perturbed_corners_f_image(camera, marker),
+                                                   get_camera_f_marker(camera, marker),
+                                                   get_corners_f_image(camera, marker)});
             }
           }
 

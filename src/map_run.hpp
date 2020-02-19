@@ -33,6 +33,9 @@ namespace camsim
 
   std::function<void(const FrameData &)>
   solver_project_between_isam_factory(SolverRunner &sr);
+
+  std::function<void(const FrameData &)>
+  solver_project_between_opencv_factory(SolverRunner &sr);
 }
 
 #endif //_MAP_RUN_HPP
