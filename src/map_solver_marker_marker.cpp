@@ -269,34 +269,33 @@ namespace camsim
       display_results();
     }
 
-    void operator()(const CameraModel &camera,
-                    const std::vector<MarkerModelRef> &marker_refs)
+    void operator()(const FrameData &fd)
     {
-      auto camera_key{camera.key_};
+      auto camera_key{fd.camera_.key_};
 
-      for (std::size_t i = 0; i < marker_refs.size(); i += 1) {
-        for (std::size_t j = i + 1; j < marker_refs.size(); j += 1) {
-          auto &marker0{marker_refs[i].get()};
-          auto &marker1{marker_refs[j].get()};
+      for (std::size_t i = 0; i < fd.marker_datas_.size(); i += 1) {
+        for (std::size_t j = i + 1; j < fd.marker_datas_.size(); j += 1) {
+          auto &marker_data0{fd.marker_datas_[i]};
+          auto &marker_data1{fd.marker_datas_[j]};
 
           // Determine the marker-marker relative pose measurement
-          auto marker1_f_marker0 = calc_marker1_f_marker0(sr_.get_perturbed_corners_f_images(camera, marker0),
-                                                          sr_.get_perturbed_corners_f_images(camera, marker1),
-                                                          sr_.get_perturbed_camera_f_marker(camera, marker0),
-                                                          sr_.get_perturbed_camera_f_marker(camera, marker1));
+          auto marker1_f_marker0 = calc_marker1_f_marker0(marker_data0.corners_f_image_perturbed_,
+                                                          marker_data1.corners_f_image_perturbed_,
+                                                          marker_data0.camera_f_marker_perturbed_,
+                                                          marker_data1.camera_f_marker_perturbed_);
 
           // Add the marker-marker factor to the graph
           graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-            marker0.key_, marker1.key_,
+            marker_data0.marker_.key_, marker_data1.marker_.key_,
             marker1_f_marker0.pose_,
             gtsam::noiseModel::Gaussian::Covariance(marker1_f_marker0.cov_ * 4.));
 
           // Add the initial estimates for both markers.
-          if (!initial_.exists(marker0.key_)) {
-            initial_.insert(marker0.key_, sr_.get_perturbed_marker_f_world(marker0));
+          if (!initial_.exists(marker_data0.marker_.key_)) {
+            initial_.insert(marker_data0.marker_.key_, marker_data0.marker_f_world_perturbed_);
           }
-          if (!initial_.exists(marker1.key_)) {
-            initial_.insert(marker1.key_, sr_.get_perturbed_marker_f_world(marker1));
+          if (!initial_.exists(marker_data1.marker_.key_)) {
+            initial_.insert(marker_data1.marker_.key_, marker_data1.marker_f_world_perturbed_);
           }
         }
       }
@@ -304,7 +303,7 @@ namespace camsim
   };
 
 
-  std::function<void(const CameraModel &, const std::vector<std::reference_wrapper<const MarkerModel>> &)>
+  std::function<void(const FrameData &)>
   solver_marker_marker_factory(SolverRunner &sr)
   {
     return SolverMarkerMarker(sr, false);

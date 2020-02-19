@@ -6,6 +6,7 @@
 #include "pose_with_covariance.hpp"
 
 #define ENABLE_TIMING
+
 #include <gtsam/base/timing.h>
 #include <gtsam/linear/NoiseModel.h>
 #include "gtsam/linear/Sampler.h"
@@ -17,10 +18,42 @@ namespace camsim
 {
   typedef std::reference_wrapper<const MarkerModel> MarkerModelRef;
 
+  struct MarkerData
+  {
+    const MarkerModel &marker_;
+    const gtsam::Pose3 marker_f_world_perturbed_;
+    const gtsam::Pose3 camera_f_marker_perturbed_;
+    const std::vector<gtsam::Point2> corners_f_image_perturbed_;
+
+    MarkerData(const MarkerModel &marker,
+               gtsam::Pose3 marker_f_world_perturbed,
+               gtsam::Pose3 camera_f_marker_perturbed,
+               std::vector<gtsam::Point2> corners_f_image_perturbed) :
+      marker_{marker},
+      marker_f_world_perturbed_{marker_f_world_perturbed},
+      camera_f_marker_perturbed_{camera_f_marker_perturbed},
+      corners_f_image_perturbed_{std::move(corners_f_image_perturbed)}
+    {}
+  };
+
+  struct FrameData
+  {
+    const CameraModel &camera_;
+    const gtsam::Pose3 camera_f_world_perturbed_;
+    const std::vector<MarkerData> marker_datas_;
+
+    FrameData(const CameraModel &camera,
+              const gtsam::Pose3 camera_f_world_perturbed,
+              const std::vector<MarkerData> marker_datas) :
+      camera_{camera},
+      camera_f_world_perturbed_{camera_f_world_perturbed},
+      marker_datas_{marker_datas}
+    {}
+  };
+
   struct SolverRunner
   {
-    typedef std::function<void(const CameraModel &,
-                               const std::vector<MarkerModelRef> &)> AddFrameMeasurementsFunc;
+    typedef std::function<void(const FrameData &)> AddFrameMeasurementsFunc;
 
     typedef std::function<AddFrameMeasurementsFunc(SolverRunner &)> SolverFactoryFunc;
 
@@ -65,20 +98,29 @@ namespace camsim
         // Instantiate the solver
         auto solver{solver_factory(*this)};
 
+        // Collect all perturbed values at this level. The solver can use them or not
+        // but the random number generator generates the same series for each solver.
+
         // Loop over all the cameras
         for (auto &camera : model_.cameras_.cameras_) {
-          std::vector<MarkerModelRef> marker_refs{};
+          std::vector<MarkerData> marker_datas{};
 
           // Figure out which markers are visible from this camera
           for (auto &marker : model_.markers_.markers_) {
             if (!model_.corners_f_images_[camera.index()][marker.index()].corners_f_image_.empty()) {
-              marker_refs.emplace_back(MarkerModelRef{marker});
+              marker_datas.emplace_back(MarkerData{marker,
+                                                   get_perturbed_marker_f_world(marker),
+                                                   get_perturbed_camera_f_marker(camera, marker),
+                                                   get_perturbed_corners_f_image(camera, marker)});
             }
           }
 
           // Let the solver work on these measurements.
-          if (marker_refs.size() > 1) {
-            solver(camera, marker_refs);
+          if (marker_datas.size() > 1) {
+            FrameData frame_data{camera,
+                                 get_perturbed_camera_f_world(camera),
+                                 marker_datas};
+            solver(frame_data);
             frames_processed_ += 1;
           }
         }
@@ -113,6 +155,7 @@ namespace camsim
       }
     }
 
+  private:
     gtsam::Pose3 get_perturbed_camera_f_world(const CameraModel &camera)
     {
       return camera.camera_f_world_.retract(pose3_sampler_.sample());
@@ -135,22 +178,23 @@ namespace camsim
       return get_camera_f_marker(camera, marker).retract(pose3_sampler_.sample());
     }
 
-    std::vector<gtsam::Point2> get_corners_f_images(const CameraModel &camera,
-                                                    const MarkerModel &marker)
+    std::vector<gtsam::Point2> get_corners_f_image(const CameraModel &camera,
+                                                   const MarkerModel &marker)
     {
       return model_.corners_f_images_[camera.index()][marker.index()].corners_f_image_;
     }
 
-    std::vector<gtsam::Point2> get_perturbed_corners_f_images(const CameraModel &camera,
-                                                              const MarkerModel &marker)
+    std::vector<gtsam::Point2> get_perturbed_corners_f_image(const CameraModel &camera,
+                                                             const MarkerModel &marker)
     {
-      auto corners_f_image{get_corners_f_images(camera, marker)};
+      auto corners_f_image{get_corners_f_image(camera, marker)};
       for (auto &corner_f_image : corners_f_image) {
         corner_f_image = corner_f_image.retract(point2_sampler_.sample());
       }
       return corners_f_image;
     }
 
+  public:
     void add_marker_0_prior(gtsam::NonlinearFactorGraph &graph, gtsam::Values &initial)
     {
       add_marker_0_prior(graph);
@@ -170,7 +214,7 @@ namespace camsim
     std::unique_ptr<gtsam::Marginals> get_marginals(gtsam::NonlinearFactorGraph &graph, gtsam::Values &values)
     {
       try {
-        return std::make_unique<gtsam::Marginals>(graph, values);
+        return std::make_unique<gtsam::Marginals>(graph, values, gtsam::Marginals::QR);
       }
       catch (gtsam::IndeterminantLinearSystemException &ex) {
       }

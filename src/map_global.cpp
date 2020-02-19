@@ -68,28 +68,27 @@ namespace camsim
       display_results();
     }
 
-    void operator()(const CameraModel &camera,
-                    const std::vector<MarkerModelRef> &marker_refs)
+    void operator()(const FrameData &fd)
     {
-      auto camera_key{camera.key_};
+      auto camera_key{fd.camera_.key_};
 
       // Add the initial camera pose estimate
       if (!auto_initial_) {
-        initial_.insert(camera_key, sr_.get_perturbed_camera_f_world(camera));
+        initial_.insert(camera_key, fd.camera_f_world_perturbed_);
       }
 
-      for (auto marker_ref : marker_refs) {
-        auto marker_key{marker_ref.get().key_};
+      for (auto &marker_data : fd.marker_datas_) {
+        auto marker_key{marker_data.marker_.key_};
 
         // Add the measurement factor.
         graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
           marker_key, camera_key,
-          sr_.get_perturbed_camera_f_marker(camera, marker_ref),
+          marker_data.camera_f_marker_perturbed_,
           sr_.pose3_noise_);
 
         // Add the initial marker value estimate
         if (!auto_initial_ && !initial_.exists(marker_key)) {
-          initial_.insert(marker_key, sr_.get_perturbed_marker_f_world(marker_ref));
+          initial_.insert(marker_key, marker_data.marker_f_world_perturbed_);
         }
       }
     }
@@ -330,20 +329,19 @@ namespace camsim
       display_results();
     }
 
-    void operator()(const CameraModel &camera,
-                    const std::vector<MarkerModelRef> &marker_refs)
+    void operator()(const FrameData &fd)
     {
-      auto camera_key{camera.key_};
+      auto camera_key{fd.camera_.key_};
 
-      for (auto &marker_ref : marker_refs) {
-        auto marker_key{marker_ref.get().key_};
+      for (auto &marker_data : fd.marker_datas_) {
+        auto marker_key{marker_data.marker_.key_};
 
         // The marker corners as seen in the image.
-        auto corners_f_image = sr_.get_perturbed_corners_f_images(camera, marker_ref);
+        auto &corners_f_image = marker_data.corners_f_image_perturbed_;
 
         // The slam measurement
         auto camera_f_marker = calc_camera_f_marker(corners_f_image,
-                                                    sr_.get_perturbed_camera_f_marker(camera, marker_ref));
+                                                    marker_data.camera_f_marker_perturbed_);
 
         // Add the measurement factor for slam.
         graph_slam_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
@@ -371,10 +369,12 @@ namespace camsim
 
     static gtsam::ISAM2Params get_isam2_params()
     {
-      gtsam::ISAM2Params isam2_params;
-      isam2_params.relinearizeThreshold = 0.01;
-      isam2_params.relinearizeSkip = 1;
-      return isam2_params;
+      gtsam::ISAM2DoglegParams dogleg_params{};
+      gtsam::ISAM2Params params;
+      params.optimizationParams = dogleg_params;
+      params.relinearizeThreshold = 0.01;
+      params.relinearizeSkip = 1;
+      return params;
     }
 
     void display_results()
@@ -402,8 +402,7 @@ namespace camsim
       display_results();
     }
 
-    void operator()(const CameraModel &camera,
-                    const std::vector<MarkerModelRef> &marker_refs)
+    void operator()(const FrameData &fd)
     {
       gtsam::NonlinearFactorGraph graph{};
       gtsam::Values initial{};
@@ -412,32 +411,32 @@ namespace camsim
         sr_.add_marker_0_prior(graph, initial);
       }
 
-      auto camera_key{camera.key_};
+      auto camera_key{fd.camera_.key_};
 
       // Add the initial camera pose estimate
-      initial.insert(camera_key, sr_.get_perturbed_camera_f_world(camera));
+      initial.insert(camera_key, fd.camera_f_world_perturbed_);
 
-      for (auto &marker_ref : marker_refs) {
-        auto marker_key{marker_ref.get().key_};
+      for (auto &marker_data : fd.marker_datas_) {
+        auto marker_key{marker_data.marker_.key_};
 
         // Add the measurement factor.
         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
           marker_key, camera_key,
-          sr_.get_perturbed_camera_f_marker(camera, marker_ref), sr_.pose3_noise_);
+          marker_data.camera_f_marker_perturbed_, sr_.pose3_noise_);
 
         // update the marker seen counts
-        auto pair = marker_seen_counts_.find(marker_ref.get().key_);
+        auto pair = marker_seen_counts_.find(marker_key);
         if (pair == marker_seen_counts_.end()) {
-          marker_seen_counts_.insert(std::pair<std::uint64_t, int>{marker_ref.get().key_, 1});
+          marker_seen_counts_.insert(std::pair<std::uint64_t, int>{marker_key, 1});
         } else {
           pair->second += 1;
         }
 
         // Add the initial marker value estimate only if this marker has not been seen.
         if (pair == marker_seen_counts_.end() && !initial.exists(marker_key)) {
-          std::cout << "Adding marker " << marker_ref.get().index()
+          std::cout << "Adding marker " << marker_data.marker_.index()
                     << " at frame " << sr_.frames_processed_ + 1 << std::endl;
-          initial.insert(marker_key, sr_.get_perturbed_marker_f_world(marker_ref));
+          initial.insert(marker_key, marker_data.marker_f_world_perturbed_);
         }
       }
 
@@ -453,8 +452,8 @@ namespace camsim
                   double u_sampler_sigma,
                   double u_noise_sigma)
   {
-    int n_markers = 8;
-    int n_cameras = 4096;
+    int n_markers = 16;
+    int n_cameras = 257;
 
 //    ModelConfig model_config{[]() -> std::vector<gtsam::Pose3>
 //                             {
@@ -469,21 +468,15 @@ namespace camsim
 //                             camsim::CameraTypes::simulation,
 //                             0.1775};
 
-//    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
-//                             PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
+    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
+                             PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
+                             camsim::CameraTypes::simulation,
+                             0.1775};
+
+//    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
+//                             PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
 //                             camsim::CameraTypes::simulation,
 //                             0.1775};
-
-    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingAlongZ{n_markers, 2., 2., false},
-                            PoseGens::CircleInXYPlaneFacingAlongZ{n_cameras, 2., 0., true},
-                            camsim::CameraTypes::simulation,
-                            0.1775};
-
-//    model.print_corners_f_image();
-
-//    double r_sigma = 0.1;
-//    double t_sigma = 0.3;
-//    double u_sigma = 0.5;
 
     Model model{model_config};
 
@@ -509,12 +502,21 @@ namespace camsim
 //
 //    solver_runner([](SolverRunner &solver_runner)
 //                  { return SolverBatchSFM{solver_runner}; });
+//
+//    solver_runner([](SolverRunner &solver_runner)
+//                  { return solver_marker_marker_factory(solver_runner); });
 
     solver_runner([](SolverRunner &solver_runner)
-                  { return solver_marker_marker_factory(solver_runner); });
+                  { return solver_project_between_factory(solver_runner, false); });
 
     solver_runner([](SolverRunner &solver_runner)
-                  { return solver_project_between_factory(solver_runner); });
+                  { return solver_project_between_factory(solver_runner, true); });
+
+    solver_runner([](SolverRunner &solver_runner)
+                  { return solver_project_between_repeated_factory(solver_runner); });
+
+    solver_runner([](SolverRunner &solver_runner)
+                  { return solver_project_between_isam_factory(solver_runner); });
   }
 
   void map_global_thread(double r_sigma,
@@ -548,29 +550,29 @@ namespace camsim
 
     task_thread::TaskThread<SolverRunner> tt(std::move(solver_runner));
 
-    tt.push([](SolverRunner &sr) -> void
-            {
-              sr([](SolverRunner &solver_runner)
-                 { return SolverBatch{solver_runner, false}; });
-            });
-
-    tt.push([](SolverRunner &sr) -> void
-            {
-              sr([](SolverRunner &solver_runner)
-                 { return SolverBatch{solver_runner, true}; });
-            });
-
-    tt.push([](SolverRunner &sr) -> void
-            {
-              sr([](SolverRunner &solver_runner)
-                 { return SolverISAM{solver_runner}; });
-            });
-
-    tt.push([](SolverRunner &sr) -> void
-            {
-              sr([](SolverRunner &solver_runner)
-                 { return SolverBatchSFM{solver_runner}; });
-            });
+//    tt.push([](SolverRunner &sr) -> void
+//            {
+//              sr([](SolverRunner &solver_runner)
+//                 { return SolverBatch{solver_runner, false}; });
+//            });
+//
+//    tt.push([](SolverRunner &sr) -> void
+//            {
+//              sr([](SolverRunner &solver_runner)
+//                 { return SolverBatch{solver_runner, true}; });
+//            });
+//
+//    tt.push([](SolverRunner &sr) -> void
+//            {
+//              sr([](SolverRunner &solver_runner)
+//                 { return SolverISAM{solver_runner}; });
+//            });
+//
+//    tt.push([](SolverRunner &sr) -> void
+//            {
+//              sr([](SolverRunner &solver_runner)
+//                 { return SolverBatchSFM{solver_runner}; });
+//            });
 
     tt.wait_until_empty();
   }
