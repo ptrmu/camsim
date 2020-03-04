@@ -145,3 +145,15 @@ target_link_libraries(map_run
 #vtk_module_autoinit(TARGETS sfm_run
 #  MODULES ${VTK_LIBRARIES}
 #  )
+
+
+add_executable(cal_run
+  src/cal_run.cpp
+  src/model.cpp
+  )
+
+target_link_libraries(cal_run
+  PRIVATE gtsam
+  PRIVATE opencv_core
+  PRIVATE opencv_calib3d
+  )
