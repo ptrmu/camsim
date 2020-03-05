@@ -11,6 +11,8 @@ namespace camsim
 {
   class PfmModel;
 
+  int pfm_run(int model_id);
+
   void pfm_resection_gtsam(const gtsam::Cal3_S2 &camera_calibration,
                            const std::vector<gtsam::Point2> &corners_f_image,
                            const std::vector<gtsam::Point3> &corners_f_world,

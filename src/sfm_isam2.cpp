@@ -246,9 +246,9 @@ std::vector<camsim::PoseWithCovariance> sfm_run_isam2_camera_f_markers(
 
 int sfm_run_isam2()
 {
-  camsim::Model model{camsim::MarkersConfigurations::along_x_axis,
-                      camsim::CamerasConfigurations::c_along_x_axis,
-                      camsim::CameraTypes::distorted_camera};
+  camsim::Model model{camsim::ModelConfig{camsim::MarkersConfigurations::along_x_axis,
+                                          camsim::CamerasConfigurations::c_along_x_axis,
+                                          camsim::CameraTypes::distorted_camera}};
 
   gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(0.5, 0.5));
 

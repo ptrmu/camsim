@@ -15,7 +15,8 @@ using symbol_shorthand::X;
  * Unary factor on the unknown pose, resulting from measuring the projection of
  * a known 3D point in the image
  */
-class ResectioningFactor: public NoiseModelFactor1<Pose3> {
+class ResectioningFactor_xxx : public NoiseModelFactor1<Pose3>
+{
   typedef NoiseModelFactor1<Pose3> Base;
 
   Cal3_S2::shared_ptr K_; ///< camera's intrinsic parameters
@@ -25,14 +26,16 @@ class ResectioningFactor: public NoiseModelFactor1<Pose3> {
 public:
 
   /// Construct factor given known point P and its projection p
-  ResectioningFactor(const SharedNoiseModel& model, const Key& key,
-                     const Cal3_S2::shared_ptr& calib, const Point2& p, const Point3& P) :
-    Base(model, key), K_(calib), P_(P), p_(p) {
+  ResectioningFactor_xxx(const SharedNoiseModel &model, const Key &key,
+                         const Cal3_S2::shared_ptr &calib, const Point2 &p, const Point3 &P) :
+    Base(model, key), K_(calib), P_(P), p_(p)
+  {
   }
 
   /// evaluate the error
-  virtual Vector evaluateError(const Pose3& pose, boost::optional<Matrix&> H =
-  boost::none) const {
+  virtual Vector evaluateError(const Pose3 &pose, boost::optional<Matrix &> H =
+  boost::none) const
+  {
     SimpleCamera camera(pose, *K_);
     return camera.project(P_, H, boost::none, boost::none) - p_;
   }
@@ -58,14 +61,14 @@ int gtsam_resection()
   /* 2. add factors to the graph */
   // add measurement factors
   SharedDiagonal measurementNoise = Diagonal::Sigmas(Vector2(5., .5));
-  graph.emplace_shared<ResectioningFactor>(measurementNoise, X(1), calib,
-                                           Point2(55, 45), Point3(10, 10, 0));
-  graph.emplace_shared<ResectioningFactor>(measurementNoise, X(1), calib,
-                                           Point2(45, 45), Point3(-10, 10, 0));
-  graph.emplace_shared<ResectioningFactor>(measurementNoise, X(1), calib,
-                                           Point2(45, 55), Point3(-10, -10, 0));
-  graph.emplace_shared<ResectioningFactor>(measurementNoise, X(1), calib,
-                                           Point2(55, 55), Point3(10, -10, 0));
+  graph.emplace_shared<ResectioningFactor_xxx>(measurementNoise, X(1), calib,
+                                               Point2(55, 45), Point3(10, 10, 0));
+  graph.emplace_shared<ResectioningFactor_xxx>(measurementNoise, X(1), calib,
+                                               Point2(45, 45), Point3(-10, 10, 0));
+  graph.emplace_shared<ResectioningFactor_xxx>(measurementNoise, X(1), calib,
+                                               Point2(45, 55), Point3(-10, -10, 0));
+  graph.emplace_shared<ResectioningFactor_xxx>(measurementNoise, X(1), calib,
+                                               Point2(55, 55), Point3(10, -10, 0));
 
   /* 3. Create an initial estimate for the camera pose */
   Values initial;

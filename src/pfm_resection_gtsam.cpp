@@ -1,11 +1,11 @@
 
 
 #include "gtsam/inference/Symbol.h"
+#include <gtsam/geometry/SimpleCamera.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include "pfm_run.hpp"
-#include "pfm_model.hpp"
 
 using gtsam::symbol_shorthand::X;
 
@@ -15,7 +15,7 @@ namespace camsim
   * Unary factor on the unknown pose, resulting from measuring the projection of
     * a known 3D point in the image
   */
-  class ResectioningFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
+  class ResectioningFactor_abc : public gtsam::NoiseModelFactor1<gtsam::Pose3>
   {
     typedef NoiseModelFactor1 <gtsam::Pose3> Base;
 
@@ -26,8 +26,8 @@ namespace camsim
   public:
 
     /// Construct factor given known point P and its projection p
-    ResectioningFactor(const gtsam::SharedNoiseModel &model, const gtsam::Key &key,
-                       const gtsam::Cal3_S2 &calib, const gtsam::Point2 &p, const gtsam::Point3 &P) :
+    ResectioningFactor_abc(const gtsam::SharedNoiseModel &model, const gtsam::Key &key,
+                           const gtsam::Cal3_S2 &calib, const gtsam::Point2 &p, const gtsam::Point3 &P) :
       Base(model, key), K_(calib), P_(P), p_(p)
     {
     }
@@ -54,15 +54,18 @@ namespace camsim
 
     /* 2. add measurement factors to the graph */
     for (int i = 0; i < corners_f_world.size(); i += 1) {
-      graph.emplace_shared<ResectioningFactor>(measurement_noise, X(1),
-                                               camera_calibration,
-                                               corners_f_image[i],
-                                               corners_f_world[i]);
+      graph.emplace_shared<ResectioningFactor_abc>(measurement_noise, X(1),
+                                                   camera_calibration,
+                                                   corners_f_image[i],
+                                                   corners_f_world[i]);
     }
 
     /* 3. Create an initial estimate for the camera pose */
     gtsam::Values initial;
     initial.insert(X(1), camera_f_world_initial);
+
+    graph.print("G\n");
+    initial.print("I\n");
 
     /* 4. Optimize the graph using Levenberg-Marquardt*/
     auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();

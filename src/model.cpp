@@ -535,15 +535,6 @@ namespace camsim
     return gtsam::Symbol(camera_key_).index();
   }
 
-  Model::Model(MarkersConfigurations markers_configuration,
-               CamerasConfigurations cameras_configuration,
-               CameraTypes camera_type) :
-    cfg_{markers_configuration, cameras_configuration, camera_type},
-    markers_{cfg_},
-    cameras_{cfg_},
-    corners_f_images_{gen_corners_f_images(markers_, cameras_)}
-  {}
-
   Model::Model(const ModelConfig &cfg) :
     cfg_{cfg},
     markers_{cfg_},

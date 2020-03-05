@@ -42,17 +42,16 @@ add_executable(camsim
   src/camsim.cpp
   src/gtsam_resection.cpp
   src/opencv_resection.cpp
-#  src/vtk_line_plot.cpp
-#  src/vtk_rand_dist.cpp
-#  src/vtk_multi_plot.cpp
-  src/pfm_model.cpp
+  #  src/vtk_line_plot.cpp
+  #  src/vtk_rand_dist.cpp
+  #  src/vtk_multi_plot.cpp
   )
 
 target_link_libraries(camsim
   PRIVATE gtsam
   PRIVATE opencv_core
   PRIVATE opencv_calib3d
-#  PRIVATE ${VTK_LIBRARIES}
+  #  PRIVATE ${VTK_LIBRARIES}
   )
 
 #vtk_module_autoinit(TARGETS camsim
@@ -61,21 +60,22 @@ target_link_libraries(camsim
 
 add_executable(pfm_run
   src/model.cpp
-  src/pfm_model.cpp
   src/pfm_run.cpp
   src/pfm_resection_gtsam.cpp
   src/pfm_resection_opencv.cpp
-  src/pfm_simple_rotation_example.cpp 
+  src/pfm_simple_rotation_example.cpp
   src/pfm_optimize_pose3.cpp
   src/pose_with_covariance.cpp
   src/pfm_resection_projection.cpp
-  src/pfm_resection_monte_carlo.cpp)
+  src/pfm_resection_monte_carlo.cpp
+  src/pfm_run_main.cpp
+  )
 
 target_link_libraries(pfm_run
   PRIVATE gtsam
   PRIVATE opencv_core
   PRIVATE opencv_calib3d
-#  PRIVATE ${VTK_LIBRARIES}
+  #  PRIVATE ${VTK_LIBRARIES}
   )
 
 #vtk_module_autoinit(TARGETS pfm_run
@@ -91,6 +91,7 @@ add_executable(sfm_run
   src/sfm_isam2_example.cpp
   src/sfm_isam2.cpp
   src/pose_with_covariance.cpp
+  src/sfm_run_main.cpp
   )
 
 target_link_libraries(sfm_run
@@ -150,9 +151,45 @@ target_link_libraries(map_run
 add_executable(cal_run
   src/cal_run.cpp
   src/model.cpp
+  src/pose_with_covariance.cpp
   )
 
 target_link_libraries(cal_run
+  PRIVATE gtsam
+  PRIVATE opencv_core
+  PRIVATE opencv_calib3d
+  )
+
+
+add_executable(camsim_test
+  src/test/camsim_test.cpp
+  src/test/map_test.cpp
+  src/pose_with_covariance.cpp
+  src/model.cpp
+  src/gtsam_resection.cpp
+  src/opencv_resection.cpp
+  src/map_solver_marker_marker.cpp
+  src/map_solver_project_between.cpp
+  src/test/pfm_test.cpp
+  src/pfm_run.cpp
+  src/pfm_resection_gtsam.cpp
+  src/pfm_resection_opencv.cpp
+  src/pfm_simple_rotation_example.cpp
+  src/pfm_optimize_pose3.cpp
+  src/pose_with_covariance.cpp
+  src/pfm_resection_projection.cpp
+  src/pfm_resection_monte_carlo.cpp
+  src/test/sfm_test.cpp
+  src/sfm_run.cpp
+  src/sfm_gtsam_example.cpp
+  src/sfm_gtsam_slam_example.cpp
+  src/sfm_resectioning.cpp
+  src/sfm_isam2_example.cpp
+  src/sfm_isam2.cpp
+  )
+
+
+target_link_libraries(camsim_test
   PRIVATE gtsam
   PRIVATE opencv_core
   PRIVATE opencv_calib3d

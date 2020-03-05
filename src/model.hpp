@@ -284,10 +284,6 @@ namespace camsim
     CamerasModel cameras_;
     const std::vector<std::vector<CornersFImageModel>> corners_f_images_;
 
-    Model(MarkersConfigurations markers_configuration,
-          CamerasConfigurations cameras_configuration,
-          CameraTypes camera_type);
-
     explicit Model(const ModelConfig &cfg);
 
     void print_corners_f_image();

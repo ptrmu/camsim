@@ -2,7 +2,6 @@
 #include <math.h>
 #include <opencv2/opencv.hpp>
 #include "pfm_run.hpp"
-#include "pfm_model.hpp"
 #include "pose_with_covariance.hpp"
 #include <random>
 

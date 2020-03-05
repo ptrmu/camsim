@@ -11,7 +11,7 @@
 namespace camsim
 {
 
-  class ResectioningFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
+  class ResectioningFactor_yyy : public gtsam::NoiseModelFactor1<gtsam::Pose3>
   {
     const gtsam::Cal3DS2 &cal3ds2_;
     const gtsam::Point3 P_;       ///< 3D point on the calibration rig
@@ -19,11 +19,11 @@ namespace camsim
 
   public:
     /// Construct factor given known point P and its projection p
-    ResectioningFactor(const gtsam::SharedNoiseModel &model,
-                       const gtsam::Key key,
-                       const gtsam::Cal3DS2 &cal3ds2,
-                       gtsam::Point2 p,
-                       gtsam::Point3 P) :
+    ResectioningFactor_yyy(const gtsam::SharedNoiseModel &model,
+                           const gtsam::Key key,
+                           const gtsam::Cal3DS2 &cal3ds2,
+                           gtsam::Point2 p,
+                           gtsam::Point3 P) :
       NoiseModelFactor1<gtsam::Pose3>(model, key),
       cal3ds2_{cal3ds2},
       P_(std::move(P)),
@@ -113,7 +113,7 @@ namespace camsim
 
       // Add factors to the graph
       for (size_t j = 0; j < corners_f_image.size(); j += 1) {
-        graph.emplace_shared<ResectioningFactor>(
+        graph.emplace_shared<ResectioningFactor_yyy>(
           sr_.point2_noise_,
           CameraModel::default_key(), *shared_calibration_,
           corners_f_image[j],

@@ -71,9 +71,9 @@ namespace camsim
 
   int sfm_run()
   {
-    Model model{MarkersConfigurations::square_around_origin_xy_plane,
-                CamerasConfigurations::fly_to_plus_y,
-                CameraTypes::simple_camera};
+    Model model{ModelConfig{MarkersConfigurations::square_around_origin_xy_plane,
+                            CamerasConfigurations::fly_to_plus_y,
+                            CameraTypes::simple_camera}};
 
     std::cout << model.cameras_.cameras_[0].camera_f_world_.rotation().xyz() << std::endl;
     std::cout << model.cameras_.cameras_[0].camera_f_world_.rotation().ypr() << std::endl;
@@ -97,15 +97,4 @@ namespace camsim
 
     return EXIT_SUCCESS;
   }
-}
-
-int main()
-{
-//  return camsim::sfm_gtsam_slam_example();
-//  return camsim::sfm_gtsam_example();
-//  return camsim::sfm_isam_example();
-//  return camsim::sfm_run();
-  return sfm_run_resectioning();
-//  return sfm_run_isam2();
-//  return camsim::sfm_test_clear();
 }
