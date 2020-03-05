@@ -472,7 +472,7 @@ namespace camsim
 //    }
   }
 
-  gtsam::Cal3_S2 CamerasModel::get_Cal3_S2()
+  gtsam::Cal3_S2 CamerasModel::get_Cal3_S2() const
   {
     return gtsam::Cal3_S2{calibration_.fx(), calibration_.fy(),
                           calibration_.skew(),
@@ -535,8 +535,12 @@ namespace camsim
     return gtsam::Symbol(camera_key_).index();
   }
 
+  BaseModel::BaseModel(const ModelConfig &cfg) :
+    cfg_{cfg}
+  {}
+
   Model::Model(const ModelConfig &cfg) :
-    cfg_{cfg},
+    BaseModel{cfg},
     markers_{cfg_},
     cameras_{cfg_},
     corners_f_images_{gen_corners_f_images(markers_, cameras_)}

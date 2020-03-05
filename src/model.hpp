@@ -73,8 +73,8 @@ namespace camsim
 
     public:
       explicit CubeAlongZFacingOrigin(int per_side,
-                                           double side_length,
-                                           double z_offset) :
+                                      double side_length,
+                                      double z_offset) :
         per_side_{per_side}, side_length_{side_length}, z_offset_{z_offset}
       {}
 
@@ -238,7 +238,7 @@ namespace camsim
 
     explicit CamerasModel(const ModelConfig &cfg);
 
-    gtsam::Cal3_S2 get_Cal3_S2();
+    gtsam::Cal3_S2 get_Cal3_S2() const;
   };
 
   struct CornersFImageModel
@@ -260,31 +260,65 @@ namespace camsim
     std::size_t camera_index() const;
   };
 
-//  template <class Target>
-//  struct Model
-//  {
-//    ModelConfig cfg_;
-//    MarkersModel markers_;
-//    CamerasModel cameras_;
-//    const std::vector<std::vector<CornersFImageModel>> corners_f_images_;
-//
-//    Model(MarkersConfigurations markers_configuration,
-//          CamerasConfigurations cameras_configuration,
-//          CameraTypes camera_type);
-//
-//    explicit Model(const ModelConfig &cfg);
-//
-//    void print_corners_f_image();
-//  };
 
-  struct Model
+  struct BaseModel
   {
-    ModelConfig cfg_;
-    MarkersModel markers_;
-    CamerasModel cameras_;
+    const ModelConfig cfg_;
+//    CamerasModel cameras_;
+
+    explicit BaseModel(const ModelConfig &cfg);
+  };
+
+  struct Model : public BaseModel
+  {
+//    const ModelConfig cfg_;
+    const MarkersModel markers_;
+    const CamerasModel cameras_;
     const std::vector<std::vector<CornersFImageModel>> corners_f_images_;
 
     explicit Model(const ModelConfig &cfg);
+
+    void print_corners_f_image();
+  };
+
+  struct BoardConfig
+  {
+    const int squares_x_;
+    const int squares_y_;
+    const double square_length_;
+    const double marker_length_;
+
+    BoardConfig(int squares_x, int squares_y, double square_length, double marker_length) :
+      squares_x_{squares_x}, squares_y_{squares_y},
+      square_length_{square_length}, marker_length_{marker_length}
+    {}
+
+    BoardConfig(const BoardConfig &n) :
+      squares_x_{n.squares_x_}, squares_y_{n.squares_y_},
+      square_length_{n.square_length_}, marker_length_{n.marker_length_}
+    {}
+  };
+
+  struct BoardModel
+  {
+
+  };
+
+  struct BoardsModel
+  {
+    BoardConfig bd_cfg_;
+    double square_add_marker_length_;
+    double square_sub_marker_length_;
+
+    BoardsModel(const BoardConfig &bd_cfg);
+  };
+
+  struct CalibrationModel : public BaseModel
+  {
+    BoardsModel boards_;
+    const std::vector<std::vector<CornersFImageModel>> corners_f_images_;
+
+    explicit CalibrationModel(const ModelConfig &cfg);
 
     void print_corners_f_image();
   };

@@ -64,9 +64,6 @@ namespace camsim
     gtsam::Values initial;
     initial.insert(X(1), camera_f_world_initial);
 
-    graph.print("G\n");
-    initial.print("I\n");
-
     /* 4. Optimize the graph using Levenberg-Marquardt*/
     auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();
 

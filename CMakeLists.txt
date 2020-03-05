@@ -152,6 +152,7 @@ add_executable(cal_run
   src/cal_run.cpp
   src/model.cpp
   src/pose_with_covariance.cpp
+  src/cal_run_main.cpp
   )
 
 target_link_libraries(cal_run
