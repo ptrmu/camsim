@@ -155,9 +155,6 @@ namespace camsim
       gtsam::Marginals marginals(graph_, result);
       gtsam::Matrix6 camera_f_marker_covariance = marginals.marginalCovariance(X1_);
 
-      std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker) << std::endl;
-      std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker_covariance) << std::endl;
-
       return PoseWithCovariance{
         static_cast<std::uint64_t>(marker_id),
         camera_f_marker,

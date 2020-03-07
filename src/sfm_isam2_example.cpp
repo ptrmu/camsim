@@ -124,7 +124,7 @@ namespace camsim
         gtsam::Values currentEstimate = isam.calculateEstimate();
         std::cout << "****************************************************" << std::endl;
         std::cout << "Frame " << i << ": " << std::endl;
-        currentEstimate.print("Current estimate: ");
+//        currentEstimate.print("Current estimate: ");
 
         // Clear the factor graph and values for the next iteration
         graph.resize(0);

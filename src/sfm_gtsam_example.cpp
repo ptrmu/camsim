@@ -85,7 +85,7 @@ namespace camsim
     gtsam::noiseModel::Isotropic::shared_ptr pointNoise = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
     graph.emplace_shared<gtsam::PriorFactor<gtsam::Point3> >(gtsam::Symbol('l', 0), points[0],
                                                              pointNoise); // add directly to graph
-    graph.print("Factor Graph:\n");
+//    graph.print("Factor Graph:\n");
 
     // Create the data structure to hold the initial estimate to the solution
     // Intentionally initialize the variables off from the ground truth
@@ -96,11 +96,11 @@ namespace camsim
                                                            gtsam::Point3(0.05, -0.10, 0.20))));
     for (size_t j = 0; j < points.size(); ++j)
       initialEstimate.insert<gtsam::Point3>(gtsam::Symbol('l', j), points[j] + gtsam::Point3(-0.25, 0.20, 0.15));
-    initialEstimate.print("Initial Estimates:\n");
+//    initialEstimate.print("Initial Estimates:\n");
 
     /* Optimize the graph and print results */
     gtsam::Values result = gtsam::DoglegOptimizer(graph, initialEstimate).optimize();
-    result.print("Final results:\n");
+//    result.print("Final results:\n");
     std::cout << "initial error = " << graph.error(initialEstimate) << std::endl;
     std::cout << "final error = " << graph.error(result) << std::endl;
 

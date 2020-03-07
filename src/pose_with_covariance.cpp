@@ -58,7 +58,8 @@ namespace camsim
   }
 
   // Return a matrix as a string containing the lower half of the matrix
-  static std::string to_lower_str(const gtsam::Matrix &m)
+  template<class FixedSizeMatrix>
+  static std::string to_lower_str(const FixedSizeMatrix &m)
   {
     std::stringstream ss{};
     NumFmt nf(9, 3);

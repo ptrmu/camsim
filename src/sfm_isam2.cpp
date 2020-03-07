@@ -41,12 +41,12 @@ namespace camsim
     {
     }
 
-    void add_measurements(int camera_id, const std::vector<PoseWithCovariance> &camera_f_markers)
+    void add_measurements(int camera_id, const PoseWithCovariance::StdVector &camera_f_markers)
     {
 //      graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(1, 2, poseOdometry, noiseOdometery);
     }
 
-    void add_measurements_2(int camera_id, const std::vector<PoseWithCovariance> &camera_f_markers)
+    void add_measurements_2(int camera_id, const PoseWithCovariance::StdVector &camera_f_markers)
     {
       // Have to see at least two markers before this routine can do anything.
       if (camera_f_markers.size() < 2) {
@@ -195,8 +195,7 @@ namespace camsim
 
   SfmIsam2::~SfmIsam2() = default;
 
-  void SfmIsam2::add_measurements(
-    int camera_id, const std::vector<PoseWithCovariance> &camera_f_markers)
+  void SfmIsam2::add_measurements(int camera_id, const PoseWithCovariance::StdVector &camera_f_markers)
   {
     impl_->add_measurements_2(camera_id, camera_f_markers);
   }
@@ -204,12 +203,12 @@ namespace camsim
 
 #include "model.hpp"
 
-std::vector<camsim::PoseWithCovariance> sfm_run_isam2_camera_f_markers(
+camsim::PoseWithCovariance::StdVector sfm_run_isam2_camera_f_markers(
   camsim::Model &model,
   const gtsam::SharedNoiseModel &measurement_noise,
   const camsim::CameraModel &camera)
 {
-  std::vector<camsim::PoseWithCovariance> camera_f_markers{};
+  camsim::PoseWithCovariance::StdVector camera_f_markers{};
 
   camsim::CalcCameraPose ccp{model.cameras_.calibration_,
                              model.cameras_.project_func_,
@@ -227,16 +226,9 @@ std::vector<camsim::PoseWithCovariance> sfm_run_isam2_camera_f_markers(
     }
 
     // Find the camera pose in the marker frame using the GTSAM library and add it to the list
-    auto camera_f_marker_0 = ccp.camera_f_marker(marker.index(), corners_f_image);
-    std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker_0.pose_) << std::endl;
-    std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker_0.cov_) << std::endl;
+    camera_f_markers.emplace_back(ccp.camera_f_marker(marker.index(), corners_f_image));
 
-    camera_f_markers.emplace_back(camera_f_marker_0);
-
-    const auto &camera_f_marker = camera_f_markers.back();
-    std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker.pose_) << std::endl;
-    std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker.cov_) << std::endl;
-
+    const auto &camera_f_marker(camera_f_markers.back());
 
     // Test that the calculated pose is the same as the original model.
     if (!camera_f_marker.pose_.equals(
