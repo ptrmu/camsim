@@ -4,13 +4,19 @@
 
 namespace camsim
 {
-  void odometry_example_3d();
+  int pfp_simple();
 
-  void pfp_pose_unit_test();
+  int pfp_simplest();
 
-  void pfp_marker_pose_from_corners();
+  int pfp_duplicate_prior();
 
-  void pfp_gspnp();
+  int odometry_example_3d();
+
+  int pfp_pose_unit_test();
+
+  int pfp_marker_pose_from_corners();
+
+  int pfp_gspnp();
 }
 
 #endif //_PFP_RUN_HPP

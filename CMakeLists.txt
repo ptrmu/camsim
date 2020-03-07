@@ -107,12 +107,13 @@ target_link_libraries(sfm_run
 
 add_executable(pfp_run
   src/model.cpp
-  src/pfp_run.cpp
   src/pose_with_covariance.cpp
+  src/pfp_run.cpp
   src/pfp_odometry_example_3d.cpp
   src/pfp_pose_unit_test.cpp
   src/pfp_marker_pose_from_corners.cpp
   src/pfp_gspnp.cpp
+  src/pfp_run_main.cpp
   )
 
 target_link_libraries(pfp_run
@@ -187,6 +188,12 @@ add_executable(camsim_test
   src/sfm_resectioning.cpp
   src/sfm_isam2_example.cpp
   src/sfm_isam2.cpp
+  src/test/pfp_test.cpp
+  src/pfp_run.cpp
+  src/pfp_odometry_example_3d.cpp
+  src/pfp_pose_unit_test.cpp
+  src/pfp_marker_pose_from_corners.cpp
+  src/pfp_gspnp.cpp
   )
 
 

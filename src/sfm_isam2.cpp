@@ -227,9 +227,16 @@ std::vector<camsim::PoseWithCovariance> sfm_run_isam2_camera_f_markers(
     }
 
     // Find the camera pose in the marker frame using the GTSAM library and add it to the list
-    camera_f_markers.emplace_back(ccp.camera_f_marker(marker.index(), corners_f_image));
+    auto camera_f_marker_0 = ccp.camera_f_marker(marker.index(), corners_f_image);
+    std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker_0.pose_) << std::endl;
+    std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker_0.cov_) << std::endl;
+
+    camera_f_markers.emplace_back(camera_f_marker_0);
 
     const auto &camera_f_marker = camera_f_markers.back();
+    std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker.pose_) << std::endl;
+    std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker.cov_) << std::endl;
+
 
     // Test that the calculated pose is the same as the original model.
     if (!camera_f_marker.pose_.equals(

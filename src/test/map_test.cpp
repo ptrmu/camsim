@@ -42,23 +42,23 @@ namespace camsim
     return 0;
   };
 
-  TEST_CASE("map_test - project_between ring of markers")
-  {
-    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{test_params.n_markers, 2.},
-                             PoseGens::SpinAboutZAtOriginFacingOut{test_params.n_cameras},
-                             camsim::CameraTypes::simulation,
-                             0.1775};
-
-    REQUIRE(run_solvers(model_config, test_params) == 0);
-  }
-
-  TEST_CASE("map-test - project_between circle of markers")
-  {
-    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingAlongZ{test_params.n_markers, 2., 2., false},
-                             PoseGens::CircleInXYPlaneFacingAlongZ{test_params.n_cameras, 2., 0., true},
-                             camsim::CameraTypes::simulation,
-                             0.1775};
-
-    REQUIRE(run_solvers(model_config, test_params) == 0);
-  }
+//  TEST_CASE("map_test - project_between ring of markers")
+//  {
+//    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{test_params.n_markers, 2.},
+//                             PoseGens::SpinAboutZAtOriginFacingOut{test_params.n_cameras},
+//                             camsim::CameraTypes::simulation,
+//                             0.1775};
+//
+//    REQUIRE(run_solvers(model_config, test_params) == 0);
+//  }
+//
+//  TEST_CASE("map-test - project_between circle of markers")
+//  {
+//    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingAlongZ{test_params.n_markers, 2., 2., false},
+//                             PoseGens::CircleInXYPlaneFacingAlongZ{test_params.n_cameras, 2., 0., true},
+//                             camsim::CameraTypes::simulation,
+//                             0.1775};
+//
+//    REQUIRE(run_solvers(model_config, test_params) == 0);
+//  }
 }

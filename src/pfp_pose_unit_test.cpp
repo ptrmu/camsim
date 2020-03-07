@@ -238,10 +238,11 @@ namespace camsim
     }
   }
 
-  void pfp_pose_unit_test()
+  int pfp_pose_unit_test()
   {
     pfp_covariance3_transform_unit_test();
     pfp_covariance6_map_to_2d_unit_test();
     pfp_covariance6_transform_unit_test();
+    return 0;
   }
 }

@@ -153,7 +153,10 @@ namespace camsim
       // Get the pose and covariance
       auto camera_f_marker = result.at<gtsam::Pose3>(X1_);
       gtsam::Marginals marginals(graph_, result);
-      auto camera_f_marker_covariance = marginals.marginalCovariance(X1_);
+      gtsam::Matrix6 camera_f_marker_covariance = marginals.marginalCovariance(X1_);
+
+      std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker) << std::endl;
+      std::cout << camsim::PoseWithCovariance::to_str(camera_f_marker_covariance) << std::endl;
 
       return PoseWithCovariance{
         static_cast<std::uint64_t>(marker_id),

@@ -65,7 +65,7 @@ namespace camsim
   {
   }
 
-  void pfp_gspnp()
+  int pfp_gspnp()
   {
     int n_markers = 8;
     int n_cameras = 8;
@@ -108,5 +108,7 @@ namespace camsim
       // Let the solver work on these measurements.
       test_gspnp(camera, marker_refs);
     }
+
+    return 0;
   }
 }

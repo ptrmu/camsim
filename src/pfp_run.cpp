@@ -17,7 +17,7 @@ namespace camsim
 {
   const double degree = M_PI / 180;
 
-  static void pfp_simple()
+  int pfp_simple()
   {
     // Create the world pose
     gtsam::Pose3 world{gtsam::Rot3::RzRyRx(0., 0., 0.),
@@ -105,11 +105,13 @@ namespace camsim
 
     gtsam::Matrix6 r_cov = rot_cov * result_body_f_world_covariance * rot_cov.transpose();
     std::cout << r_cov << std::endl;
+
+    return 0;
   }
 
   using namespace gtsam;
 
-  static void pfp_simplest()
+  int pfp_simplest()
   {
     // Create the world and body poses in the world frame
     Pose3 t_world_world{};
@@ -143,9 +145,11 @@ namespace camsim
 
     std::cout << result_body_f_world << std::endl;
     std::cout << result_body_f_world_covariance << std::endl;
+
+    return 0;
   }
 
-  static void pfp_duplicate_prior()
+  int pfp_duplicate_prior()
   {
     // Create the world and body poses in the world frame
     Point3 p0{0., 0., 0.};
@@ -177,16 +181,7 @@ namespace camsim
 
     std::cout << result_p0 << std::endl;
     std::cout << result_p0_covariance << std::endl;
-  }
-}
 
-int main()
-{
-//  camsim::pfp_simple();
-//  camsim::odometry_example_3d();
-//  camsim::pfp_duplicate_prior();
-//  camsim::pfp_pose_unit_test();
-//  camsim::pfp_marker_pose_from_corners();
-  camsim::pfp_gspnp();
-  return EXIT_SUCCESS;
+    return 0;
+  }
 }

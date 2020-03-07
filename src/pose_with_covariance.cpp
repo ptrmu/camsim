@@ -58,7 +58,7 @@ namespace camsim
   }
 
   // Return a matrix as a string containing the lower half of the matrix
-  static std::string to_lower_str(gtsam::Matrix m)
+  static std::string to_lower_str(const gtsam::Matrix &m)
   {
     std::stringstream ss{};
     NumFmt nf(9, 3);
@@ -103,7 +103,7 @@ namespace camsim
   {
     Eigen::EigenSolver<gtsam::Matrix6> es(cov);
     gtsam::Vector6 evs{es.eigenvalues().real()};
-    std::sort(evs.data(), evs.data() + evs.size(), std::greater<double>());
+    std::sort(evs.data(), evs.data() + evs.size(), std::greater<>());
     return to_row_str(evs);
   }
 
@@ -153,7 +153,7 @@ namespace camsim
   {
     Eigen::EigenSolver<gtsam::Matrix3> es(cov);
     gtsam::Vector3 evs{es.eigenvalues().real()};
-    std::sort(evs.data(), evs.data() + evs.size(), std::greater<double>());
+    std::sort(evs.data(), evs.data() + evs.size(), std::greater<>());
     return to_row_str(evs);
   }
 

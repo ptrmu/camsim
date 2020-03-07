@@ -78,7 +78,7 @@ namespace camsim
     std::cout << PoseWithCovariance::to_str(camera_f_world_covariance) << std::endl;
   }
 
-  void pfp_marker_pose_from_corners()
+  int pfp_marker_pose_from_corners()
   {
     camsim::Model model{ModelConfig{camsim::MarkersConfigurations::tetrahedron,
                                     camsim::CamerasConfigurations::z2_facing_origin,
@@ -89,5 +89,7 @@ namespace camsim
                                model.markers_.corners_f_marker_,
                                model.markers_.cfg_.marker_size_);
     }
+
+    return 0;
   }
 }
