@@ -536,13 +536,12 @@ namespace camsim
   }
 
   BaseModel::BaseModel(const ModelConfig &cfg) :
-    cfg_{cfg}
+    cfg_{cfg}, cameras_{cfg}
   {}
 
   Model::Model(const ModelConfig &cfg) :
     BaseModel{cfg},
     markers_{cfg_},
-    cameras_{cfg_},
     corners_f_images_{gen_corners_f_images(markers_, cameras_)}
   {}
 

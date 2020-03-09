@@ -264,16 +264,14 @@ namespace camsim
   struct BaseModel
   {
     const ModelConfig cfg_;
-//    CamerasModel cameras_;
+    const CamerasModel cameras_;
 
     explicit BaseModel(const ModelConfig &cfg);
   };
 
   struct Model : public BaseModel
   {
-//    const ModelConfig cfg_;
     const MarkersModel markers_;
-    const CamerasModel cameras_;
     const std::vector<std::vector<CornersFImageModel>> corners_f_images_;
 
     explicit Model(const ModelConfig &cfg);
