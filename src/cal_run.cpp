@@ -3,6 +3,7 @@
 
 #include "cal_run.hpp"
 
+#include "calibration_model.hpp"
 #include "model.hpp"
 
 namespace camsim
@@ -24,6 +25,10 @@ namespace camsim
 
     Model model{model_config};
 
+
+    CharucoboardConfig ar_cfg{true, 12, 9, 0.030, 0.0225};
+
+    CharucoboardCalibrationModel ccm(model_config, ar_cfg);
 
     return EXIT_SUCCESS;
   }
