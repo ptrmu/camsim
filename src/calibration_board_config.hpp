@@ -2,8 +2,21 @@
 #ifndef _CALIBRATION_BOARD_CONFIG_HPP
 #define _CALIBRATION_BOARD_CONFIG_HPP
 
+#include <array>
+
+#include <gtsam/3rdparty/Eigen/Eigen/src/Core/Matrix.h>
+#include <gtsam/geometry/Pose3.h>
+
 namespace camsim
 {
+  using PointFWorld = gtsam::Point3;
+  using PointFBoard = gtsam::Point3;
+  using PointFImage = gtsam::Point2;
+  using CornerPointsFWorld = std::array<PointFWorld, 4>;
+  using CornerPointsFBoard = std::array<PointFBoard, 4>;
+  using CornerPointsFImage = std::array<PointFImage, 4>;
+
+  using SquareAddress = Eigen::Vector2i;
 
 // ==============================================================================
 // CheckerboardConfig class
@@ -29,6 +42,20 @@ namespace camsim
       squares_y_{n.squares_y_},
       square_length_{n.square_length_}
     {}
+
+
+    // Hold the board so the text reads properly and is at the lower left. The
+    // origin of the board's coordinate system is the black corner at the top left.
+    // When looking at the board with the origin at the upper left, the x axis is
+    // to the right and the y axis is down. The checker board square corners,
+    // SquareCorner, are addressed by their ix and iy indices starting with
+    // zero at the origin. The physical location of a SquareCorner is calculated
+    // as follows:
+    PointFBoard to_square_ul_corner_f_board(const SquareAddress &square_address) const
+    {
+//      assert(square_address(0) >= 0 && square_address.y())
+//      return PointFBoard(square_address[0] * square_length_, square_address[1] * square_length_, 0.);
+    }
   };
 
 // ==============================================================================
@@ -103,7 +130,7 @@ namespace camsim
     const double marker_length_;
 
     CharucoboardConfig(bool black_not_white_upper_left, int squares_x, int squares_y, double square_length,
-           double marker_length) :
+                       double marker_length) :
       CheckerboardConfig{black_not_white_upper_left, squares_x, squares_y, square_length},
       marker_length_{marker_length}
     {}

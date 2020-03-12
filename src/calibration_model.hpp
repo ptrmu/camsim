@@ -17,9 +17,9 @@ namespace camsim
   struct JunctionFImage
   {
     const bool visible_;
-    const gtsam::Point2 junction_;
+    const PointFImage junction_;
 
-    JunctionFImage(bool visible, const gtsam::Point2 &junction) :
+    JunctionFImage(bool visible, const PointFImage &junction) :
       visible_{visible}, junction_{junction}
     {}
   };
@@ -80,37 +80,6 @@ namespace camsim
   };
 
 // ==============================================================================
-// Init routines
-// ==============================================================================
-
-  struct Init
-  {
-    template<class TTypes>
-    static const typename TTypes::template BoardsModel<TTypes> gen_boards(
-      const ModelConfig &cfg,
-      const typename TTypes::Config &bd_cfg);
-
-    template<>
-    static CheckerboardCalibrationTypes::BoardModel gen_boards<CheckerboardCalibrationTypes>(
-      const ModelConfig &cfg,
-      const CheckerboardCalibrationTypes::Config &bd_cfg);
-
-    template<class TTypes>
-    static std::vector<std::vector<std::vector<JunctionFImage>>> gen_junctions_f_images(
-      const typename TTypes::Config &bd_cfg)
-    {
-      return std::vector<std::vector<std::vector<JunctionFImage>>>{};
-    }
-
-    template<class TTypes>
-    static std::vector<std::vector<std::vector<ArucoCornersFImage>>> gen_aruco_corners_f_images(
-      const typename TTypes::Config &bd_cfg)
-    {
-      return std::vector<std::vector<std::vector<ArucoCornersFImage>>>{};
-    }
-  };
-
-// ==============================================================================
 // Board models
 // ==============================================================================
 
@@ -155,8 +124,7 @@ namespace camsim
                        const typename TTypes::Config &ch_cfg,
                        const std::vector<typename TTypes::BoardModel> &boards,
                        const std::vector<PointFBoard> &junctions_f_board) :
-      ch_cfg_{ch_cfg},
-      boards_{boards},
+      ch_cfg_{ch_cfg}, boards_{boards},
       junctions_f_board_{junctions_f_board}
     {}
   };
@@ -172,9 +140,31 @@ namespace camsim
                        const std::vector<typename TTypes::BoardModel> &boards,
                        const std::vector<PointFBoard> &junctions_f_board,
                        const std::vector<ArucoCornersFBoard> &aruco_corners_f_board) :
-      CheckerboardsModel<TTypes>{ar_cfg, boards, junctions_f_board},
-      ar_cfg_{ar_cfg}, aruco_corners_f_board_{aruco_corners_f_board}
+      CheckerboardsModel<TTypes>(cfg, ar_cfg, boards, junctions_f_board),
+      ar_cfg_{ar_cfg}, aruco_corners_f_board_(aruco_corners_f_board)
     {}
+  };
+
+// ==============================================================================
+// CalibrationModelInit routines
+// ==============================================================================
+
+  struct CalibrationModelInit
+  {
+    static const CheckerboardsModel<CheckerboardCalibrationTypes> gen_boards_model(
+      const ModelConfig &cfg,
+      const CheckerboardCalibrationTypes::Config &bd_cfg); //
+    static const CharucoboardsModel<CharucoboardCalibrationTypes> gen_boards_model(
+      const ModelConfig &cfg,
+      const CharucoboardCalibrationTypes::Config &bd_cfg); //
+
+    static const std::vector<std::vector<std::vector<JunctionFImage>>> gen_junctions_f_images(
+      const CheckerboardCalibrationTypes::Config &bd_cfg); //
+    static const std::vector<std::vector<std::vector<JunctionFImage>>> gen_junctions_f_images(
+      const CharucoboardCalibrationTypes::Config &bd_cfg); //
+
+    static const std::vector<std::vector<std::vector<ArucoCornersFImage>>> gen_aruco_corners_f_images(
+      const CharucoboardCalibrationTypes::Config &bd_cfg); //
   };
 
 // ==============================================================================
@@ -191,8 +181,8 @@ namespace camsim
     explicit CalibrationModel(const ModelConfig &cfg, const typename TTypes::Config &bd_cfg) :
       BaseModel{cfg},
       bd_cfg_{bd_cfg},
-      boards_{Init::gen_boards<TTypes>(cfg, bd_cfg_)},
-      junctions_f_images_{Init::gen_junctions_f_images<TTypes>(bd_cfg)}
+      boards_{CalibrationModelInit::gen_boards_model(cfg, bd_cfg_)},
+      junctions_f_images_{CalibrationModelInit::gen_junctions_f_images(bd_cfg)}
     {}
   };
 
@@ -211,7 +201,7 @@ namespace camsim
     CharucoboardCalibrationModel(const ModelConfig &cfg,
                                  const typename CharucoboardCalibrationTypes::Config &bd_cfg) :
       CalibrationModel<CharucoboardCalibrationTypes>{cfg, bd_cfg},
-      aruco_corners_f_images_{Init::gen_aruco_corners_f_images<CharucoboardCalibrationTypes>(bd_cfg)}
+      aruco_corners_f_images_{CalibrationModelInit::gen_aruco_corners_f_images(bd_cfg)}
     {}
   };
 
