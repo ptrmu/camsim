@@ -26,11 +26,11 @@ namespace camsim
     Model model{model_config};
 
 
-    CheckerboardConfig ch_cfg{true, 12, 9, 0.030};
+    CheckerboardConfig ch_cfg{12, 9, 0.030};
 
     CheckerboardCalibrationModel ccm(model_config, ch_cfg);
 
-    CharucoboardConfig ar_cfg{true, 12, 9, 0.030, 0.0225};
+    CharucoboardConfig ar_cfg{12, 9, 0.030, false, 0.0225};
 
     CharucoboardCalibrationModel acm(model_config, ar_cfg);
 
