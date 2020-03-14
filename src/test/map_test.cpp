@@ -42,6 +42,7 @@ namespace camsim
     return 0;
   };
 
+#if 0
   TEST_CASE("map_test - project_between ring of markers")
   {
     ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{test_params.n_markers, 2.},
@@ -61,4 +62,5 @@ namespace camsim
 
     REQUIRE(run_solvers(model_config, test_params) == 0);
   }
+#endif
 }

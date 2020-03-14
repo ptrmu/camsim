@@ -13,8 +13,8 @@ namespace camsim
   using PointFBoard = gtsam::Point3;
   using PointFImage = gtsam::Vector2;
   using PointFFacade = gtsam::Vector2; // the surface that contains markings
-  using CornerPointsFWorld = gtsam::Matrix24;
-  using CornerPointsFBoard = gtsam::Matrix24;
+  using CornerPointsFWorld = gtsam::Matrix34;
+  using CornerPointsFBoard = gtsam::Matrix34;
   using CornerPointsFImage = gtsam::Matrix24;
   using CornerPointsFFacade = gtsam::Matrix24;
 
@@ -39,10 +39,10 @@ namespace camsim
   private:
     const std::uint64_t squares_x_m_1_;
     const std::uint64_t squares_y_m_1_;
-    const double board_width_half_;
-    const double board_height_half_;
 
   public:
+    const double board_width_half_;
+    const double board_height_half_;
     const std::uint64_t max_junction_id_;
 
     CheckerboardConfig(std::uint64_t squares_x, std::uint64_t squares_y, double square_length) :
@@ -95,8 +95,9 @@ namespace camsim
     // is the upper left corner of the square.
     PointFFacade to_square_point(const SquareAddress &square_address) const
     {
-      return PointFFacade{square_address.x() * square_length_,
-                          square_address.y() * square_length_};
+      auto x(square_address.x() * square_length_);
+      auto y(square_address.y() * square_length_);
+      return PointFFacade{x, y};
     } //
     PointFFacade to_square_location_(const SquareAddress &square_address) const
     {
@@ -114,15 +115,16 @@ namespace camsim
     PointFFacade to_junction_location(JunctionId junction_id) const
     {
       assert(junction_id >= 0 && junction_id < max_junction_id_);
-      return to_square_point(SquareAddress(junction_id % squares_y_m_1_,
-                                           junction_id / squares_y_m_1_));
+      auto x(junction_id % squares_x_m_1_ + 1);
+      auto y(junction_id / squares_x_m_1_ + 1);
+      return to_square_point(SquareAddress(x, y));
     }//
 
     PointFBoard to_point_f_board(PointFFacade point_f_facade) const
     {
-      return PointFBoard{point_f_facade.x() - board_width_half_,
-                         point_f_facade.y() - board_height_half_,
-                         0.0};
+      auto x(point_f_facade.x() - board_width_half_);
+      auto y(point_f_facade.y() - board_height_half_);
+      return PointFBoard{x, y, 0.0};
     }
   };
 
@@ -223,32 +225,40 @@ namespace camsim
       std::uint64_t x_group = aruco_id % squares_x_;
       std::uint64_t y_group = aruco_id / squares_x_;
       std::uint64_t odd_row = (x_group >= arucos_on_even_row_) ? 1U : 0U;
-      std::uint64_t ix = (x_group - (odd_row * arucos_on_even_row_)) * 2 + 1 - upper_left_white_not_black_;
+      std::uint64_t ix = (x_group - (odd_row * arucos_on_even_row_)) * 2 + (1 ^ odd_row ^ upper_left_white_not_black_);
       std::uint64_t iy = y_group * 2 + odd_row;
       return to_square_point(SquareAddress(ix, iy)).array() + square_length_half_;
     }//
 
-    // Returns the location of the corners relative to the center of the aruco symbol
-    CornerPointsFFacade to_aruco_corners_f_marker()
+    // Returns the location of the corners relative to the center of the aruco marker,
+    // The corners of an aruco marker are always stored moving clockwise (looking at
+    // the marker) around the marker. If looking at the board with the origin at the
+    // upper-left, the marker coordinates are stored upper-left, upper-right, lower-right
+    // and lower-left.
+    // Note that the y axis points down the board but we would like the marker to be
+    // positioned upright (its y axis points up the board).
+    CornerPointsFFacade to_aruco_corners_f_marker() const
     {
-      return (CornerPointsFFacade{} << PointFFacade{-marker_length_half_, marker_length_half_},
-        PointFFacade{marker_length_half_, marker_length_half_},
+      return (CornerPointsFFacade{} << PointFFacade{-marker_length_half_, -marker_length_half_},
         PointFFacade{marker_length_half_, -marker_length_half_},
-        PointFFacade{-marker_length_half_, -marker_length_half_}).finished();
+        PointFFacade{marker_length_half_, marker_length_half_},
+        PointFFacade{-marker_length_half_, marker_length_half_}).finished();
     };
 
     // Returns the location of the corners relative to the markings
-    CornerPointsFFacade to_aruco_corners_f_facade(ArucoId aruco_id)
+    CornerPointsFFacade to_aruco_corners_f_facade(ArucoId aruco_id) const
     {
-      auto offset = to_aruco_location(aruco_id).replicate(0, 4);
+      auto aruco_location = to_aruco_location(aruco_id);
+      auto offset = aruco_location.replicate<1, 4>();
       auto corners = to_aruco_corners_f_marker();
       return corners + offset;
     }
 
     // Returns the location of the corners relative to the markings
-    CornerPointsFFacade to_aruco_corners_f_board(const CornerPointsFFacade &corners_f_facade)
+    CornerPointsFBoard to_aruco_corners_f_board(const CornerPointsFFacade &corners_f_facade) const
     {
-      return (CornerPointsFFacade{} << corners_f_facade,
+      auto offset = PointFFacade(board_width_half_, board_height_half_).replicate<1, 4>();
+      return (CornerPointsFBoard{} << corners_f_facade - offset,
         gtsam::Matrix14{}.setZero()).finished();
     }
   };

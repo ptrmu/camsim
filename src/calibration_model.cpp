@@ -21,48 +21,67 @@ namespace camsim
     return gtsam::Symbol{'b', idx}.key();
   }
 
+// ==============================================================================
+// Junctions
+// ==============================================================================
+
+  static std::vector<PointFBoard> gen_junctions_f_board(
+    const CheckerboardCalibrationTypes::Config &bd_cfg)
+  {
+    std::vector<PointFBoard> junctions_f_board{};
+    for (JunctionId i = 0; i < bd_cfg.max_junction_id_; i += 1) {
+      auto junction_f_facade = bd_cfg.to_junction_location(i);
+      auto junction_f_board = bd_cfg.to_point_f_board(junction_f_facade);
+      junctions_f_board.emplace_back(junction_f_board);
+    }
+    return junctions_f_board;
+  }
+
   static std::vector<PointFWorld> gen_junctions_f_world(
     const CheckerboardCalibrationTypes::Config &bd_cfg,
     const gtsam::Pose3 &board_f_world)
   {
     std::vector<PointFWorld> junctions_f_world{};
-    for (JunctionId i = 0; i < bd_cfg.max_junction_id_; i += 1) {
-      auto junction_f_facade = bd_cfg.to_junction_location(i);
-      auto junction_f_board = bd_cfg.to_point_f_board(junction_f_facade);
+    auto junctions_f_board{gen_junctions_f_board(bd_cfg)};
+    for (auto &junction_f_board : junctions_f_board) {
       junctions_f_world.emplace_back(PointFWorld(board_f_world * junction_f_board));
     }
     return junctions_f_world;
-  }
-
-  static std::vector<ArucoCornersFWorld> gen_aruco_corners_f_world(
-    const CharucoboardCalibrationTypes::Config &bd_cfg,
-    const gtsam::Pose3 &board_f_world)
-  {
-    std::vector<ArucoCornersFWorld> aruco_corners_f_world{};
-//    for (JunctionId i = 0; i < bd_cfg.max_junction_id_; i += 1) {
-//      auto junction_f_facade = bd_cfg.to_junction_location(i);
-//      auto junction_f_board = bd_cfg.to_point_f_board(junction_f_facade);
-//      aruco_corners_f_world.emplace_back(PointFWorld(board_f_world * junction_f_board));
-//    }
-    return aruco_corners_f_world;
-  }
-
-  static std::vector<PointFBoard> gen_junctions_f_board(
-    const CheckerboardCalibrationTypes::Config &bd_cfg)
-  {
-    return std::vector<PointFBoard>{};
-  }
-
-  static std::vector<ArucoCornersFBoard> gen_aruco_corners_f_board(
-    const CharucoboardCalibrationTypes::Config &bd_cfg)
-  {
-    return std::vector<ArucoCornersFBoard>{};
   }
 
   static std::vector<std::vector<std::vector<JunctionFImage>>> gen_junctions_f_images(
     const CheckerboardCalibrationTypes::Config &bd_cfg)
   {
     return std::vector<std::vector<std::vector<JunctionFImage>>>{};
+  }
+
+// ==============================================================================
+// Aruco Corners
+// ==============================================================================
+
+  static std::vector<CornerPointsFBoard> gen_arucos_corners_f_board(
+    const CharucoboardCalibrationTypes::Config &bd_cfg)
+  {
+    std::vector<CornerPointsFBoard> arucos_corners_f_board{};
+    for (ArucoId i = 0; i < bd_cfg.max_aruco_id_; i += 1) {
+      auto aruco_f_facade = bd_cfg.to_aruco_corners_f_facade(i);
+      auto aruco_corners_f_board = bd_cfg.to_aruco_corners_f_board(aruco_f_facade);
+      arucos_corners_f_board.emplace_back(aruco_corners_f_board);
+    }
+    return arucos_corners_f_board;
+  }
+
+  static std::vector<CornerPointsFWorld> gen_aruco_corners_f_world(
+    const CharucoboardCalibrationTypes::Config &bd_cfg,
+    const gtsam::Pose3 &board_f_world)
+  {
+    std::vector<CornerPointsFWorld> aruco_corners_f_world{};
+//    for (JunctionId i = 0; i < bd_cfg.max_junction_id_; i += 1) {
+//      auto junction_f_facade = bd_cfg.to_junction_location(i);
+//      auto junction_f_board = bd_cfg.to_point_f_board(junction_f_facade);
+//      aruco_corners_f_world.emplace_back(PointFWorld(board_f_world * junction_f_board));
+//    }
+    return aruco_corners_f_world;
   }
 
   static std::vector<std::vector<std::vector<ArucoCornersFImage>>> gen_aruco_corners_f_images(
@@ -134,7 +153,7 @@ namespace camsim
     return CharucoboardsModel<CharucoboardCalibrationTypes>(cfg, bd_cfg,
                                                             gen_boards_list<CharucoboardCalibrationTypes>(cfg, bd_cfg),
                                                             gen_junctions_f_board(bd_cfg),
-                                                            gen_aruco_corners_f_board(bd_cfg));
+                                                            gen_arucos_corners_f_board(bd_cfg));
   }
 
 // ==============================================================================

@@ -5,6 +5,7 @@
 
 namespace camsim
 {
+#if 0
   TEST_CASE("pfm_test - 0")
   {
     REQUIRE(pfm_run(0) == 0);
@@ -24,4 +25,5 @@ namespace camsim
   {
     REQUIRE(pfm_optimize_pose3() == 0);
   }
+#endif
 }

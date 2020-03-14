@@ -7,7 +7,7 @@
 
 namespace camsim
 {
-
+#if 0
   TEST_CASE("sfm_gtsam_slam_example")
   {
     REQUIRE(sfm_gtsam_slam_example() == 0);
@@ -42,4 +42,5 @@ namespace camsim
   {
     REQUIRE(sfm_test_clear() == 0);
   }
+#endif
 }

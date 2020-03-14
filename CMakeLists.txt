@@ -196,6 +196,7 @@ add_executable(camsim_test
   src/pfp_marker_pose_from_corners.cpp
   src/pfp_gspnp.cpp
   src/calibration_model.cpp
+  src/test/cal_test.cpp
   )
 
 

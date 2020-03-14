@@ -18,25 +18,6 @@ namespace camsim
     {}
   };
 
-
-  struct ArucoCornersFWorld
-  {
-    const CornerPointsFWorld corners_f_world_;
-
-    ArucoCornersFWorld(const CornerPointsFWorld &corners_f_world) :
-      corners_f_world_{corners_f_world}
-    {}
-  };
-
-  struct ArucoCornersFBoard
-  {
-    const CornerPointsFBoard corners_t_board_;
-
-    ArucoCornersFBoard(const CornerPointsFBoard &corners_f_board) :
-      corners_t_board_{corners_f_board}
-    {}
-  };
-
   struct ArucoCornersFImage
   {
     const bool visible_;
@@ -96,12 +77,12 @@ namespace camsim
 
   struct CharucoboardModel : public CheckerboardModel
   {
-    const std::vector<ArucoCornersFWorld> aruco_corners_f_world_;
+    const std::vector<CornerPointsFWorld> aruco_corners_f_world_;
 
     CharucoboardModel(std::uint64_t key,
                       const gtsam::Pose3 &board_f_world,
                       const std::vector<PointFWorld> &junctions_f_world,
-                      const std::vector<ArucoCornersFWorld> &aruco_corners_f_world) :
+                      const std::vector<CornerPointsFWorld> &aruco_corners_f_world) :
       CheckerboardModel{key, board_f_world, junctions_f_world},
       aruco_corners_f_world_{aruco_corners_f_world}
     {}
@@ -131,15 +112,15 @@ namespace camsim
   struct CharucoboardsModel : public CheckerboardsModel<TTypes>
   {
     const typename TTypes::Config &ar_cfg_;
-    const std::vector<ArucoCornersFBoard> aruco_corners_f_board_; // [marker]
+    const std::vector<CornerPointsFBoard> arucos_corners_f_board_; // [marker]
 
     CharucoboardsModel(const ModelConfig &cfg,
                        const typename TTypes::Config &ar_cfg,
                        const std::vector<typename TTypes::BoardModel> &boards,
                        const std::vector<PointFBoard> &junctions_f_board,
-                       const std::vector<ArucoCornersFBoard> &aruco_corners_f_board) :
+                       const std::vector<CornerPointsFBoard> &arucos_corners_f_board) :
       CheckerboardsModel<TTypes>(cfg, ar_cfg, boards, junctions_f_board),
-      ar_cfg_{ar_cfg}, aruco_corners_f_board_(aruco_corners_f_board)
+      ar_cfg_{ar_cfg}, arucos_corners_f_board_(arucos_corners_f_board)
     {}
   };
 

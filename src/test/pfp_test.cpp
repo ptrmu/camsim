@@ -6,6 +6,7 @@
 
 namespace camsim
 {
+#if 0
   TEST_CASE("pfp_test - pfp_simple")
   {
     REQUIRE(pfp_simple() == 0);
@@ -40,4 +41,5 @@ namespace camsim
   {
     REQUIRE(pfp_gspnp() == 0);
   }
+#endif
 }
