@@ -1,4 +1,5 @@
 
+#include <gtsam/geometry/CalibratedCamera.h>
 #include "calibration_model.hpp"
 
 #include "gtsam/inference/Symbol.h"
@@ -49,10 +50,52 @@ namespace camsim
     return junctions_f_world;
   }
 
-  static std::vector<std::vector<std::vector<JunctionFImage>>> gen_junctions_f_images(
-    const CheckerboardCalibrationTypes::Config &bd_cfg)
+  template<typename TBoardsModel>
+  static std::vector<std::vector<std::vector<JunctionFImage>>> gen_junctions_f_image(
+    const CamerasModel &cameras,
+    const TBoardsModel &boards)
   {
-    return std::vector<std::vector<std::vector<JunctionFImage>>>{};
+    std::vector<std::vector<std::vector<JunctionFImage>>> junctions_f_image;
+
+    for (auto &camera : cameras.cameras_) {
+      std::vector<std::vector<JunctionFImage>> per_camera{};
+      for (auto &board : boards.boards_) {
+        std::vector<JunctionFImage> per_board{};
+        for (auto &junction_f_world : board.junctions_f_world_) {
+          bool visible = false;
+          auto point_f_image{PointFImage{}.setZero()};
+
+          try {
+            // project the junction onto the camera's image plane.
+            point_f_image = cameras.project_func_(camera.camera_f_world_,
+                                                  junction_f_world,
+                                                  boost::none);
+
+            // If the point is outside of the image boundary, then don't save any of the points. This
+            // simulates when a marker can't be seen by a camera.
+            if (point_f_image.x() >= 0 && point_f_image.x() < 2 * cameras.calibration_.px() &&
+                point_f_image.y() >= 0 && point_f_image.y() < 2 * cameras.calibration_.py()) {
+              visible = true;
+            }
+          }
+            // If the point can't be projected, then don't save any of the points. This
+            // simulates when a marker can't be seen by a camera.
+          catch (gtsam::CheiralityException &e) {
+          }
+
+          // Add a junction to the junction list.
+          per_board.emplace_back(JunctionFImage{visible, point_f_image});
+        }
+
+        // Add the per_board list
+        per_camera.emplace_back(per_board);
+      }
+
+      // add the per_camera list
+      junctions_f_image.emplace_back(per_camera);
+    }
+
+    return junctions_f_image;
   }
 
 // ==============================================================================
@@ -71,23 +114,71 @@ namespace camsim
     return arucos_corners_f_board;
   }
 
-  static std::vector<CornerPointsFWorld> gen_aruco_corners_f_world(
+  static std::vector<CornerPointsFWorld> gen_arucos_corners_f_world(
     const CharucoboardCalibrationTypes::Config &bd_cfg,
     const gtsam::Pose3 &board_f_world)
   {
-    std::vector<CornerPointsFWorld> aruco_corners_f_world{};
-//    for (JunctionId i = 0; i < bd_cfg.max_junction_id_; i += 1) {
-//      auto junction_f_facade = bd_cfg.to_junction_location(i);
-//      auto junction_f_board = bd_cfg.to_point_f_board(junction_f_facade);
-//      aruco_corners_f_world.emplace_back(PointFWorld(board_f_world * junction_f_board));
-//    }
-    return aruco_corners_f_world;
+    std::vector<CornerPointsFWorld> arucos_corners_f_world{};
+    auto arucos_corners_f_board{gen_arucos_corners_f_board(bd_cfg)};
+    for (auto &aruco_corners_f_board : arucos_corners_f_board) {
+      arucos_corners_f_world.emplace_back((CornerPointsFWorld{}
+        << board_f_world * aruco_corners_f_board.col(0),
+        board_f_world * aruco_corners_f_board.col(1),
+        board_f_world * aruco_corners_f_board.col(2),
+        board_f_world * aruco_corners_f_board.col(3)).finished());
+    }
+    return arucos_corners_f_world;
   }
 
-  static std::vector<std::vector<std::vector<ArucoCornersFImage>>> gen_aruco_corners_f_images(
-    const CharucoboardCalibrationTypes::Config &bd_cfg)
+  static std::vector<std::vector<std::vector<ArucoCornersFImage>>> gen_arucos_corners_f_images(
+    const CamerasModel &cameras,
+    const CharucoboardsModel<CharucoboardCalibrationTypes> boards)
   {
-    return std::vector<std::vector<std::vector<ArucoCornersFImage>>>{};
+    std::vector<std::vector<std::vector<ArucoCornersFImage>>> arucos_corners_f_images;
+
+    for (auto &camera : cameras.cameras_) {
+      std::vector<std::vector<ArucoCornersFImage>> per_camera{};
+      for (auto &board : boards.boards_) {
+        std::vector<ArucoCornersFImage> per_board{};
+        for (auto &aruco_corners_f_world : board.arucos_corners_f_world_) {
+          bool visible = false;
+          auto corner_points_f_image{CornerPointsFImage{}.setZero()};
+
+          try {
+            for (int i = 0; i < 4; i += 1) {
+              // Project the junction onto the camera's image plane for each of the corner points
+              corner_points_f_image.col(i) = cameras.project_func_(camera.camera_f_world_,
+                                                                   aruco_corners_f_world.col(i),
+                                                                   boost::none);
+
+              // If the point is outside of the image boundary, then don't save any of the points. This
+              // simulates when a marker can't be seen by a camera.
+              if (corner_points_f_image(0, i) >= 0 && corner_points_f_image(0, i) < 2 * cameras.calibration_.px() &&
+                  corner_points_f_image(1, i) >= 0 && corner_points_f_image(1, i) < 2 * cameras.calibration_.py() &&
+                  i == 3) {
+                visible = true;
+              }
+            }
+          }
+            // If the point can't be projected, then don't save any of the points. This
+            // simulates when a marker can't be seen by a camera.
+          catch (gtsam::CheiralityException & e)
+          {
+          }
+
+          // Add a junction to the junction list.
+          per_board.emplace_back(ArucoCornersFImage{visible, corner_points_f_image});
+        }
+
+        // Add the per_board list
+        per_camera.emplace_back(per_board);
+      }
+
+      // add the per_camera list
+      arucos_corners_f_images.emplace_back(per_camera);
+    }
+
+    return arucos_corners_f_images;
   }
 
 // ==============================================================================
@@ -117,7 +208,7 @@ namespace camsim
     return CharucoboardModel{key,
                              board_f_world,
                              gen_junctions_f_world(bd_cfg, board_f_world),
-                             gen_aruco_corners_f_world(bd_cfg, board_f_world)};
+                             gen_arucos_corners_f_world(bd_cfg, board_f_world)};
 
   }
 
@@ -167,7 +258,7 @@ namespace camsim
     BaseModel{cfg},
     bd_cfg_{bd_cfg},
     boards_{gen_boards_model(cfg, bd_cfg_)},
-    junctions_f_images_{gen_junctions_f_images(bd_cfg)}
+    junctions_f_images_{gen_junctions_f_image<typename TTypes::template BoardsModel<TTypes>>(cameras_, boards_)}
   {}
 
   CheckerboardCalibrationModel::CheckerboardCalibrationModel(
@@ -180,7 +271,7 @@ namespace camsim
     const ModelConfig &cfg,
     const typename CharucoboardCalibrationTypes::Config &bd_cfg) :
     CalibrationModel<CharucoboardCalibrationTypes>{cfg, bd_cfg},
-    aruco_corners_f_images_{gen_aruco_corners_f_images(bd_cfg)}
+    arucos_corners_f_images_{gen_arucos_corners_f_images(cameras_, boards_)}
   {}
 
 }

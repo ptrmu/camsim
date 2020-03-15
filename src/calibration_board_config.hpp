@@ -9,14 +9,14 @@
 
 namespace camsim
 {
-  using PointFWorld = gtsam::Point3;
-  using PointFBoard = gtsam::Point3;
-  using PointFImage = gtsam::Vector2;
   using PointFFacade = gtsam::Vector2; // the surface that contains markings
-  using CornerPointsFWorld = gtsam::Matrix34;
-  using CornerPointsFBoard = gtsam::Matrix34;
-  using CornerPointsFImage = gtsam::Matrix24;
+  using PointFBoard = gtsam::Point3;
+  using PointFWorld = gtsam::Point3;
+  using PointFImage = gtsam::Vector2;
   using CornerPointsFFacade = gtsam::Matrix24;
+  using CornerPointsFBoard = gtsam::Matrix34;
+  using CornerPointsFWorld = gtsam::Matrix34;
+  using CornerPointsFImage = gtsam::Matrix24;
 
   using SquareAddress = Eigen::Vector2i;
   using SquareId = std::uint64_t;
@@ -123,7 +123,7 @@ namespace camsim
     PointFBoard to_point_f_board(PointFFacade point_f_facade) const
     {
       auto x(point_f_facade.x() - board_width_half_);
-      auto y(point_f_facade.y() - board_height_half_);
+      auto y(-(point_f_facade.y() - board_height_half_)); // facade y is down, board y is up
       return PointFBoard{x, y, 0.0};
     }
   };
@@ -131,54 +131,6 @@ namespace camsim
 // ==============================================================================
 // CharucoboardConfig class
 // ==============================================================================
-  //
-  // A junction is the point where two black squares touch. On a board, there
-  // are (squares_x - 1) * (squares_y - 1) junctions. Each has an id, junction_id,
-  // that can be calculated as follows:
-  //
-  //  try_to_junction_id(ix, iy, &junction_id)
-  //    if ix <= 0 or ix >= squares_x or  iy <= 0 or iy >= squares_y
-  //      return false
-  //    junction_id = (squares_x - 1) * iy + (ix - 1)
-  //
-  //  try_to_square_address(junction_id, &ix, &iy)
-  //    if junction_id < 0 or junction_id > (squares_x - 1) * (squares_y - 1)
-  //      return false
-  //    ix = junction_id % squares_y + 1
-  //    iy = junction_id / squares_y + 1
-  //
-  // Every other square is filled with an aruco marker. Squares
-  // where (ix + iy) is odd contain an aruco marker ((0,1), (1,0), (0,3) ...).
-  //
-  // Every intersection where two black squares intersect has a label.
-  // Given ix, iy
-  //  no label if ix < 1 or ix > 11
-  //  no label if iy < 1 or iy > 8
-  //    label = (iy - 1) * 11 + (ix - 1)
-  // Given a label
-  //  ix = label % 11 + 1
-  //  iy = label / 11 + 1
-  //
-  // Each aruco marker has a tag that is the same as its id
-  // Given ix, iy
-  //  no tag if ix < 0 or ix > 11
-  //  no tag if iy < 0 or iy > 8
-  //  no tag if (ix + iy) is even
-  // Given tag
-  //  iy = tag / 6
-  //  ix = (tag % 6) * 2 + (iy is even ? 0 : 1)
-  //
-  // The corners of an aruco marker are always stored moving clockwise (looking at
-  // the marker) around the marker. If looking at the board with the origin at the
-  // upper-left, the marker coordinates are stored upper-left, upper-right, lower-right
-  // and lower-left.
-  // Given the (ix, iy) of a square that contains a marker, the location of the marker
-  // corners is:
-  //  0: (ix*square_width + (square_width - marker_width) / 2, iy*square_height + (square_height - marker_height) / 2
-  //  1: (ix*square_width + (square_width + marker_width) / 2, iy*square_height + (square_height - marker_height) / 2
-  //  2: (ix*square_width + (square_width + marker_width) / 2, iy*square_height + (square_height + marker_height) / 2
-  //  3: (ix*square_width + (square_width - marker_width) / 2, iy*square_height + (square_height + marker_height) / 2
-
 
   struct CharucoboardConfig : public CheckerboardConfig
   {
@@ -245,21 +197,20 @@ namespace camsim
         PointFFacade{-marker_length_half_, marker_length_half_}).finished();
     };
 
-    // Returns the location of the corners relative to the markings
+    // Returns the location of the corners relative to the markings in 2D (origin=board top left)
     CornerPointsFFacade to_aruco_corners_f_facade(ArucoId aruco_id) const
     {
-      auto aruco_location = to_aruco_location(aruco_id);
-      auto offset = aruco_location.replicate<1, 4>();
-      auto corners = to_aruco_corners_f_marker();
-      return corners + offset;
+      return to_aruco_corners_f_marker() + to_aruco_location(aruco_id).replicate<1, 4>();
     }
 
-    // Returns the location of the corners relative to the markings
+    // Returns the location of the corners relative to the markings in 3D (z = 0, origin=board center)
     CornerPointsFBoard to_aruco_corners_f_board(const CornerPointsFFacade &corners_f_facade) const
     {
-      auto offset = PointFFacade(board_width_half_, board_height_half_).replicate<1, 4>();
-      return (CornerPointsFBoard{} << corners_f_facade - offset,
-        gtsam::Matrix14{}.setZero()).finished();
+      auto temp_corners_f_facade{corners_f_facade};
+      // note: facade y is down, board y is up
+      temp_corners_f_facade.row(0) = temp_corners_f_facade.row(0).array() - board_width_half_;
+      temp_corners_f_facade.row(1) = -(temp_corners_f_facade.row(1).array() - board_height_half_);
+      return (CornerPointsFBoard{} << temp_corners_f_facade, gtsam::Matrix14{}.setZero()).finished();
     }
   };
 }

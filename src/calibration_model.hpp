@@ -77,14 +77,14 @@ namespace camsim
 
   struct CharucoboardModel : public CheckerboardModel
   {
-    const std::vector<CornerPointsFWorld> aruco_corners_f_world_;
+    const std::vector<CornerPointsFWorld> arucos_corners_f_world_;
 
     CharucoboardModel(std::uint64_t key,
                       const gtsam::Pose3 &board_f_world,
                       const std::vector<PointFWorld> &junctions_f_world,
-                      const std::vector<CornerPointsFWorld> &aruco_corners_f_world) :
+                      const std::vector<CornerPointsFWorld> &arucos_corners_f_world) :
       CheckerboardModel{key, board_f_world, junctions_f_world},
-      aruco_corners_f_world_{aruco_corners_f_world}
+      arucos_corners_f_world_{arucos_corners_f_world}
     {}
   };
 
@@ -146,7 +146,7 @@ namespace camsim
 
   struct CharucoboardCalibrationModel : CalibrationModel<CharucoboardCalibrationTypes>
   {
-    const std::vector<std::vector<std::vector<ArucoCornersFImage>>> aruco_corners_f_images_; // [camera][board][aruco]
+    const std::vector<std::vector<std::vector<ArucoCornersFImage>>> arucos_corners_f_images_; // [camera][board][aruco]
 
     CharucoboardCalibrationModel(const ModelConfig &cfg,
                                  const typename CharucoboardCalibrationTypes::Config &bd_cfg);
