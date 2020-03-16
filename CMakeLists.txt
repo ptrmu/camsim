@@ -155,6 +155,7 @@ add_executable(cal_run
   src/pose_with_covariance.cpp
   src/cal_run_main.cpp
   src/calibration_model.cpp
+  src/cal_solver_opencv.cpp
   )
 
 target_link_libraries(cal_run
@@ -197,6 +198,7 @@ add_executable(camsim_test
   src/pfp_gspnp.cpp
   src/calibration_model.cpp
   src/test/cal_test.cpp
+  src/cal_solver_opencv.cpp
   )
 
 

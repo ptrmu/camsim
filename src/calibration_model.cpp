@@ -1,11 +1,34 @@
 
-#include <gtsam/geometry/CalibratedCamera.h>
 #include "calibration_model.hpp"
 
+#include <gtsam/geometry/CalibratedCamera.h>
 #include "gtsam/inference/Symbol.h"
+#include "pose_with_covariance.hpp"
 
 namespace camsim
 {
+
+
+  std::size_t JunctionFImage::camera_index() const
+  {
+    return gtsam::Symbol(camera_key_).index();
+  }
+
+  std::size_t JunctionFImage::board_index() const
+  {
+    return gtsam::Symbol(board_key_).index();
+  }
+
+  std::size_t ArucoCornersFImage::camera_index() const
+  {
+    return gtsam::Symbol(camera_key_).index();
+  }
+
+  std::size_t ArucoCornersFImage::board_index() const
+  {
+    return gtsam::Symbol(board_key_).index();
+  }
+
 
   std::size_t CheckerboardModel::index() const
   {
@@ -61,7 +84,8 @@ namespace camsim
       std::vector<std::vector<JunctionFImage>> per_camera{};
       for (auto &board : boards.boards_) {
         std::vector<JunctionFImage> per_board{};
-        for (auto &junction_f_world : board.junctions_f_world_) {
+        for (JunctionId i = 0; i < boards.ch_cfg_.max_junction_id_; i += 1) {
+          auto junction_f_world(board.junctions_f_world_[i]);
           bool visible = false;
           auto point_f_image{PointFImage{}.setZero()};
 
@@ -84,7 +108,7 @@ namespace camsim
           }
 
           // Add a junction to the junction list.
-          per_board.emplace_back(JunctionFImage{visible, point_f_image});
+          per_board.emplace_back(JunctionFImage{visible, camera.key_, board.key_, i, point_f_image});
         }
 
         // Add the per_board list
@@ -140,7 +164,8 @@ namespace camsim
       std::vector<std::vector<ArucoCornersFImage>> per_camera{};
       for (auto &board : boards.boards_) {
         std::vector<ArucoCornersFImage> per_board{};
-        for (auto &aruco_corners_f_world : board.arucos_corners_f_world_) {
+        for (ArucoId i = 0; i < boards.ar_cfg_.max_aruco_id_; i += 1) {
+          auto &aruco_corners_f_world(board.arucos_corners_f_world_[i]);
           bool visible = false;
           auto corner_points_f_image{CornerPointsFImage{}.setZero()};
 
@@ -162,12 +187,11 @@ namespace camsim
           }
             // If the point can't be projected, then don't save any of the points. This
             // simulates when a marker can't be seen by a camera.
-          catch (gtsam::CheiralityException & e)
-          {
+          catch (gtsam::CheiralityException &e) {
           }
 
           // Add a junction to the junction list.
-          per_board.emplace_back(ArucoCornersFImage{visible, corner_points_f_image});
+          per_board.emplace_back(ArucoCornersFImage{visible, camera.key_, board.key_, i, corner_points_f_image});
         }
 
         // Add the per_board list
@@ -273,5 +297,38 @@ namespace camsim
     CalibrationModel<CharucoboardCalibrationTypes>{cfg, bd_cfg},
     arucos_corners_f_images_{gen_arucos_corners_f_images(cameras_, boards_)}
   {}
+
+
+  void CheckerboardCalibrationModel::print_junctions_f_image()
+  {
+    std::cout << "junctions_f_images" << std::endl;
+    for (auto &per_camera : junctions_f_images_) {
+      for (auto &per_board : per_camera) {
+        for (auto &per_junction : per_board) {
+          if (per_junction.junction_id_ == 0) {
+            auto &camera = cameras_.cameras_[per_junction.camera_index()];
+            auto &board = boards_.boards_[per_junction.board_index()];
+            std::cout << "camera" << camera.index() << PoseWithCovariance::to_str(camera.camera_f_world_)
+                      << " board" << board.index() << PoseWithCovariance::to_str(board.board_f_world_)
+                      << std::endl;
+          }
+
+          auto &junction_f_image(per_junction.junction_);
+
+          // If the junction is not visible, then it was not visible to the camera.
+          if (!per_junction.visible_) {
+            std::cout << "  not visible";
+          } else {
+            std::cout << "  " << junction_f_image.transpose();
+          }
+          if (per_junction.junction_id_ % (bd_cfg_.squares_x_ - 1) == (bd_cfg_.squares_x_ - 2)) {
+            std::cout << std::endl;
+          }
+        }
+        std::cout << std::endl;
+      }
+    }
+    std::cout << std::endl;
+  }
 
 }

@@ -11,21 +11,51 @@ namespace camsim
   struct JunctionFImage
   {
     const bool visible_;
+    const std::uint64_t camera_key_;
+    const std::uint64_t board_key_;
+    const std::uint64_t junction_id_;
+
     const PointFImage junction_;
 
-    JunctionFImage(bool visible, const PointFImage &junction) :
-      visible_{visible}, junction_{junction}
+    JunctionFImage(bool visible,
+                   std::uint64_t camera_key,
+                   std::uint64_t board_key,
+                   std::uint64_t junction_id,
+                   const PointFImage &junction) :
+      visible_{visible},
+      camera_key_{camera_key},
+      board_key_{board_key},
+      junction_id_{junction_id},
+      junction_{junction}
     {}
+
+    std::size_t camera_index() const; //
+    std::size_t board_index() const; //
   };
 
   struct ArucoCornersFImage
   {
     const bool visible_;
+    const std::uint64_t camera_key_;
+    const std::uint64_t board_key_;
+    const std::uint64_t aruco_id_;
+
     const CornerPointsFImage points_f_image_;
 
-    ArucoCornersFImage(bool visible, const CornerPointsFImage &points_f_image) :
-      visible_{visible}, points_f_image_{points_f_image}
+    ArucoCornersFImage(bool visible,
+                       std::uint64_t camera_key,
+                       std::uint64_t board_key,
+                       std::uint64_t aruco_id,
+                       const CornerPointsFImage &points_f_image) :
+      visible_{visible},
+      camera_key_{camera_key},
+      board_key_{board_key},
+      aruco_id_{aruco_id},
+      points_f_image_{points_f_image}
     {}
+
+    std::size_t camera_index() const; //
+    std::size_t board_index() const; //
   };
 
 // ==============================================================================
@@ -142,6 +172,8 @@ namespace camsim
   {
     CheckerboardCalibrationModel(const ModelConfig &cfg,
                                  const typename CheckerboardCalibrationTypes::Config &bd_cfg);
+
+    void print_junctions_f_image();
   };
 
   struct CharucoboardCalibrationModel : CalibrationModel<CharucoboardCalibrationTypes>

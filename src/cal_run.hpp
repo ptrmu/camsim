@@ -5,5 +5,6 @@
 namespace camsim
 {
   int cal_run();
+  int cal_solver_opencv_checkerboard();
 }
 #endif //_CAL_RUN_HPP

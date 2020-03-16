@@ -249,9 +249,8 @@ namespace camsim
       corners_f_image_{std::move(corners_f_image)}
     {}
 
-    std::size_t marker_index() const;
-
-    std::size_t camera_index() const;
+    std::size_t marker_index() const; //
+    std::size_t camera_index() const; //
   };
 
 

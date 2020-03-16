@@ -4,6 +4,7 @@
 
 int main()
 {
-  camsim::cal_run();
+//  camsim::cal_run();
+  camsim::cal_solver_opencv_checkerboard();
 }
 
