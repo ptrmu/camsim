@@ -2,7 +2,7 @@
 #ifndef _CAL_SOLVER_RUNNER_HPP
 #define _CAL_SOLVER_RUNNER_HPP
 
-#include "model.hpp"
+#include "calibration_model.hpp"
 #include "pose_with_covariance.hpp"
 
 #define ENABLE_TIMING
@@ -16,30 +16,53 @@
 
 namespace camsim
 {
-  typedef std::reference_wrapper<const MarkerModel> MarkerModelRef;
-
   template<typename TBoardModel>
+  using BoardModelRef = std::reference_wrapper<const TBoardModel>;
+
   struct BoardData
   {
-    const MarkerModel &board_;
-    const gtsam::Pose3 board_f_world_perturbed_;
-    const gtsam::Pose3 camera_f_board_perturbed_;
-    const std::vector<gtsam::Point2> corners_f_image_perturbed_;
     const gtsam::Pose3 camera_f_board_;
-    const std::vector<gtsam::Point2> corners_f_image_;
+    const std::vector<JunctionFImage> junctions_f_image_;
+    const std::vector<JunctionFImage> junctions_f_image_perturbed_;
 
-    BoardData(const MarkerModel &board,
-              gtsam::Pose3 board_f_world_perturbed,
-              gtsam::Pose3 camera_f_board_perturbed,
-              std::vector<gtsam::Point2> corners_f_image_perturbed,
-              gtsam::Pose3 camera_f_board,
-              std::vector<gtsam::Point2> corners_f_image) :
-      board_{board},
-      board_f_world_perturbed_{board_f_world_perturbed},
-      camera_f_board_perturbed_{camera_f_board_perturbed},
-      corners_f_image_perturbed_{corners_f_image_perturbed},
+    BoardData(gtsam::Pose3 camera_f_board,
+              std::vector<JunctionFImage> junctions_f_image,
+              std::vector<JunctionFImage> junctions_f_image_perturbed) :
       camera_f_board_{camera_f_board},
-      corners_f_image_{corners_f_image}
+      junctions_f_image_{junctions_f_image},
+      junctions_f_image_perturbed_{junctions_f_image_perturbed}
+    {}
+  };
+
+  struct CheckerboardData : public BoardData
+  {
+    const CheckerboardModel &board_;
+
+    CheckerboardData(const CheckerboardModel &board,
+                     gtsam::Pose3 camera_f_board,
+                     std::vector<JunctionFImage> junctions_f_image,
+                     std::vector<JunctionFImage> junctions_f_image_perturbed) :
+      BoardData(camera_f_board, junctions_f_image, junctions_f_image_perturbed),
+      board_{board}
+    {}
+  };
+
+  struct CharucoboardData : public BoardData
+  {
+    const CharucoboardModel &board_;
+    std::vector<ArucoCornersFImage> arucos_corners_f_image_;
+    std::vector<ArucoCornersFImage> arucos_corners_f_image_perturbed_;
+
+    CharucoboardData(const CharucoboardModel &board,
+                     gtsam::Pose3 camera_f_board,
+                     std::vector<JunctionFImage> junctions_f_image,
+                     std::vector<JunctionFImage> junctions_f_image_perturbed,
+                     std::vector<ArucoCornersFImage> arucos_corners_f_image,
+                     std::vector<ArucoCornersFImage> arucos_corners_f_image_perturbed) :
+      BoardData(camera_f_board, junctions_f_image, junctions_f_image_perturbed),
+      board_{board},
+      arucos_corners_f_image_{arucos_corners_f_image},
+      arucos_corners_f_image_perturbed_{arucos_corners_f_image_perturbed}
     {}
   };
 
