@@ -11,7 +11,8 @@ int main()
 //  return camsim::sfm_isam_example();
 //  return camsim::sfm_run();
 //  return sfm_run_resectioning();
-  return sfm_run_isam2();
+//  return sfm_run_isam2();
 //  return camsim::sfm_test_clear();
+  return camsim::sfm_test_runner();
 }
 

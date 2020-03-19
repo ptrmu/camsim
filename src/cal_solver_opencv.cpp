@@ -7,10 +7,9 @@
 namespace camsim
 {
   template<typename TCalibrationModel>
-  class SolverOpencv
+  class SolverOpencv : public SolverInterface<TCalibrationModel>
   {
-    SolverRunner<TCalibrationModel> &sr_;
-    const bool auto_initial_;
+    const SolverRunnerBase<TCalibrationModel> &sr_;
 
     gtsam::NonlinearFactorGraph graph_{};
     gtsam::Values initial_{};
@@ -24,32 +23,24 @@ namespace camsim
       if (graph_.size() < 2) {
         return;
       }
-
     }
 
   public:
-    explicit SolverOpencv(SolverRunner<TCalibrationModel> &sr, bool auto_initial) :
-      sr_{sr}, auto_initial_{auto_initial}
-    {
-      sr_.add_marker_0_prior(graph_, initial_);
-    }
+    explicit SolverOpencv(const SolverRunnerBase<TCalibrationModel> &sr) :
+      sr_{sr}
+    {}
 
-    ~SolverOpencv()
+    ~SolverOpencv() override
     {
       display_results();
     }
 
-    void operator()(const FrameData<TCalibrationModel> &fd)
+    void add_frame(const FrameData<TCalibrationModel> &fd) override
     {
       auto camera_key{fd.camera_.key_};
 
-      // Add the initial camera pose estimate
-      if (!auto_initial_) {
-        initial_.insert(camera_key, fd.camera_f_world_perturbed_);
-      }
-
-      for (auto &marker_data : fd.marker_datas_) {
-        auto marker_key{marker_data.marker_.key_};
+      for (auto &board_data : fd.board_datas_) {
+        auto board_key{board_data.board_.key_};
 
       }
     }
@@ -57,15 +48,26 @@ namespace camsim
 
 
   template<typename TCalibrationModel>
-  std::function<void(FrameData<TCalibrationModel> &)>
-  solver_opencv_factory(SolverRunner<TCalibrationModel> &sr)
+  struct SolverOpencvFactoryImpl : public SolverFactoryInterface<TCalibrationModel>
   {
-    return SolverOpencv<TCalibrationModel>(sr);
+    std::unique_ptr<SolverInterface<TCalibrationModel>> new_solver(
+      const SolverRunnerBase<TCalibrationModel> &solver_runner) override
+    {
+      return std::make_unique<SolverOpencv<TCalibrationModel>>(solver_runner);
+    }
+  };
+
+  template<>
+  std::unique_ptr<SolverFactoryInterface<CheckerboardCalibrationModel>>
+  solver_opencv_factory<CheckerboardCalibrationModel>()
+  {
+    return std::make_unique<SolverOpencvFactoryImpl<CheckerboardCalibrationModel>>();
   }
 
-  int cal_solver_opencv_checkerboard()
+  template<>
+  std::unique_ptr<SolverFactoryInterface<CharucoboardCalibrationModel>>
+  solver_opencv_factory<CharucoboardCalibrationModel>()
   {
-
-    return EXIT_SUCCESS;
+    return std::make_unique<SolverOpencvFactoryImpl<CharucoboardCalibrationModel>>();
   }
 }

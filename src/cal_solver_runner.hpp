@@ -16,8 +16,13 @@
 
 namespace camsim
 {
+
+// ==============================================================================
+// SolverRunnerBase
+// ==============================================================================
+
   template<typename TCalibrationModel>
-  struct SolverRunnerCalculator
+  struct SolverRunnerBase
   {
     const TCalibrationModel &model_;
     const gtsam::Vector6 pose3_sampler_sigmas_;
@@ -32,12 +37,12 @@ namespace camsim
     gtsam::Sampler point2_sampler_{};
     int frames_processed_{0};
 
-    SolverRunnerCalculator(const TCalibrationModel &model,
-                           const gtsam::Vector6 &pose3_sampler_sigmas,
-                           const gtsam::Vector6 &pose3_noise_sigmas,
-                           const gtsam::Vector2 &point2_sampler_sigmas,
-                           const gtsam::Vector2 &point2_noise_sigmas,
-                           bool print_covariance) :
+    SolverRunnerBase(const TCalibrationModel &model,
+                     const gtsam::Vector6 &pose3_sampler_sigmas,
+                     const gtsam::Vector6 &pose3_noise_sigmas,
+                     const gtsam::Vector2 &point2_sampler_sigmas,
+                     const gtsam::Vector2 &point2_noise_sigmas,
+                     bool print_covariance) :
       model_{model},
       pose3_sampler_sigmas_{std::move(pose3_sampler_sigmas)},
       point2_sampler_sigmas_{std::move(point2_sampler_sigmas)},
@@ -76,9 +81,9 @@ namespace camsim
       return camera.camera_f_world_.retract(pose3_sampler_.sample());
     }
 
-    gtsam::Pose3 get_perturbed_board_f_world(const MarkerModel &board)
+    gtsam::Pose3 get_perturbed_board_f_world(const typename TCalibrationModel::BoardModel &board)
     {
-      return board.marker_f_world_.retract(pose3_sampler_.sample());
+      return board.board.retract(pose3_sampler_.sample());
     }
 
     gtsam::Pose3 get_camera_f_board(const CameraModel &camera,
@@ -159,13 +164,13 @@ namespace camsim
     const std::vector<JunctionFImage> junctions_f_image_perturbed_;
 
     BoardData(const typename TCalibrationModel::BoardModel &board,
-              const SolverRunnerCalculator<TCalibrationModel> &solver_runner_calculator);
+              const SolverRunnerBase<TCalibrationModel> &solver_runner_calculator);
   };
 
   struct CheckerboardData : public BoardData<CheckerboardCalibrationModel>
   {
     CheckerboardData(const CheckerboardModel &board,
-                     const SolverRunnerCalculator<CheckerboardCalibrationModel> &solver_runner_calculator);
+                     const SolverRunnerBase<CheckerboardCalibrationModel> &solver_runner_calculator);
   };
 
   struct CharucoboardData : public BoardData<CharucoboardCalibrationModel>
@@ -174,8 +179,14 @@ namespace camsim
     std::vector<ArucoCornersFImage> arucos_corners_f_image_perturbed_;
 
     CharucoboardData(const CharucoboardModel &board,
-                     const SolverRunnerCalculator<CharucoboardCalibrationModel> &solver_runner_calculator);
+                     const SolverRunnerBase<CharucoboardCalibrationModel> &solver_runner_calculator);
   };
+
+//  static void load_board_datas(SolverRunnerBase<TCalibrationModel> sr,
+//                               const TCalibrationModel &model,
+//                               const CameraModel &camera,
+//                               const CheckerboardModel &board,
+//                               std::vector<BoardData<TCalibrationModel>> board_datas);
 
 // ==============================================================================
 // FrameData
@@ -188,8 +199,32 @@ namespace camsim
     const gtsam::Pose3 camera_f_world_perturbed_;
     const std::vector<BoardData<TCalibrationModel>> board_datas_;
 
-    FrameData(const typename TCalibrationModel::BoardModel &board,
-              const SolverRunnerCalculator<TCalibrationModel> &solver_runner_calculator);
+    FrameData(const CameraModel &camera,
+              const gtsam::Pose3 camera_f_world_perturbed,
+              const std::vector<BoardData<TCalibrationModel>> board_datas) :
+      camera_{camera},
+      camera_f_world_perturbed_{camera_f_world_perturbed},
+      board_datas_{board_datas}
+    {}
+  };
+
+// ==============================================================================
+// SolverInterface
+// ==============================================================================
+
+  template<typename TCalibrationModel>
+  struct SolverInterface
+  {
+    virtual ~SolverInterface() = default; //
+    virtual void add_frame(const FrameData<TCalibrationModel> &frame_data) = 0; //
+  };
+
+  template<typename TCalibrationModel>
+  struct SolverFactoryInterface
+  {
+    virtual ~SolverFactoryInterface() = default; //
+    virtual std::unique_ptr<SolverInterface<TCalibrationModel>> new_solver(
+      const SolverRunnerBase<TCalibrationModel> &solver_runner) = 0; //
   };
 
 // ==============================================================================
@@ -326,67 +361,63 @@ namespace camsim
 //  };
 
   template<typename TCalibrationModel>
-  struct SolverRunner
+  struct SolverRunner : public SolverRunnerBase<TCalibrationModel>
   {
-    using AddFrameMeasurementsFunc = std::function<void(FrameData<TCalibrationModel> &)>;
-
-    using SolverFactoryFunc = std::function<AddFrameMeasurementsFunc(SolverRunner<TCalibrationModel> &)>;
-
-    SolverRunnerCalculator<TCalibrationModel> src_;
-
     SolverRunner(const TCalibrationModel &model,
                  const gtsam::Vector6 &pose3_sampler_sigmas,
                  const gtsam::Vector6 &pose3_noise_sigmas,
                  const gtsam::Vector2 &point2_sampler_sigmas,
                  const gtsam::Vector2 &point2_noise_sigmas,
                  bool print_covariance) :
-      src_{model,
-           pose3_sampler_sigmas, pose3_noise_sigmas,
-           point2_sampler_sigmas, point2_noise_sigmas,
-           print_covariance}
+      SolverRunnerBase<TCalibrationModel>{model,
+                                          pose3_sampler_sigmas, pose3_noise_sigmas,
+                                          point2_sampler_sigmas, point2_noise_sigmas,
+                                          print_covariance}
     {}
 
-    void operator()(const SolverFactoryFunc &solver_factory)
+    void operator()(std::unique_ptr<SolverFactoryInterface<TCalibrationModel>> solver_factory)
     {
       // Prepare
-      src_.pose3_sampler_ = gtsam::Sampler{src_.pose3_sampler_sigmas_, 42u};
-      src_.point2_sampler_ = gtsam::Sampler{src_.point2_sampler_sigmas_, 42u};
-      src_.frames_processed_ = 0;
+      this->pose3_sampler_ = gtsam::Sampler{this->pose3_sampler_sigmas_, 42u};
+      this->point2_sampler_ = gtsam::Sampler{this->point2_sampler_sigmas_, 42u};
+      this->frames_processed_ = 0;
 
       gttic(solver);
 
       {
         // Instantiate the solver
-        auto solver{solver_factory(*this)};
+        auto solver{solver_factory->new_solver(*this)};
 
         // Collect all perturbed values at this level. The solver can use them or not
         // but the random number generator generates the same series for each solver.
 
         // Loop over all the cameras
-        for (auto &camera : src_.model_.cameras_.cameras_) {
+        for (auto &camera : this->model_.cameras_.cameras_) {
           std::vector<BoardData<TCalibrationModel>> board_datas{};
 
-          // Figure out which boards are visible from this camera
-          for (auto &board : src_.model_.markers_.markers_) {
-            if (!src_.model_.corners_f_images_[camera.index()][board.index()].corners_f_image_.empty()) {
-              board_datas.emplace_back(BoardData<TCalibrationModel>{
-                board,
-                get_perturbed_board_f_world(board),
-                get_perturbed_camera_f_board(camera, board),
-                get_perturbed_corners_f_image(camera, board),
-                get_camera_f_board(camera, board),
-                get_corners_f_image(camera, board)});
-            }
+          // Figure out which boards have junctions visible from this camera
+          for (auto &board : this->model_.boards_.boards_) {
+//            load_board_datas(*this, this->model_, camera, board, board_datas);
+//            auto &cb_junctions_f_image = this->model_.junctions_f_images_[camera.index()][board.index()];
+//
+//            if (!this->model_.junctions_f_images_[camera.index()][board.index()].corners_f_image_.empty()) {
+//              board_datas.emplace_back(BoardData<TCalibrationModel>{
+//                board,
+//                get_perturbed_board_f_world(board),
+//                get_perturbed_camera_f_board(camera, board),
+//                get_perturbed_corners_f_image(camera, board),
+//                get_camera_f_board(camera, board),
+//                get_corners_f_image(camera, board)});
+//            }
           }
 
           // Let the solver work on these measurements.
           if (board_datas.size() > 1) {
-            FrameData<TCalibrationModel> frame_data{
-              camera,
-              get_perturbed_camera_f_world(camera),
-              board_datas};
-            solver(frame_data);
-            src_.frames_processed_ += 1;
+            FrameData<TCalibrationModel> frame_data{camera,
+                                                    this->get_perturbed_camera_f_world(camera),
+                                                    board_datas};
+            solver->add_frame(frame_data);
+            this->frames_processed_ += 1;
           }
         }
       }
@@ -397,35 +428,8 @@ namespace camsim
     }
   };
 
-  struct CheckerboardSolverRunner : public SolverRunner<CheckerboardCalibrationModel>
-  {
-    CheckerboardSolverRunner(const CheckerboardCalibrationModel &model,
-                             const gtsam::Vector6 &pose3_sampler_sigmas,
-                             const gtsam::Vector6 &pose3_noise_sigmas,
-                             const gtsam::Vector2 &point2_sampler_sigmas,
-                             const gtsam::Vector2 &point2_noise_sigmas,
-                             bool print_covariance) :
-      SolverRunner{model,
-                   pose3_sampler_sigmas, pose3_noise_sigmas,
-                   point2_sampler_sigmas, point2_noise_sigmas,
-                   print_covariance}
-    {}
-  };
-
-  struct CharucoboardSolverRunner : public SolverRunner<CharucoboardCalibrationModel>
-  {
-    CharucoboardSolverRunner(const CharucoboardCalibrationModel &model,
-                             const gtsam::Vector6 &pose3_sampler_sigmas,
-                             const gtsam::Vector6 &pose3_noise_sigmas,
-                             const gtsam::Vector2 &point2_sampler_sigmas,
-                             const gtsam::Vector2 &point2_noise_sigmas,
-                             bool print_covariance) :
-      SolverRunner{model,
-                   pose3_sampler_sigmas, pose3_noise_sigmas,
-                   point2_sampler_sigmas, point2_noise_sigmas,
-                   print_covariance}
-    {}
-  };
+  using CheckerboardSolverRunner = SolverRunner<CheckerboardCalibrationModel>; //
+  using CharucoboardSolverRunner = SolverRunner<CharucoboardCalibrationModel>; //
 }
 
 #endif //_CAL_SOLVER_RUNNER_HPP

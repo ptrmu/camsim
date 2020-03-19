@@ -97,4 +97,85 @@ namespace camsim
 
     return EXIT_SUCCESS;
   }
+
+
+  // Try out a simplified version of the solver pattern with templates.
+  struct Cal0
+  {
+    const int i_; //
+    Cal0() : i_{5}
+    {}
+  };
+
+  struct Cal1
+  {
+    const int i_; //
+    Cal1() : i_{10}
+    {}
+  };
+
+  template<typename TCal>
+  struct Frame
+  {
+    const int j_; //
+    const TCal cal_{};
+
+    Frame() : j_{15}
+    {}
+  };
+
+  template<typename TCal>
+  struct Runner;
+
+  template<typename TCal>
+  struct Solver
+  {
+    const Runner<TCal> &runner_;
+
+    Solver(const Runner<TCal> &runner) : runner_{runner}
+    {}
+
+    void operator()(const Frame<TCal> &frame)
+    {
+      std::cout << frame.j_ << " ";
+      std::cout << frame.cal_.i_;
+      std::cout << std::endl;
+    }
+  };
+
+  template<typename TCal>
+  struct Runner
+  {
+    using SolverFunc = std::function<void(const Frame<TCal> &)>;
+    using SolverFuncFactory = std::function<SolverFunc(const Runner &)>;
+
+    void operator()(SolverFuncFactory solver_func_factory)
+    {
+      Frame<TCal> frame{};
+      auto solver{solver_func_factory(*this)};
+      solver(frame);
+    };
+  };
+
+  template<typename TCal>
+  typename std::function<void(const Frame<TCal> &)>
+  solver_factory(const Runner<TCal> &runner);
+
+  int sfm_test_runner()
+  {
+    Runner<Cal0> runner0{};
+    runner0(solver_factory<Cal0>);
+
+    Runner<Cal1> runner1{};
+    runner1([](const Runner<Cal1> &runner)
+            { return solver_factory<Cal1>(runner); });
+
+    return 0;
+  }
+
+  template<typename TCal>
+  typename std::function<void(const Frame<TCal> &)> solver_factory(const Runner<TCal> &runner)
+  {
+    return Solver<TCal>{runner};
+  }
 }

@@ -2,7 +2,7 @@
 #ifndef _CAL_RUN_HPP
 #define _CAL_RUN_HPP
 
-#include <functional>
+#include <memory>
 
 namespace camsim
 {
@@ -13,12 +13,9 @@ namespace camsim
   int cal_solver();
 
   template<typename TCalibrationModel>
-  struct FrameData;
-  template<typename TCalibrationModel>
-  struct SolverRunner;
+  struct SolverFactoryInterface;
 
   template<typename TCalibrationModel>
-  const typename SolverRunner<TCalibrationModel>::SolverFactoryFunc
-  solver_opencv_factory(SolverRunner<TCalibrationModel> &sr);
+  std::unique_ptr<SolverFactoryInterface<TCalibrationModel>> solver_opencv_factory();
 }
 #endif //_CAL_RUN_HPP

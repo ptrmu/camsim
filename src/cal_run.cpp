@@ -96,11 +96,7 @@ namespace camsim
                                            false};
 
 
-//    solver_runner([](CheckerboardSolverRunner &solver_runner)
-//                  { return solver_opencv_factory<CheckerboardCalibrationModel>(solver_runner); });
-
-//    solver_runner([](SolverRunner &solver_runner)
-//                  { return solver_project_between_opencv_factory(solver_runner); });
-
+    solver_runner(solver_opencv_factory<CheckerboardCalibrationModel>());
   }
 }
+

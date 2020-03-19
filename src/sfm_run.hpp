@@ -9,5 +9,6 @@ namespace camsim
   int sfm_isam_example();
   int sfm_run();
   int sfm_test_clear();
+  int sfm_test_runner();
 }
 #endif //SFM_RUN_HPP
