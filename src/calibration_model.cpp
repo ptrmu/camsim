@@ -30,17 +30,20 @@ namespace camsim
   }
 
 
-  std::size_t CheckerboardModel::index() const
+  template<typename TConfig>
+  std::size_t BoardModel<TConfig>::index() const
   {
     return gtsam::Symbol(key_).index();
   }
 
-  std::uint64_t CheckerboardModel::default_key()
+  template<typename TConfig>
+  std::uint64_t BoardModel<TConfig>::default_key()
   {
     return board_key(0);
   }
 
-  std::uint64_t CheckerboardModel::board_key(std::size_t idx)
+  template<typename TConfig>
+  std::uint64_t BoardModel<TConfig>::board_key(std::size_t idx)
   {
     return gtsam::Symbol{'b', idx}.key();
   }
@@ -50,7 +53,7 @@ namespace camsim
 // ==============================================================================
 
   static std::vector<PointFBoard> gen_junctions_f_board(
-    const CheckerboardCalibrationTypes::Config &bd_cfg)
+    const CheckerboardConfig &bd_cfg)
   {
     std::vector<PointFBoard> junctions_f_board{};
     for (JunctionId i = 0; i < bd_cfg.max_junction_id_; i += 1) {
@@ -62,7 +65,7 @@ namespace camsim
   }
 
   static std::vector<PointFWorld> gen_junctions_f_world(
-    const CheckerboardCalibrationTypes::Config &bd_cfg,
+    const CheckerboardConfig &bd_cfg,
     const gtsam::Pose3 &board_f_world)
   {
     std::vector<PointFWorld> junctions_f_world{};
@@ -84,7 +87,7 @@ namespace camsim
       std::vector<std::vector<JunctionFImage>> per_camera{};
       for (auto &board : boards.boards_) {
         std::vector<JunctionFImage> per_board{};
-        for (JunctionId i = 0; i < boards.ch_cfg_.max_junction_id_; i += 1) {
+        for (JunctionId i = 0; i < boards.bd_cfg_.max_junction_id_; i += 1) {
           auto junction_f_world(board.junctions_f_world_[i]);
           bool visible = false;
           auto point_f_image{PointFImage{}.setZero()};
@@ -127,7 +130,7 @@ namespace camsim
 // ==============================================================================
 
   static std::vector<CornerPointsFBoard> gen_arucos_corners_f_board(
-    const CharucoboardCalibrationTypes::Config &bd_cfg)
+    const CharucoboardConfig &bd_cfg)
   {
     std::vector<CornerPointsFBoard> arucos_corners_f_board{};
     for (ArucoId i = 0; i < bd_cfg.max_aruco_id_; i += 1) {
@@ -139,7 +142,7 @@ namespace camsim
   }
 
   static std::vector<CornerPointsFWorld> gen_arucos_corners_f_world(
-    const CharucoboardCalibrationTypes::Config &bd_cfg,
+    const CharucoboardConfig &bd_cfg,
     const gtsam::Pose3 &board_f_world)
   {
     std::vector<CornerPointsFWorld> arucos_corners_f_world{};
@@ -156,7 +159,7 @@ namespace camsim
 
   static std::vector<std::vector<std::vector<ArucoCornersFImage>>> gen_arucos_corners_f_images(
     const CamerasModel &cameras,
-    const CharucoboardsModel<CharucoboardCalibrationTypes> boards)
+    const CharucoboardsModel boards)
   {
     std::vector<std::vector<std::vector<ArucoCornersFImage>>> arucos_corners_f_images;
 
@@ -164,7 +167,7 @@ namespace camsim
       std::vector<std::vector<ArucoCornersFImage>> per_camera{};
       for (auto &board : boards.boards_) {
         std::vector<ArucoCornersFImage> per_board{};
-        for (ArucoId i = 0; i < boards.ar_cfg_.max_aruco_id_; i += 1) {
+        for (ArucoId i = 0; i < boards.bd_cfg_.max_aruco_id_; i += 1) {
           auto &aruco_corners_f_world(board.arucos_corners_f_world_[i]);
           bool visible = false;
           auto corner_points_f_image{CornerPointsFImage{}.setZero()};
@@ -216,88 +219,89 @@ namespace camsim
            cfg.marker_pose_generator_() : std::vector<gtsam::Pose3>{};
   }
 
-  static CheckerboardModel gen_board_model(const CheckerboardConfig &bd_cfg,
-                                           std::uint64_t key,
-                                           const gtsam::Pose3 &board_f_world)
-  {
-    return CheckerboardModel{key,
-                             board_f_world,
-                             gen_junctions_f_world(bd_cfg, board_f_world)};
-  }
+  template<typename TConfig>
+  BoardModel<TConfig>::BoardModel(const TConfig &bd_cfg,
+                                  std::uint64_t key,
+                                  const gtsam::Pose3 &board_f_world) :
+    key_{key},
+    board_f_world_{board_f_world},
+    junctions_f_world_{gen_junctions_f_world(bd_cfg, board_f_world)}
+  {}
 
-  static CharucoboardModel gen_board_model(const CharucoboardConfig &bd_cfg,
-                                           std::uint64_t key,
-                                           const gtsam::Pose3 &board_f_world)
-  {
-    return CharucoboardModel{key,
-                             board_f_world,
-                             gen_junctions_f_world(bd_cfg, board_f_world),
-                             gen_arucos_corners_f_world(bd_cfg, board_f_world)};
+  CheckerboardModel::CheckerboardModel(const CheckerboardConfig &bd_cfg,
+                                       std::uint64_t key,
+                                       const gtsam::Pose3 &board_f_world) :
+    BoardModel{bd_cfg, key, board_f_world}
+  {}
 
-  }
+  CharucoboardModel::CharucoboardModel(const CharucoboardConfig &bd_cfg,
+                                       std::uint64_t key,
+                                       const gtsam::Pose3 &board_f_world) :
+    BoardModel{bd_cfg, key, board_f_world},
+    arucos_corners_f_world_{gen_arucos_corners_f_world(bd_cfg, board_f_world)}
+  {}
 
-  template<typename TTypes>
-  static std::vector<typename TTypes::BoardModel> gen_boards_list(
+  template<typename TConfig, typename TBoardModel>
+  static std::vector<TBoardModel> gen_boards(
     const ModelConfig &cfg,
-    const typename TTypes::Config &bd_cfg)
+    const TConfig &bd_cfg)
   {
-    std::vector<typename TTypes::BoardModel> boards_list{};
+    std::vector<TBoardModel> boards_list{};
     auto boards_f_world = gen_boards_f_world(cfg);
     for (std::size_t i = 0; i < boards_f_world.size(); i += 1) {
       auto &board_f_world = boards_f_world[i];
-      boards_list.emplace_back(gen_board_model(bd_cfg,
-                                               CheckerboardModel::board_key(i),
-                                               board_f_world));
+      boards_list.emplace_back(TBoardModel(bd_cfg,
+                                           CheckerboardModel::board_key(i),
+                                           board_f_world));
     }
     return boards_list;
   }
 
-  static CheckerboardsModel<CheckerboardCalibrationTypes> gen_boards_model(
-    const ModelConfig &cfg,
-    const CheckerboardCalibrationTypes::Config &bd_cfg)
-  {
-    return CheckerboardsModel<CheckerboardCalibrationTypes>(cfg, bd_cfg,
-                                                            gen_boards_list<CheckerboardCalibrationTypes>(cfg, bd_cfg),
-                                                            gen_junctions_f_board(bd_cfg));
-  }
+  template<typename TConfig, typename TBoardModel>
+  BoardsModel<TConfig, TBoardModel>::BoardsModel(const ModelConfig &cfg,
+                                                 const TConfig &bd_cfg) :
+    bd_cfg_{bd_cfg},
+    boards_{gen_boards<TConfig, TBoardModel>(cfg, bd_cfg)},
+    junctions_f_board_{gen_junctions_f_board(bd_cfg)}
+  {}
 
-  static CharucoboardsModel<CharucoboardCalibrationTypes> gen_boards_model(
-    const ModelConfig &cfg,
-    const CharucoboardCalibrationTypes::Config &bd_cfg)
-  {
-    return CharucoboardsModel<CharucoboardCalibrationTypes>(cfg, bd_cfg,
-                                                            gen_boards_list<CharucoboardCalibrationTypes>(cfg, bd_cfg),
-                                                            gen_junctions_f_board(bd_cfg),
-                                                            gen_arucos_corners_f_board(bd_cfg));
-  }
+  CheckerboardsModel::CheckerboardsModel(const ModelConfig &cfg,
+                                         const CheckerboardConfig &bd_cfg) :
+    BoardsModel(cfg, bd_cfg)
+  {}
+
+  CharucoboardsModel::CharucoboardsModel(const ModelConfig &cfg,
+                                         const CharucoboardConfig &bd_cfg) :
+    BoardsModel(cfg, bd_cfg),
+    arucos_corners_f_board_{gen_arucos_corners_f_board(bd_cfg)}
+  {}
 
 // ==============================================================================
 // Calibration models
 // ==============================================================================
 
-  template<typename TTypes>
-  CalibrationModel<TTypes>::CalibrationModel(
+  template<typename TConfig, typename TBoardModel, typename TBoardsModel>
+  CalibrationModel<TConfig, TBoardModel, TBoardsModel>::CalibrationModel(
     const ModelConfig &cfg,
-    const typename TTypes::Config &bd_cfg) :
-    BaseModel{cfg},
+    const TConfig &bd_cfg) :
+    BaseModel(cfg),
     bd_cfg_{bd_cfg},
-    boards_{gen_boards_model(cfg, bd_cfg_)},
-    junctions_f_images_{gen_junctions_f_image<typename TTypes::template BoardsModel<TTypes>>(cameras_, boards_)}
+    boards_{TBoardsModel(cfg, bd_cfg_)},
+    junctions_f_images_{gen_junctions_f_image(cameras_, boards_)}
   {}
 
   CheckerboardCalibrationModel::CheckerboardCalibrationModel(
     const ModelConfig &cfg,
-    const typename CheckerboardCalibrationTypes::Config &bd_cfg) :
-    CalibrationModel<CheckerboardCalibrationTypes>{cfg, bd_cfg}
+    const CheckerboardConfig &bd_cfg) :
+    CalibrationModel{cfg, bd_cfg}
   {}
 
   CharucoboardCalibrationModel::CharucoboardCalibrationModel(
     const ModelConfig &cfg,
-    const typename CharucoboardCalibrationTypes::Config &bd_cfg) :
-    CalibrationModel<CharucoboardCalibrationTypes>{cfg, bd_cfg},
+    const CharucoboardConfig &bd_cfg) :
+    CalibrationModel{cfg, bd_cfg},
     arucos_corners_f_images_{gen_arucos_corners_f_images(cameras_, boards_)}
   {}
-
 
   void CheckerboardCalibrationModel::print_junctions_f_image()
   {

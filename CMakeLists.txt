@@ -156,6 +156,7 @@ add_executable(cal_run
   src/cal_run_main.cpp
   src/calibration_model.cpp
   src/cal_solver_opencv.cpp
+  src/cal_solver_runner.cpp
   )
 
 target_link_libraries(cal_run
@@ -199,6 +200,7 @@ add_executable(camsim_test
   src/calibration_model.cpp
   src/test/cal_test.cpp
   src/cal_solver_opencv.cpp
+  src/cal_solver_runner.cpp
   )
 
 

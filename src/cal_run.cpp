@@ -5,14 +5,46 @@
 
 #include "calibration_model.hpp"
 #include "model.hpp"
+#include "cal_solver_runner.hpp"
 
 namespace camsim
 {
+  using PoseGeneratorFunc = std::function<std::vector<gtsam::Pose3>(void)>;
+
+  PoseGeneratorFunc gen_poses_func(std::vector<gtsam::Pose3> poses)
+  {
+    return [poses]()
+    {
+      return poses;
+    };
+  }
+
+  PoseGeneratorFunc gen_poses_func_origin_looking_up()
+  {
+    return gen_poses_func({gtsam::Pose3{gtsam::Rot3::RzRyRx(0., 0., 0.),
+                                        gtsam::Point3{0., 0., 0.}}});
+  }
+
+  PoseGeneratorFunc gen_poses_func_heiko_calibration_poses()
+  {
+    return gen_poses_func({gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., M_PI),
+                                        gtsam::Point3{0., 0., 0.18}},
+                           gtsam::Pose3{gtsam::Rot3::RzRyRx(0.75 * M_PI, 0., M_PI),
+                                        gtsam::Point3{0., -0.18, 0.18}},
+                           gtsam::Pose3{gtsam::Rot3::RzRyRx(-0.75 * M_PI, 0., M_PI),
+                                        gtsam::Point3{0., 0.18, 0.18}},
+                           gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0.25 * M_PI, M_PI),
+                                        gtsam::Point3{-0.195, 0., 0.195}},
+                           gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, -0.25 * M_PI, M_PI),
+                                        gtsam::Point3{0.195, 0., 0.195}}});
+  }
+
+
   int cal_run()
   {
     int n_cameras = 64;
     int n_markers = 8;
-    
+
     ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{n_markers, 2.},
                              PoseGens::SpinAboutZAtOriginFacingOut{n_cameras},
                              camsim::CameraTypes::simulation,
@@ -35,5 +67,40 @@ namespace camsim
     CharucoboardCalibrationModel acm(model_config, ar_cfg);
 
     return EXIT_SUCCESS;
+  }
+
+  int cal_solver()
+  {
+    ModelConfig model_config{gen_poses_func_origin_looking_up(),
+                             gen_poses_func_heiko_calibration_poses(),
+                             camsim::CameraTypes::simulation,
+                             0.1775};
+
+    CheckerboardConfig ch_cfg(12, 9, 0.030);
+    CheckerboardCalibrationModel ccm(model_config, ch_cfg);
+
+    ccm.print_junctions_f_image();
+
+    double r_sigma = 0.1;
+    double t_sigma = 0.3;
+    double u_sampler_sigma = 1.0;
+    double u_noise_sigma = 1.0;
+
+    CheckerboardSolverRunner solver_runner{ccm,
+                                           (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                             gtsam::Vector3::Constant(t_sigma)).finished(),
+                                           (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                             gtsam::Vector3::Constant(t_sigma)).finished(),
+                                           gtsam::Vector2::Constant(u_sampler_sigma),
+                                           gtsam::Vector2::Constant(u_noise_sigma),
+                                           false};
+
+
+//    solver_runner([](CheckerboardSolverRunner &solver_runner)
+//                  { return solver_opencv_factory<CheckerboardCalibrationModel>(solver_runner); });
+
+//    solver_runner([](SolverRunner &solver_runner)
+//                  { return solver_project_between_opencv_factory(solver_runner); });
+
   }
 }

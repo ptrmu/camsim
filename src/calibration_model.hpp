@@ -59,129 +59,103 @@ namespace camsim
   };
 
 // ==============================================================================
-// Types structure
-// ==============================================================================
-
-  template<class TTypes>
-  class CheckerboardsModel;
-
-  template<class TTypes>
-  class CharucoboardsModel;
-
-  struct CheckerboardCalibrationTypes
-  {
-    using Config = class CheckerboardConfig;
-    using BoardModel = class CheckerboardModel;
-    template<class TTypes>
-    using BoardsModel = class CheckerboardsModel<TTypes>;
-  };
-
-  struct CharucoboardCalibrationTypes
-  {
-    using Config = class CharucoboardConfig;
-    using BoardModel = class CharucoboardModel;
-    template<class TTypes>
-    using BoardsModel = struct CharucoboardsModel<TTypes>;
-  };
-
-// ==============================================================================
 // Board models
 // ==============================================================================
 
-  struct CheckerboardModel
+  template<typename TConfig>
+  struct BoardModel
   {
     const std::uint64_t key_;
     const gtsam::Pose3 board_f_world_;
     const std::vector<PointFWorld> junctions_f_world_;
 
-    CheckerboardModel(std::uint64_t key,
-                      const gtsam::Pose3 &board_f_world,
-                      const std::vector<PointFWorld> &junctions_f_world) :
-      key_{key}, board_f_world_{board_f_world}, junctions_f_world_{junctions_f_world}
-    {}
+    BoardModel(const TConfig &bd_cfg,
+               std::uint64_t key,
+               const gtsam::Pose3 &board_f_world);
 
     std::size_t index() const; //
     static std::uint64_t default_key(); //
     static std::uint64_t board_key(std::size_t idx); //
   };
 
-  struct CharucoboardModel : public CheckerboardModel
+  struct CheckerboardModel : public BoardModel<CheckerboardConfig>
+  {
+    CheckerboardModel(const CheckerboardConfig &bd_cfg,
+                      std::uint64_t key,
+                      const gtsam::Pose3 &board_f_world);
+  };
+
+  struct CharucoboardModel : public BoardModel<CharucoboardConfig>
   {
     const std::vector<CornerPointsFWorld> arucos_corners_f_world_;
 
-    CharucoboardModel(std::uint64_t key,
-                      const gtsam::Pose3 &board_f_world,
-                      const std::vector<PointFWorld> &junctions_f_world,
-                      const std::vector<CornerPointsFWorld> &arucos_corners_f_world) :
-      CheckerboardModel{key, board_f_world, junctions_f_world},
-      arucos_corners_f_world_{arucos_corners_f_world}
-    {}
+    CharucoboardModel(const CharucoboardConfig &bd_cfg,
+                      std::uint64_t key,
+                      const gtsam::Pose3 &board_f_world);
   };
 
 // ==============================================================================
 // Boards models
 // ==============================================================================
 
-  template<class TTypes>
-  struct CheckerboardsModel
+  template<typename TConfig, typename TBoardModel>
+  struct BoardsModel
   {
-    const typename TTypes::Config &ch_cfg_;
-    const std::vector<typename TTypes::BoardModel> boards_; // [board]
+    const TConfig &bd_cfg_;
+    const std::vector<TBoardModel> boards_; // [board]
     const std::vector<PointFBoard> junctions_f_board_; // [junction]
 
-    CheckerboardsModel(const ModelConfig &cfg,
-                       const typename TTypes::Config &ch_cfg,
-                       const std::vector<typename TTypes::BoardModel> &boards,
-                       const std::vector<PointFBoard> &junctions_f_board) :
-      ch_cfg_{ch_cfg}, boards_{boards},
-      junctions_f_board_{junctions_f_board}
-    {}
+    BoardsModel(const ModelConfig &cfg,
+                const TConfig &bd_cfg);
   };
 
-  template<class TTypes>
-  struct CharucoboardsModel : public CheckerboardsModel<TTypes>
+  struct CheckerboardsModel : public BoardsModel<CheckerboardConfig, CheckerboardModel>
   {
-    const typename TTypes::Config &ar_cfg_;
+    CheckerboardsModel(const ModelConfig &cfg,
+                       const CheckerboardConfig &bd_cfg);
+  };
+
+  struct CharucoboardsModel : public BoardsModel<CharucoboardConfig, CharucoboardModel>
+  {
     const std::vector<CornerPointsFBoard> arucos_corners_f_board_; // [marker]
 
     CharucoboardsModel(const ModelConfig &cfg,
-                       const typename TTypes::Config &ar_cfg,
-                       const std::vector<typename TTypes::BoardModel> &boards,
-                       const std::vector<PointFBoard> &junctions_f_board,
-                       const std::vector<CornerPointsFBoard> &arucos_corners_f_board) :
-      CheckerboardsModel<TTypes>(cfg, ar_cfg, boards, junctions_f_board),
-      ar_cfg_{ar_cfg}, arucos_corners_f_board_(arucos_corners_f_board)
-    {}
+                       const CharucoboardConfig &bd_cfg);
   };
 
 // ==============================================================================
 // Calibration models
 // ==============================================================================
 
-  template<typename TTypes>
+  template<typename TConfig, typename TBoardModel, typename TBoardsModel>
   struct CalibrationModel : public BaseModel
   {
-    const typename TTypes::Config bd_cfg_;
-    const typename TTypes::template BoardsModel<TTypes> boards_;
+    using Config = TConfig; //
+    using BoardModel = TBoardModel; //
+    using BoardsModel = TBoardsModel; //
+
+    const TConfig bd_cfg_;
+    const TBoardsModel boards_;
     const std::vector<std::vector<std::vector<JunctionFImage>>> junctions_f_images_; // [camera][board][junction]
 
-    explicit CalibrationModel(const ModelConfig &cfg, const typename TTypes::Config &bd_cfg);
+    explicit CalibrationModel(const ModelConfig &cfg,
+                              const TConfig &bd_cfg);
   };
 
-  struct CheckerboardCalibrationModel : CalibrationModel<CheckerboardCalibrationTypes>
+  struct CheckerboardCalibrationModel : CalibrationModel<CheckerboardConfig, CheckerboardModel, CheckerboardsModel>
   {
     CheckerboardCalibrationModel(const ModelConfig &cfg,
-                                 const typename CheckerboardCalibrationTypes::Config &bd_cfg);
+                                 const CheckerboardConfig &bd_cfg);
 
     void print_junctions_f_image();
   };
 
-  struct CharucoboardCalibrationModel : CalibrationModel<CharucoboardCalibrationTypes>
+  struct CharucoboardCalibrationModel : CalibrationModel<CharucoboardConfig, CharucoboardModel, CharucoboardsModel>
   {
     const std::vector<std::vector<std::vector<ArucoCornersFImage>>> arucos_corners_f_images_; // [camera][board][aruco]
 
     CharucoboardCalibrationModel(const ModelConfig &cfg,
-                                 const typename CharucoboardCalibrationTypes::Config &bd_cfg);
+                                 const CharucoboardConfig &bd_cfg);
   };
 
 }
