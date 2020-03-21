@@ -83,7 +83,7 @@ namespace camsim
 
     double r_sigma = 0.1;
     double t_sigma = 0.3;
-    double u_sampler_sigma = 1.0;
+    double u_sampler_sigma = 0.001;
     double u_noise_sigma = 1.0;
 
     CheckerboardSolverRunner solver_runner{ccm,

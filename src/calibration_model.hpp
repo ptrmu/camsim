@@ -78,12 +78,7 @@ namespace camsim
     static std::uint64_t board_key(std::size_t idx); //
   };
 
-  struct CheckerboardModel : public BoardModel<CheckerboardConfig>
-  {
-    CheckerboardModel(const CheckerboardConfig &bd_cfg,
-                      std::uint64_t key,
-                      const gtsam::Pose3 &board_f_world);
-  };
+  using CheckerboardModel = BoardModel<CheckerboardConfig>;
 
   struct CharucoboardModel : public BoardModel<CharucoboardConfig>
   {
@@ -109,11 +104,7 @@ namespace camsim
                 const TConfig &bd_cfg);
   };
 
-  struct CheckerboardsModel : public BoardsModel<CheckerboardConfig, CheckerboardModel>
-  {
-    CheckerboardsModel(const ModelConfig &cfg,
-                       const CheckerboardConfig &bd_cfg);
-  };
+  using CheckerboardsModel = BoardsModel<CheckerboardConfig, CheckerboardModel>;
 
   struct CharucoboardsModel : public BoardsModel<CharucoboardConfig, CharucoboardModel>
   {

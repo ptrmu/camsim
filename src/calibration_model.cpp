@@ -228,12 +228,6 @@ namespace camsim
     junctions_f_world_{gen_junctions_f_world(bd_cfg, board_f_world)}
   {}
 
-  CheckerboardModel::CheckerboardModel(const CheckerboardConfig &bd_cfg,
-                                       std::uint64_t key,
-                                       const gtsam::Pose3 &board_f_world) :
-    BoardModel{bd_cfg, key, board_f_world}
-  {}
-
   CharucoboardModel::CharucoboardModel(const CharucoboardConfig &bd_cfg,
                                        std::uint64_t key,
                                        const gtsam::Pose3 &board_f_world) :
@@ -263,11 +257,6 @@ namespace camsim
     bd_cfg_{bd_cfg},
     boards_{gen_boards<TConfig, TBoardModel>(cfg, bd_cfg)},
     junctions_f_board_{gen_junctions_f_board(bd_cfg)}
-  {}
-
-  CheckerboardsModel::CheckerboardsModel(const ModelConfig &cfg,
-                                         const CheckerboardConfig &bd_cfg) :
-    BoardsModel(cfg, bd_cfg)
   {}
 
   CharucoboardsModel::CharucoboardsModel(const ModelConfig &cfg,

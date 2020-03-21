@@ -9,10 +9,10 @@
 
 namespace camsim
 {
-  using PointFFacade = gtsam::Vector2; // the surface that contains markings
+  using PointFFacade = gtsam::Point2; // the surface that contains markings
   using PointFBoard = gtsam::Point3;
   using PointFWorld = gtsam::Point3;
-  using PointFImage = gtsam::Vector2;
+  using PointFImage = gtsam::Point2;
   using CornerPointsFFacade = gtsam::Matrix24;
   using CornerPointsFBoard = gtsam::Matrix34;
   using CornerPointsFWorld = gtsam::Matrix34;
@@ -120,7 +120,7 @@ namespace camsim
       return to_square_point(SquareAddress(x, y));
     }//
 
-    PointFBoard to_point_f_board(PointFFacade point_f_facade) const
+    PointFBoard to_point_f_board(const PointFFacade &point_f_facade) const
     {
       auto x(point_f_facade.x() - board_width_half_);
       auto y(-(point_f_facade.y() - board_height_half_)); // facade y is down, board y is up
@@ -177,7 +177,7 @@ namespace camsim
       std::uint64_t x_group = aruco_id % squares_x_;
       std::uint64_t y_group = aruco_id / squares_x_;
       std::uint64_t odd_row = (x_group >= arucos_on_even_row_) ? 1U : 0U;
-      std::uint64_t ix = (x_group - (odd_row * arucos_on_even_row_)) * 2 + (1 ^ odd_row ^ upper_left_white_not_black_);
+      std::uint64_t ix = (x_group - (odd_row * arucos_on_even_row_)) * 2 + (1U ^ odd_row ^ upper_left_white_not_black_);
       std::uint64_t iy = y_group * 2 + odd_row;
       return to_square_point(SquareAddress(ix, iy)).array() + square_length_half_;
     }//
