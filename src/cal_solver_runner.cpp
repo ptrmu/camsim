@@ -19,4 +19,16 @@ namespace camsim
       board,
       sr.get_perturbed_junctions_f_image(sr.model_.junctions_f_images_[camera.index()][board.index()])});
   }
+
+  template<>
+  void BoardData<CharucoboardCalibrationModel>::load_board_datas(
+    SolverRunnerBase<CharucoboardCalibrationModel> sr,
+    const CameraModel &camera,
+    const CharucoboardModel &board,
+    std::vector<BoardData<CharucoboardCalibrationModel>> &board_datas)
+  {
+    board_datas.emplace_back(BoardData<CharucoboardCalibrationModel>{
+      board,
+      sr.get_perturbed_junctions_f_image(sr.model_.junctions_f_images_[camera.index()][board.index()])});
+  }
 }

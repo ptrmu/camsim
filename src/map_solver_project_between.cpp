@@ -754,9 +754,9 @@ namespace camsim
         cal_.k1(), cal_.k2(),
         cal_.p1(), cal_.p2())},
       cv_camera_matrix_{(cv::Mat_<double>(3, 3)
-        << cal_.fx(), 0, cal_.px(),
+        << cal_.fx(), cal_.skew(), cal_.px(),
         0, cal_.fy(), cal_.py(),
-        0, 0, cal_.skew())},
+        0, 0, 1)},
       cv_dist_coeffs_{(cv::Mat_<double>(4, 1)
         << cal_.k1(), cal_.k2(),
         cal_.p1(), cal_.p2())},

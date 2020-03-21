@@ -82,10 +82,10 @@ namespace camsim
   template<typename TModel>
   struct BoardData
   {
-    const typename TModel::BoardModel &board_;
+    const typename TModel::TargetModel &board_;
     const std::vector<JunctionFImage> junctions_f_image_perturbed_;
 
-    BoardData(const typename TModel::BoardModel &board,
+    BoardData(const typename TModel::TargetModel &board,
               const std::vector<JunctionFImage> &junctions_f_image_perturbed) :
       board_{board},
       junctions_f_image_perturbed_{junctions_f_image_perturbed}
@@ -93,7 +93,7 @@ namespace camsim
 
     static void load_board_datas(SolverRunnerBase<TModel> sr,
                                  const CameraModel &camera,
-                                 const CheckerboardModel &board,
+                                 const typename TModel::TargetModel &board,
                                  std::vector<BoardData<TModel>> &board_datas);
   };
 
@@ -103,7 +103,7 @@ namespace camsim
   {
     std::vector<ArucoCornersFImage> arucos_corners_f_image_perturbed_;
 
-    CharucoboardData(const typename CharucoboardCalibrationModel::BoardModel &board,
+    CharucoboardData(const typename CharucoboardCalibrationModel::TargetModel &board,
                      const std::vector<JunctionFImage> &junctions_f_image_perturbed,
                      const std::vector<ArucoCornersFImage> &arucos_corners_f_image_perturbed) :
       BoardData<CharucoboardCalibrationModel>(board, junctions_f_image_perturbed),
@@ -140,6 +140,7 @@ namespace camsim
   {
     virtual ~SolverInterface() = default; //
     virtual void add_frame(const FrameData<TModel> &frame_data) = 0; //
+    virtual typename TModel::Result solve() = 0; //
   };
 
   template<typename TModel>
@@ -169,7 +170,7 @@ namespace camsim
                                print_covariance}
     {}
 
-    void operator()(std::unique_ptr<SolverFactoryInterface<TModel>> solver_factory)
+    auto operator()(std::unique_ptr<SolverFactoryInterface<TModel>> solver_factory)
     {
       // Prepare
       this->pose3_sampler_ = gtsam::Sampler{this->pose3_sampler_sigmas_, 42u};
@@ -178,34 +179,37 @@ namespace camsim
 
       gttic(solver);
 
-      {
-        // Instantiate the solver
-        auto solver{solver_factory->new_solver(*this)};
+      // Instantiate the solver
+      auto solver{solver_factory->new_solver(*this)};
 
-        // Collect all perturbed values at this level. The solver can use them or not
-        // but the random number generator generates the same series for each solver.
+      // Collect all perturbed values at this level. The solver can use them or not
+      // but the random number generator generates the same series for each solver.
 
-        // Loop over all the cameras
-        for (auto &camera : this->model_.cameras_.cameras_) {
-          std::vector<BoardData<TModel>> board_datas{};
+      // Loop over all the cameras
+      for (auto &camera : this->model_.cameras_.cameras_) {
+        std::vector<BoardData<TModel>> board_datas{};
 
-          // And loop over boards
-          for (auto &board : this->model_.boards_.boards_) {
-            BoardData<TModel>::load_board_datas(*this, camera, board, board_datas);
-          }
-
-          // Let the solver work on these measurements.
-          FrameData<TModel> frame_data{camera,
-                                       this->get_perturbed_camera_f_world(camera),
-                                       board_datas};
-          solver->add_frame(frame_data);
-          this->frames_processed_ += 1;
+        // And loop over boards
+        for (auto &board : this->model_.boards_.boards_) {
+          BoardData<TModel>::load_board_datas(*this, camera, board, board_datas);
         }
+
+        // Let the solver work on these measurements.
+        FrameData<TModel> frame_data{camera,
+                                     this->get_perturbed_camera_f_world(camera),
+                                     board_datas};
+        solver->add_frame(frame_data);
+        this->frames_processed_ += 1;
       }
+
+      // Call the solver and get the result.
+      auto result = solver->solve();
 
       gttoc(solver);
       gtsam::tictoc_print();
       gtsam::tictoc_reset_();
+
+      return result;
     }
   };
 

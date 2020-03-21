@@ -36,16 +36,22 @@ namespace camsim
     return gtsam::Symbol(key_).index();
   }
 
-  template<typename TConfig>
-  std::uint64_t BoardModel<TConfig>::default_key()
-  {
-    return board_key(0);
-  }
+//  template<typename TConfig>
+//  std::uint64_t BoardModel<TConfig>::default_key()
+//  {
+//    return board_key(0);
+//  }
 
   template<typename TConfig>
   std::uint64_t BoardModel<TConfig>::board_key(std::size_t idx)
   {
     return gtsam::Symbol{'b', idx}.key();
+  }
+
+  template<>
+  std::size_t BoardModel<CharucoboardConfig>::index() const
+  {
+    return gtsam::Symbol(key_).index();
   }
 
 // ==============================================================================
@@ -269,6 +275,9 @@ namespace camsim
 // Calibration models
 // ==============================================================================
 
+  // the following unspecialized constructor will be expanded by the CharucoboardCalibrationModel
+  // constructor. An alternative could be to create a specialized constructor like we do below
+  // for CheckerboardCalibrationModel.
   template<typename TConfig, typename TBoardModel, typename TBoardsModel>
   CalibrationModel<TConfig, TBoardModel, TBoardsModel>::CalibrationModel(
     const ModelConfig &cfg,
@@ -279,10 +288,18 @@ namespace camsim
     junctions_f_images_{gen_junctions_f_image(cameras_, boards_)}
   {}
 
-  CheckerboardCalibrationModel::CheckerboardCalibrationModel(
+  // The following specialized constructor is needed because CheckerboardCalibrationModel
+  // is defined with a using statement and nothing will cause the expansion of the above
+  // unspecialized constructor. The linker throws an error unless this specialized constructor
+  // is explicitly declared.
+  template<>
+  CalibrationModel<CheckerboardConfig, CheckerboardModel, CheckerboardsModel>::CalibrationModel(
     const ModelConfig &cfg,
     const CheckerboardConfig &bd_cfg) :
-    CalibrationModel{cfg, bd_cfg}
+    BaseModel(cfg),
+    bd_cfg_{bd_cfg},
+    boards_{CheckerboardsModel(cfg, bd_cfg_)},
+    junctions_f_images_{gen_junctions_f_image(cameras_, boards_)}
   {}
 
   CharucoboardCalibrationModel::CharucoboardCalibrationModel(
@@ -292,7 +309,8 @@ namespace camsim
     arucos_corners_f_images_{gen_arucos_corners_f_images(cameras_, boards_)}
   {}
 
-  void CheckerboardCalibrationModel::print_junctions_f_image()
+  template<>
+  void CalibrationModel<CheckerboardConfig, CheckerboardModel, CheckerboardsModel>::print_junctions_f_image()
   {
     std::cout << "junctions_f_images" << std::endl;
     for (auto &per_camera : junctions_f_images_) {

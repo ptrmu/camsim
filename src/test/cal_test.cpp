@@ -1,6 +1,7 @@
 
 #include "catch2/catch.hpp"
 #include "../cal_run.hpp"
+#include "../cal_solver_runner.hpp"
 #include "../calibration_model.hpp"
 #include "../model.hpp"
 
@@ -308,6 +309,85 @@ namespace camsim
       REQUIRE(acm.boards_.boards_[0].arucos_corners_f_world_[3](0, 2) == 21.);
       REQUIRE(acm.boards_.boards_[0].arucos_corners_f_world_[3](1, 2) == 3.);
       REQUIRE(acm.boards_.boards_[0].arucos_corners_f_world_[3](2, 2) == -2.);
+    }
+  }
+
+  TEST_CASE("Calibrate using openCV")
+  {
+    ModelConfig model_config{PoseGens::gen_poses_func_origin_looking_up(),
+                             PoseGens::gen_poses_func_heiko_calibration_poses(),
+                             camsim::CameraTypes::simulation,
+                             0.1775};
+
+    double r_sigma = 0.1;
+    double t_sigma = 0.3;
+    double u_sampler_sigma = 0.00001;
+    double u_noise_sigma = 1.0;
+
+    SECTION("CheckerboardSolverRunner") {
+
+      CheckerboardConfig ch_cfg(12, 9, 0.030);
+      CheckerboardCalibrationModel ccm(model_config, ch_cfg);
+
+      CheckerboardSolverRunner solver_runner{ccm,
+                                             (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                               gtsam::Vector3::Constant(t_sigma)).finished(),
+                                             (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                               gtsam::Vector3::Constant(t_sigma)).finished(),
+                                             gtsam::Vector2::Constant(u_sampler_sigma),
+                                             gtsam::Vector2::Constant(u_noise_sigma),
+                                             false};
+
+
+      auto result = solver_runner(solver_opencv_factory<CheckerboardCalibrationModel>());
+
+      gtsam::equals<double> gtequal{1.e-4};
+      REQUIRE(gtequal(result.calibration_.fx(), ccm.cameras_.calibration_.fx()));
+      REQUIRE(gtequal(result.calibration_.fy(), ccm.cameras_.calibration_.fy()));
+      REQUIRE(gtequal(result.calibration_.skew(), ccm.cameras_.calibration_.skew()));
+      REQUIRE(gtequal(result.calibration_.px(), ccm.cameras_.calibration_.px()));
+      REQUIRE(gtequal(result.calibration_.py(), ccm.cameras_.calibration_.py()));
+      REQUIRE(gtequal(result.calibration_.k1(), ccm.cameras_.calibration_.k1()));
+      REQUIRE(gtequal(result.calibration_.k2(), ccm.cameras_.calibration_.k2()));
+      REQUIRE(gtequal(result.calibration_.p1(), ccm.cameras_.calibration_.p1()));
+      REQUIRE(gtequal(result.calibration_.p2(), ccm.cameras_.calibration_.p2()));
+
+    }
+
+    SECTION("CharucoboardSolverRunner") {
+
+      CharucoboardConfig ch_cfg(12, 9, 0.030, false, 0.0225);
+      CharucoboardCalibrationModel ccm(model_config, ch_cfg);
+
+      CharucoboardSolverRunner solver_runner{ccm,
+                                             (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                               gtsam::Vector3::Constant(t_sigma)).finished(),
+                                             (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                               gtsam::Vector3::Constant(t_sigma)).finished(),
+                                             gtsam::Vector2::Constant(u_sampler_sigma),
+                                             gtsam::Vector2::Constant(u_noise_sigma),
+                                             false};
+
+
+      auto result = solver_runner(solver_opencv_factory<CharucoboardCalibrationModel>());
+
+      gtsam::equals<double> gtequal{1.e-4};
+      REQUIRE(gtequal(result.calibration_.fx(), ccm.cameras_.calibration_.fx()));
+      REQUIRE(gtequal(result.calibration_.fy(), ccm.cameras_.calibration_.fy()));
+      REQUIRE(gtequal(result.calibration_.skew(), ccm.cameras_.calibration_.skew()));
+      REQUIRE(gtequal(result.calibration_.px(), ccm.cameras_.calibration_.px()));
+      REQUIRE(gtequal(result.calibration_.py(), ccm.cameras_.calibration_.py()));
+      REQUIRE(gtequal(result.calibration_.k1(), ccm.cameras_.calibration_.k1()));
+      REQUIRE(gtequal(result.calibration_.k2(), ccm.cameras_.calibration_.k2()));
+      REQUIRE(gtequal(result.calibration_.p1(), ccm.cameras_.calibration_.p1()));
+      REQUIRE(gtequal(result.calibration_.p2(), ccm.cameras_.calibration_.p2()));
+
+      auto cal1{result.calibration_};
+      auto cal2{gtsam::Cal3DS2(cal1.fx(), cal1.fy(), cal1.skew(),
+                               cal1.px(), cal1.py(),
+                               cal1.k1(), cal1.k2(),
+                               cal1.p1(), cal1.p2())};
+      REQUIRE(gtsam::equals<gtsam::Cal3DS2>{1.e-2}(result.calibration_, cal2));
     }
   }
 

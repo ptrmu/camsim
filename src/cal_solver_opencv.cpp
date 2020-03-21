@@ -16,42 +16,10 @@ namespace camsim
     std::vector<std::vector<cv::Vec3f>> objectPoints_{};
     std::vector<std::vector<cv::Vec2f>> imagePoints_{};
 
-    void display_results()
-    {
-      cv::Mat cameraMatrix;
-      cv::Mat distCoeffs;
-      cv::Mat rvecs;
-      cv::Mat tvecs;
-      cv::Mat newObjPoints;
-      cv::Mat stdDeviationsIntrinsics;
-      cv::Mat stdDeviationsExtrinsics;
-      cv::Mat stdDeviationsObjPoints;
-      cv::Mat perViewErrors;
-
-      auto err = calibrateCamera(objectPoints_,
-                                         imagePoints_,
-                                         cv::Size{800, 600},
-                                         cameraMatrix,
-                                         distCoeffs,
-                                         rvecs,
-                                         tvecs,
-                                         stdDeviationsIntrinsics,
-                                         stdDeviationsExtrinsics,
-                                         perViewErrors);
-
-      std::cout << cameraMatrix << std::endl << distCoeffs << std::endl;
-      int t = 6;
-    }
-
   public:
     explicit SolverOpencv(const SolverRunnerBase<TCalibrationModel> &sr) :
       sr_{sr}
     {}
-
-    ~SolverOpencv() override
-    {
-      display_results();
-    }
 
     void add_frame(const FrameData<TCalibrationModel> &fd) override
     {
@@ -74,6 +42,45 @@ namespace camsim
         objectPoints_.emplace_back(cv_junctions_f_board);
         imagePoints_.emplace_back(cv_junctions_f_image);
       }
+    }
+
+    typename TCalibrationModel::Result solve() override
+    {
+      cv::Mat cameraMatrix;
+      cv::Mat distCoeffs;
+      cv::Mat rvecs;
+      cv::Mat tvecs;
+      cv::Mat newObjPoints;
+      cv::Mat stdDeviationsIntrinsics;
+      cv::Mat stdDeviationsExtrinsics;
+      cv::Mat stdDeviationsObjPoints;
+      cv::Mat perViewErrors;
+
+      auto err = calibrateCamera(objectPoints_,
+                                 imagePoints_,
+                                 cv::Size{800, 600},
+                                 cameraMatrix,
+                                 distCoeffs,
+                                 rvecs,
+                                 tvecs,
+                                 stdDeviationsIntrinsics,
+                                 stdDeviationsExtrinsics,
+                                 perViewErrors);
+
+//      std::cout << cameraMatrix << std::endl << distCoeffs << std::endl;
+//      int t = 6;
+
+      return typename TCalibrationModel::Result{gtsam::Cal3DS2{
+        cameraMatrix.at<double>(0, 0),  // fx
+        cameraMatrix.at<double>(1, 1),  // fy
+        cameraMatrix.at<double>(0, 1), // s
+        cameraMatrix.at<double>(0, 2),  // u0
+        cameraMatrix.at<double>(1, 2),  // v0
+        distCoeffs.at<double>(0), // k1
+        distCoeffs.at<double>(1), // k2
+        distCoeffs.at<double>(2), // p1
+        distCoeffs.at<double>(3)}// p2
+      };
     }
   };
 

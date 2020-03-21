@@ -58,6 +58,15 @@ namespace camsim
     std::size_t board_index() const; //
   };
 
+  struct CalibrationResult
+  {
+    const gtsam::Cal3DS2 calibration_;
+
+    CalibrationResult(const gtsam::Cal3DS2 &calibration) :
+      calibration_{calibration}
+    {}
+  };
+
 // ==============================================================================
 // Board models
 // ==============================================================================
@@ -122,24 +131,21 @@ namespace camsim
   struct CalibrationModel : public BaseModel
   {
     using Config = TConfig; //
-    using BoardModel = TBoardModel; //
-    using BoardsModel = TBoardsModel; //
+    using TargetModel = TBoardModel; //
+    using TargetsModel = TBoardsModel; //
+    using Result = CalibrationResult; //
 
-    const TConfig bd_cfg_;
-    const TBoardsModel boards_;
+    const Config bd_cfg_;
+    const TargetsModel boards_;
     const std::vector<std::vector<std::vector<JunctionFImage>>> junctions_f_images_; // [camera][board][junction]
 
     explicit CalibrationModel(const ModelConfig &cfg,
-                              const TConfig &bd_cfg);
-  };
-
-  struct CheckerboardCalibrationModel : CalibrationModel<CheckerboardConfig, CheckerboardModel, CheckerboardsModel>
-  {
-    CheckerboardCalibrationModel(const ModelConfig &cfg,
-                                 const CheckerboardConfig &bd_cfg);
+                              const Config &bd_cfg);
 
     void print_junctions_f_image();
   };
+
+  using CheckerboardCalibrationModel = CalibrationModel<CheckerboardConfig, CheckerboardModel, CheckerboardsModel>;
 
   struct CharucoboardCalibrationModel : CalibrationModel<CharucoboardConfig, CharucoboardModel, CharucoboardsModel>
   {

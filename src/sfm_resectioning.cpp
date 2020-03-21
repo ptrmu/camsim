@@ -112,7 +112,7 @@ namespace camsim
       K_{K}, project_func_{project_func},
       measurement_noise_{measurement_noise}, corners_f_marker_{corners_f_marker},
       camera_matrix_{(cv::Mat_<double>(3, 3)
-        << K.fx(), 0, K.px(),
+        << K.fx(), K.skew(), K.px(),
         0, K.fy(), K.py(),
         0, 0, 1)},
       cv_corners_f_marker{cv::Point3d{corners_f_marker[0].x(),
