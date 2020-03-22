@@ -144,6 +144,7 @@ namespace camsim
     simple_camera = 0,
     distorted_camera,
     simulation,
+    custom,
   };
 
 
@@ -152,9 +153,10 @@ namespace camsim
     const MarkersConfigurations markers_configuration_;
     const CamerasConfigurations cameras_configuration_;
     const CameraTypes camera_type_;
-    double marker_size_;
-    double marker_spacing_;
-    double camera_spacing_;
+    const gtsam::Cal3DS2 cal3ds2_;
+    const double marker_size_;
+    const double marker_spacing_;
+    const double camera_spacing_;
     const PoseGenerator marker_pose_generator_;
     const PoseGenerator camera_pose_generator_;
 
@@ -166,6 +168,10 @@ namespace camsim
                 PoseGenerator camera_pose_generator,
                 CameraTypes camera_type,
                 double marker_size);
+
+    ModelConfig(PoseGenerator marker_pose_generator,
+                PoseGenerator camera_pose_generator,
+                const gtsam::Cal3DS2 &cal3ds2);
 
     ModelConfig(const ModelConfig &model_config) = default;
   };

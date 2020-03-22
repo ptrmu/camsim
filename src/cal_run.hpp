@@ -12,10 +12,13 @@ namespace camsim
 
   int cal_solver();
 
-  template<typename TCalibrationModel>
+  template<typename TModel>
   struct SolverFactoryInterface;
 
-  template<typename TCalibrationModel>
-  std::unique_ptr<SolverFactoryInterface<TCalibrationModel>> solver_opencv_factory();
+  template<typename TModel>
+  std::unique_ptr<SolverFactoryInterface<TModel>> solver_opencv_factory();
+
+  template<typename TModel>
+  std::unique_ptr<SolverFactoryInterface<TModel>> solver_project_between_factory();
 }
 #endif //_CAL_RUN_HPP

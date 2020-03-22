@@ -40,7 +40,7 @@ namespace camsim
       } catch (gtsam::CheiralityException &e) {
       }
       if (H) *H = gtsam::Matrix::Zero(2, 6);
-      return gtsam::Vector2::Constant(2.0 * cal3ds2_.fx());
+      return gtsam::Vector2{2.0 * cal3ds2_.px(), 2.0 * cal3ds2_.py()};
     }
   };
 

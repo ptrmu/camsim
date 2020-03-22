@@ -52,8 +52,8 @@ namespace camsim
   class ProjectBetweenFactor : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>
   {
     const gtsam::Cal3DS2 &cal3ds2_;
-    const gtsam::Point3 corner_f_marker_;
-    const gtsam::Point2 corner_f_image_;
+    const gtsam::Point3 junction_f_board_;
+    const gtsam::Point2 junction_f_image_;
 
   public:
     ProjectBetweenFactor(gtsam::Point2 corner_f_image,
@@ -64,8 +64,8 @@ namespace camsim
                          const gtsam::Cal3DS2 &cal3ds2) :
       NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(model, marker_key, camera_key),
       cal3ds2_{cal3ds2},
-      corner_f_marker_(std::move(corner_f_marker)),
-      corner_f_image_(std::move(corner_f_image))
+      junction_f_board_(std::move(corner_f_marker)),
+      junction_f_image_(std::move(corner_f_image))
     {}
 
     /// evaluate the error
@@ -81,7 +81,7 @@ namespace camsim
 
       // Transform the point from the Marker frame to the World frame
       gtsam::Point3 point_f_world = marker_f_world.transform_from(
-        corner_f_marker_,
+        junction_f_board_,
         H1 ? gtsam::OptionalJacobian<3, 6>(d_point3_wrt_pose3) : boost::none);
 
       // Project this point to the camera's image frame. Catch and return a default
@@ -102,13 +102,13 @@ namespace camsim
         }
 
         // Return the error.
-        return point_f_image - corner_f_image_;
+        return point_f_image - junction_f_image_;
 
       } catch (gtsam::CheiralityException &e) {
       }
       if (H1) *H1 = gtsam::Matrix::Zero(2, 6);
       if (H2) *H2 = gtsam::Matrix::Zero(2, 6);
-      return gtsam::Vector2::Constant(2.0 * cal3ds2_.fx());
+      return gtsam::Vector2{2.0 * cal3ds2_.px(), 2.0 * cal3ds2_.py()};
     }
   };
 

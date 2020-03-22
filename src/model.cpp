@@ -96,11 +96,13 @@ namespace camsim
     }
   }
 
-  ModelConfig::ModelConfig(MarkersConfigurations markers_configuration, CamerasConfigurations cameras_configuration,
+  ModelConfig::ModelConfig(MarkersConfigurations markers_configuration,
+                           CamerasConfigurations cameras_configuration,
                            CameraTypes camera_type) :
     markers_configuration_{markers_configuration},
-    camera_type_{camera_type},
     cameras_configuration_{cameras_configuration},
+    camera_type_{camera_type},
+    cal3ds2_{},
     marker_size_{gen_marker_size(markers_configuration)},
     marker_spacing_{gen_marker_spacing(markers_configuration, marker_size_)},
     camera_spacing_{gen_camera_spacing(cameras_configuration, marker_spacing_)},
@@ -113,9 +115,24 @@ namespace camsim
                            CameraTypes camera_type,
                            double marker_size) :
     markers_configuration_{MarkersConfigurations::generator},
-    camera_type_{camera_type},
     cameras_configuration_{CamerasConfigurations::generator},
+    camera_type_{camera_type},
+    cal3ds2_{},
     marker_size_{marker_size},
+    marker_spacing_{0.},
+    camera_spacing_{0.},
+    marker_pose_generator_{std::move(marker_pose_generator)},
+    camera_pose_generator_{std::move(camera_pose_generator)}
+  {}
+
+  ModelConfig::ModelConfig(PoseGenerator marker_pose_generator,
+                           PoseGenerator camera_pose_generator,
+                           const gtsam::Cal3DS2 &cal3ds2) :
+    markers_configuration_{MarkersConfigurations::generator},
+    cameras_configuration_{CamerasConfigurations::generator},
+    camera_type_{CameraTypes::custom},
+    cal3ds2_{cal3ds2},
+    marker_size_{0.},
     marker_spacing_{0.},
     camera_spacing_{0.},
     marker_pose_generator_{std::move(marker_pose_generator)},
@@ -361,6 +378,8 @@ namespace camsim
     switch (cfg.camera_type_) {
       case CameraTypes::simulation:
         return gtsam::Cal3DS2{475, 475, 0, 400, 300, 0., 0.};
+      case CameraTypes::custom:
+        return cfg.cal3ds2_;
       default:
         return gtsam::Cal3DS2{1, 1, 0, 50, 50, 0., 0.};
     }

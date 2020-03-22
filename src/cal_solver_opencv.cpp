@@ -8,20 +8,20 @@
 
 namespace camsim
 {
-  template<typename TCalibrationModel>
-  class SolverOpencv : public SolverInterface<TCalibrationModel>
+  template<typename TModel>
+  class SolverOpencv : public SolverInterface<TModel>
   {
-    const SolverRunnerBase<TCalibrationModel> &sr_;
+    const SolverRunnerBase<TModel> &sr_;
 
     std::vector<std::vector<cv::Vec3f>> objectPoints_{};
     std::vector<std::vector<cv::Vec2f>> imagePoints_{};
 
   public:
-    explicit SolverOpencv(const SolverRunnerBase<TCalibrationModel> &sr) :
+    explicit SolverOpencv(const SolverRunnerBase<TModel> &sr) :
       sr_{sr}
     {}
 
-    void add_frame(const FrameData<TCalibrationModel> &fd) override
+    void add_frame(const FrameData<TModel> &fd) override
     {
       for (auto &board_data : fd.board_datas_) {
         std::vector<cv::Vec3f> cv_junctions_f_board;
@@ -44,7 +44,7 @@ namespace camsim
       }
     }
 
-    typename TCalibrationModel::Result solve() override
+    typename TModel::Result solve() override
     {
       cv::Mat cameraMatrix;
       cv::Mat distCoeffs;
@@ -70,7 +70,7 @@ namespace camsim
 //      std::cout << cameraMatrix << std::endl << distCoeffs << std::endl;
 //      int t = 6;
 
-      return typename TCalibrationModel::Result{gtsam::Cal3DS2{
+      return typename TModel::Result{gtsam::Cal3DS2{
         cameraMatrix.at<double>(0, 0),  // fx
         cameraMatrix.at<double>(1, 1),  // fy
         cameraMatrix.at<double>(0, 1), // s
@@ -85,13 +85,13 @@ namespace camsim
   };
 
 
-  template<typename TCalibrationModel>
-  struct SolverOpencvFactoryImpl : public SolverFactoryInterface<TCalibrationModel>
+  template<typename TModel>
+  struct SolverOpencvFactoryImpl : public SolverFactoryInterface<TModel>
   {
-    std::unique_ptr<SolverInterface<TCalibrationModel>> new_solver(
-      const SolverRunnerBase<TCalibrationModel> &solver_runner) override
+    std::unique_ptr<SolverInterface<TModel>> new_solver(
+      const SolverRunnerBase<TModel> &solver_runner) override
     {
-      return std::make_unique<SolverOpencv<TCalibrationModel>>(solver_runner);
+      return std::make_unique<SolverOpencv<TModel>>(solver_runner);
     }
   };
 
