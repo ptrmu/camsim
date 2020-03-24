@@ -72,6 +72,25 @@ namespace camsim
 
       return junctions_f_image_perturbed;
     }
+
+    std::unique_ptr<gtsam::Marginals> get_marginals(gtsam::NonlinearFactorGraph &graph, gtsam::Values &values) const
+    {
+      try {
+        return std::make_unique<gtsam::Marginals>(graph, values, gtsam::Marginals::QR);
+      }
+      catch (gtsam::IndeterminantLinearSystemException &ex) {
+      }
+      std::cout << "Could not create marginals, trying QR" << std::endl;
+
+      try {
+        return std::make_unique<gtsam::Marginals>(graph, values, gtsam::Marginals::QR);
+      }
+      catch (gtsam::IndeterminantLinearSystemException &ex) {
+      }
+      std::cout << "Could not create marginals, returning null" << std::endl;
+
+      return std::unique_ptr<gtsam::Marginals>{};
+    }
   };
 
 

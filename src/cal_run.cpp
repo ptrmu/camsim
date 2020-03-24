@@ -48,11 +48,11 @@ namespace camsim
     CheckerboardConfig ch_cfg(12, 9, 0.030);
     CheckerboardCalibrationModel ccm(model_config, ch_cfg);
 
-    ccm.print_junctions_f_image();
+//    ccm.print_junctions_f_image();
 
     double r_sigma = 0.1;
     double t_sigma = 0.3;
-    double u_sampler_sigma = 0.001;
+    double u_sampler_sigma = 0.5;
     double u_noise_sigma = 1.0;
 
     CheckerboardSolverRunner solver_runner{ccm,
@@ -65,7 +65,7 @@ namespace camsim
                                            false};
 
 
-    solver_runner(solver_opencv_factory<CheckerboardCalibrationModel>());
+    solver_runner(solver_project_between_factory<CheckerboardCalibrationModel>());
   }
 }
 
