@@ -65,7 +65,7 @@ namespace camsim
                                            false};
 
 
-    solver_runner(solver_project_between_factory<CheckerboardCalibrationModel>());
+    solver_runner(solver_project_calibrate_factory<CheckerboardCalibrationModel>());
   }
 }
 

@@ -465,6 +465,42 @@ namespace camsim
       REQUIRE(gtlitequal(result.calibration_.p1(), ccm.cameras_.calibration_.p1()));
       REQUIRE(gtlitequal(result.calibration_.p2(), ccm.cameras_.calibration_.p2()));
     }
+
+    SECTION("project_calibration: k1=-0.1, k2=0.05, p1=0.04, p2=0.02") {
+
+      gtsam::Cal3DS2 cal3ds2(475, 475, 0, 400, 300, -0.1, 0.05, 0.04, 0.02);
+      ModelConfig model_config{PoseGens::gen_poses_func_origin_looking_up(),
+                               PoseGens::gen_poses_func_heiko_calibration_poses(),
+                               cal3ds2};
+
+      CheckerboardCalibrationModel ccm(model_config, ch_cfg);
+
+      CheckerboardSolverRunner solver_runner{ccm,
+                                             (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                               gtsam::Vector3::Constant(t_sigma)).finished(),
+                                             (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                               gtsam::Vector3::Constant(t_sigma)).finished(),
+                                             gtsam::Vector2::Constant(u_sampler_sigma),
+                                             gtsam::Vector2::Constant(u_noise_sigma),
+                                             false};
+
+
+      auto result = solver_runner(solver_project_calibrate_factory<CheckerboardCalibrationModel>());
+
+      result.calibration_.print("calibration\n");
+
+      gtsam::equals<double> gtbigequal{8.e-1};
+      gtsam::equals<double> gtlitequal{1.e-2};
+      REQUIRE(gtbigequal(result.calibration_.fx(), ccm.cameras_.calibration_.fx()));
+      REQUIRE(gtbigequal(result.calibration_.fy(), ccm.cameras_.calibration_.fy()));
+      REQUIRE(gtbigequal(result.calibration_.skew(), ccm.cameras_.calibration_.skew()));
+      REQUIRE(gtbigequal(result.calibration_.px(), ccm.cameras_.calibration_.px()));
+      REQUIRE(gtbigequal(result.calibration_.py(), ccm.cameras_.calibration_.py()));
+      REQUIRE(gtlitequal(result.calibration_.k1(), ccm.cameras_.calibration_.k1()));
+      REQUIRE(gtlitequal(result.calibration_.k2(), ccm.cameras_.calibration_.k2()));
+      REQUIRE(gtlitequal(result.calibration_.p1(), ccm.cameras_.calibration_.p1()));
+      REQUIRE(gtlitequal(result.calibration_.p2(), ccm.cameras_.calibration_.p2()));
+    }
   }
 
 #endif

@@ -184,14 +184,9 @@ namespace camsim
 
 
       auto cal3ds2 = result.at<gtsam::Cal3DS2>(calibration_key_);
-      cal3ds2.print("cal3ds2\n");
+//      cal3ds2.print("cal3ds2\n");
 
-//      auto marginals_slam_ptr = sr_.get_marginals(graph_, result);
-//      for (auto m : result.filter(gtsam::Symbol::ChrTest('m'))) {
-//        sr_.display_results(PoseWithCovariance::Extract(result, marginals_slam_ptr.get(), m.key));
-//      }
-
-      return typename TModel::Result{gtsam::Cal3DS2{}};
+      return typename TModel::Result{cal3ds2};
     }
   };
 
@@ -208,14 +203,14 @@ namespace camsim
 
   template<>
   std::unique_ptr<SolverFactoryInterface<CheckerboardCalibrationModel>>
-  solver_project_between_factory<CheckerboardCalibrationModel>()
+  solver_project_calibrate_factory<CheckerboardCalibrationModel>()
   {
     return std::make_unique<SolverGtsamProjectBetweenFactoryImpl<CheckerboardCalibrationModel>>();
   }
 
   template<>
   std::unique_ptr<SolverFactoryInterface<CharucoboardCalibrationModel>>
-  solver_project_between_factory<CharucoboardCalibrationModel>()
+  solver_project_calibrate_factory<CharucoboardCalibrationModel>()
   {
     return std::make_unique<SolverGtsamProjectBetweenFactoryImpl<CharucoboardCalibrationModel>>();
   }
