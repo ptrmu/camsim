@@ -111,6 +111,20 @@ namespace camsim
                              gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, -0.25 * M_PI, M_PI),
                                           gtsam::Point3{0.195, 0., 0.195}}});
     }
+
+    static PoseGeneratorFunc gen_poses_func_homography_calibration_poses()
+    {
+      return gen_poses_func({gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., M_PI),
+                                          gtsam::Point3{0., 0., 1.}},
+                             gtsam::Pose3{gtsam::Rot3::RzRyRx(0.75 * M_PI, 0., M_PI),
+                                          gtsam::Point3{0., -0., 1.}},
+                             gtsam::Pose3{gtsam::Rot3::RzRyRx(-0.75 * M_PI, 0., M_PI),
+                                          gtsam::Point3{0., 0., 1.}},
+                             gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0.25 * M_PI, M_PI),
+                                          gtsam::Point3{-0., 0., 1.}},
+                             gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, -0.25 * M_PI, M_PI),
+                                          gtsam::Point3{0., 0., 1.}}});
+    }
   };
 
   enum class MarkersConfigurations

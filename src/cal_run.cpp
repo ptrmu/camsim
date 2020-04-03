@@ -41,7 +41,7 @@ namespace camsim
   int cal_solver()
   {
     ModelConfig model_config{PoseGens::gen_poses_func_origin_looking_up(),
-                             PoseGens::gen_poses_func_heiko_calibration_poses(),
+                             PoseGens::gen_poses_func_homography_calibration_poses(),
                              camsim::CameraTypes::simulation,
                              0.1775};
 
@@ -52,7 +52,7 @@ namespace camsim
 
     double r_sigma = 0.1;
     double t_sigma = 0.3;
-    double u_sampler_sigma = 0.5;
+    double u_sampler_sigma = 0.00000001;
     double u_noise_sigma = 1.0;
 
     CheckerboardSolverRunner solver_runner{ccm,
@@ -65,7 +65,7 @@ namespace camsim
                                            false};
 
 
-    solver_runner(solver_project_calibrate_factory<CheckerboardCalibrationModel>());
+    solver_runner(solver_homography_factory<CheckerboardCalibrationModel>());
   }
 }
 

@@ -19,6 +19,9 @@ namespace camsim
   std::unique_ptr<SolverFactoryInterface<TModel>> solver_opencv_factory();
 
   template<typename TModel>
+  std::unique_ptr<SolverFactoryInterface<TModel>> solver_homography_factory();
+
+  template<typename TModel>
   std::unique_ptr<SolverFactoryInterface<TModel>> solver_project_calibrate_factory();
 }
 #endif //_CAL_RUN_HPP
