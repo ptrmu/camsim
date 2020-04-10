@@ -63,7 +63,7 @@ namespace camsim
   {
     std::vector<PointFBoard> junctions_f_board{};
     for (JunctionId i = 0; i < bd_cfg.max_junction_id_; i += 1) {
-      auto junction_f_facade = bd_cfg.to_junction_location(i);
+      auto junction_f_facade = bd_cfg.junction_id_to_junction_location(i);
       auto junction_f_board = bd_cfg.to_point_f_board(junction_f_facade);
       junctions_f_board.emplace_back(junction_f_board);
     }

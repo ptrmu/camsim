@@ -13,23 +13,23 @@ namespace camsim
   {
     SECTION("3x3 black") {
       CharucoboardConfig ar_cfg(3, 3, 12, false, 6);
-      REQUIRE(ar_cfg.to_junction_location(0).x() == 12.);
-      REQUIRE(ar_cfg.to_junction_location(1).x() == 24.);
-      REQUIRE(ar_cfg.to_junction_location(2).x() == 12.);
-      REQUIRE(ar_cfg.to_junction_location(3).x() == 24.);
-      REQUIRE(ar_cfg.to_junction_location(0).y() == 12.);
-      REQUIRE(ar_cfg.to_junction_location(1).y() == 12.);
-      REQUIRE(ar_cfg.to_junction_location(2).y() == 24.);
-      REQUIRE(ar_cfg.to_junction_location(3).y() == 24.);
+      REQUIRE(ar_cfg.junction_id_to_junction_location(0).x() == 12.);
+      REQUIRE(ar_cfg.junction_id_to_junction_location(1).x() == 24.);
+      REQUIRE(ar_cfg.junction_id_to_junction_location(2).x() == 12.);
+      REQUIRE(ar_cfg.junction_id_to_junction_location(3).x() == 24.);
+      REQUIRE(ar_cfg.junction_id_to_junction_location(0).y() == 12.);
+      REQUIRE(ar_cfg.junction_id_to_junction_location(1).y() == 12.);
+      REQUIRE(ar_cfg.junction_id_to_junction_location(2).y() == 24.);
+      REQUIRE(ar_cfg.junction_id_to_junction_location(3).y() == 24.);
 
-      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.to_junction_location(0)).x() == -6.);
-      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.to_junction_location(1)).x() == 6.);
-      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.to_junction_location(2)).x() == -6.);
-      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.to_junction_location(3)).x() == 6.);
-      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.to_junction_location(0)).y() == 6.);
-      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.to_junction_location(1)).y() == 6.);
-      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.to_junction_location(2)).y() == -6.);
-      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.to_junction_location(3)).y() == -6.);
+      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.junction_id_to_junction_location(0)).x() == -6.);
+      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.junction_id_to_junction_location(1)).x() == 6.);
+      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.junction_id_to_junction_location(2)).x() == -6.);
+      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.junction_id_to_junction_location(3)).x() == 6.);
+      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.junction_id_to_junction_location(0)).y() == 6.);
+      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.junction_id_to_junction_location(1)).y() == 6.);
+      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.junction_id_to_junction_location(2)).y() == -6.);
+      REQUIRE(ar_cfg.to_point_f_board(ar_cfg.junction_id_to_junction_location(3)).y() == -6.);
 
       REQUIRE(ar_cfg.to_aruco_location(0).x() == 18.);
       REQUIRE(ar_cfg.to_aruco_location(1).x() == 6.);
@@ -48,6 +48,15 @@ namespace camsim
       REQUIRE(ar_cfg.to_aruco_corners_f_board(ar_cfg.to_aruco_corners_f_facade(0))(1, 1) == 15.);
       REQUIRE(ar_cfg.to_aruco_corners_f_board(ar_cfg.to_aruco_corners_f_facade(0))(1, 2) == 9.);
       REQUIRE(ar_cfg.to_aruco_corners_f_board(ar_cfg.to_aruco_corners_f_facade(0))(1, 3) == 9.);
+
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).first == 0);
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).second == 1);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).first == 0);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).second == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).first == 1);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).second == 3);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).first == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).second == 3);
     }
 
     SECTION("3x4 black") {
@@ -64,6 +73,15 @@ namespace camsim
       REQUIRE(ar_cfg.to_aruco_location(3).y() == 30.);
       REQUIRE(ar_cfg.to_aruco_location(4).y() == 42.);
       REQUIRE(ar_cfg.to_aruco_location(5).y() == 42.);
+
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).first == 0);
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).second == 1);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).first == 0);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).second == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).first == 1);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).second == 3);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).first == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).second == 3);
     }
 
     SECTION("4x3 black") {
@@ -80,6 +98,15 @@ namespace camsim
       REQUIRE(ar_cfg.to_aruco_location(3).y() == 18.);
       REQUIRE(ar_cfg.to_aruco_location(4).y() == 30.);
       REQUIRE(ar_cfg.to_aruco_location(5).y() == 30.);
+
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).first == 0);
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).second == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).first == 0);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).second == 3);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).first == 1);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).second == 3);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).first == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).second == 4);
     }
 
     SECTION("3x3 white") {
@@ -94,6 +121,15 @@ namespace camsim
       REQUIRE(ar_cfg.to_aruco_location(2).y() == 18.);
       REQUIRE(ar_cfg.to_aruco_location(3).y() == 30.);
       REQUIRE(ar_cfg.to_aruco_location(4).y() == 30.);
+
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).first == 0);
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).second == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).first == 1);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).second == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).first == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).second == 3);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).first == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).second == 4);
     }
 
     SECTION("3x4 white") {
@@ -110,6 +146,15 @@ namespace camsim
       REQUIRE(ar_cfg.to_aruco_location(3).y() == 30.);
       REQUIRE(ar_cfg.to_aruco_location(4).y() == 30.);
       REQUIRE(ar_cfg.to_aruco_location(5).y() == 42.);
+
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).first == 0);
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).second == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).first == 1);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).second == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).first == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).second == 3);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).first == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).second == 4);
     }
 
     SECTION("4x3 white") {
@@ -126,6 +171,15 @@ namespace camsim
       REQUIRE(ar_cfg.to_aruco_location(3).y() == 18.);
       REQUIRE(ar_cfg.to_aruco_location(4).y() == 30.);
       REQUIRE(ar_cfg.to_aruco_location(5).y() == 30.);
+
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).first == 0);
+      REQUIRE(ar_cfg.get_adjacent_arucos(0).second == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).first == 1);
+      REQUIRE(ar_cfg.get_adjacent_arucos(1).second == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).first == 1);
+      REQUIRE(ar_cfg.get_adjacent_arucos(2).second == 3);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).first == 2);
+      REQUIRE(ar_cfg.get_adjacent_arucos(3).second == 4);
     }
   }
 
