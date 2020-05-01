@@ -41,13 +41,17 @@ namespace camsim
 
         objectPoints_.emplace_back(cv_junctions_f_board);
         imagePoints_.emplace_back(cv_junctions_f_image);
+
+        auto t_camera_board = fd.camera_.camera_f_world_.inverse() * board_data.board_.board_f_world_;
+        std::cout << PoseWithCovariance::to_str(t_camera_board) << std::endl;
+
       }
     }
 
     typename TModel::Result solve() override
     {
-      cv::Mat cameraMatrix;
-      cv::Mat distCoeffs;
+      cv::Matx<float, 3, 3> cameraMatrix;
+      cv::Matx<float, 5, 1> distCoeffs;
       cv::Mat rvecs;
       cv::Mat tvecs;
       cv::Mat newObjPoints;
@@ -56,30 +60,45 @@ namespace camsim
       cv::Mat stdDeviationsObjPoints;
       cv::Mat perViewErrors;
 
-      auto err = calibrateCamera(objectPoints_,
-                                 imagePoints_,
-                                 cv::Size{800, 600},
-                                 cameraMatrix,
-                                 distCoeffs,
-                                 rvecs,
-                                 tvecs,
-                                 stdDeviationsIntrinsics,
-                                 stdDeviationsExtrinsics,
-                                 perViewErrors);
+      auto err = cv::calibrateCamera(objectPoints_,
+                                     imagePoints_,
+                                     cv::Size{800, 600},
+                                     cameraMatrix,
+                                     distCoeffs,
+                                     rvecs,
+                                     tvecs,
+                                     stdDeviationsIntrinsics,
+                                     stdDeviationsExtrinsics,
+                                     perViewErrors);
 
-//      std::cout << cameraMatrix << std::endl << distCoeffs << std::endl;
-//      int t = 6;
+      std::vector<cv::Vec2f> imagePoints;
+
+      for (std::size_t i = 0; i < objectPoints_.size(); i += 1) {
+        cv::Matx<double, 3, 1> rvec{rvecs.at<double>(i, 0), rvecs.at<double>(i, 1), rvecs.at<double>(i, 2)};
+        cv::Matx<double, 3, 1> tvec{tvecs.at<double>(i, 0), tvecs.at<double>(i, 1), tvecs.at<double>(i, 2)};
+        cv::projectPoints(objectPoints_[i],
+//                          rvec, tvec,
+                          rvecs.at<cv::Vec3d>(i, 0), tvecs.at<cv::Vec3d>(i, 0),
+                          cameraMatrix, distCoeffs,
+                          imagePoints);
+        std::cout
+          << imagePoints[0] << " " << imagePoints_[i][0] << " "
+          << imagePoints[1] << " " << imagePoints_[i][1] << " "
+          << imagePoints[2] << " " << imagePoints_[i][2] << " "
+          << std::endl;
+
+      }
 
       return typename TModel::Result{gtsam::Cal3DS2{
-        cameraMatrix.at<double>(0, 0),  // fx
-        cameraMatrix.at<double>(1, 1),  // fy
-        cameraMatrix.at<double>(0, 1), // s
-        cameraMatrix.at<double>(0, 2),  // u0
-        cameraMatrix.at<double>(1, 2),  // v0
-        distCoeffs.at<double>(0), // k1
-        distCoeffs.at<double>(1), // k2
-        distCoeffs.at<double>(2), // p1
-        distCoeffs.at<double>(3)}// p2
+        cameraMatrix(0, 0),  // fx
+        cameraMatrix(1, 1),  // fy
+        cameraMatrix(0, 1), // s
+        cameraMatrix(0, 2),  // u0
+        cameraMatrix(1, 2),  // v0
+        distCoeffs(0), // k1
+        distCoeffs(1), // k2
+        distCoeffs(2), // p1
+        distCoeffs(3)} // p2
       };
     }
   };

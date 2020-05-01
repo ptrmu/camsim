@@ -38,7 +38,37 @@ namespace camsim
     return EXIT_SUCCESS;
   }
 
-  int cal_solver()
+  int cal_solver_calibrate_camera()
+  {
+    ModelConfig model_config{PoseGens::gen_poses_func_origin_looking_up(),
+                             PoseGens::gen_poses_func_heiko_calibration_poses(),
+                             camsim::CameraTypes::simulation,
+                             0.1775};
+
+    CheckerboardConfig ch_cfg(12, 9, 0.030);
+    CheckerboardCalibrationModel ccm(model_config, ch_cfg);
+
+//    ccm.print_junctions_f_image();
+
+    double r_sigma = 0.1;
+    double t_sigma = 0.3;
+    double u_sampler_sigma = 0.00000001;
+    double u_noise_sigma = 1.0;
+
+    CheckerboardSolverRunner solver_runner{ccm,
+                                           (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                             gtsam::Vector3::Constant(t_sigma)).finished(),
+                                           (gtsam::Vector6{} << gtsam::Vector3::Constant(r_sigma),
+                                             gtsam::Vector3::Constant(t_sigma)).finished(),
+                                           gtsam::Vector2::Constant(u_sampler_sigma),
+                                           gtsam::Vector2::Constant(u_noise_sigma),
+                                           false};
+
+
+    solver_runner(solver_opencv_factory<CheckerboardCalibrationModel>());
+  }
+
+  int cal_solver_homography()
   {
     ModelConfig model_config{PoseGens::gen_poses_func_origin_looking_up(),
                              PoseGens::gen_poses_func_homography_calibration_poses(),

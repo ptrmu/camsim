@@ -10,7 +10,9 @@ namespace camsim
 
   int cal_solver_opencv_checkerboard();
 
-  int cal_solver();
+  int cal_solver_calibrate_camera();
+
+  int cal_solver_homography();
 
   template<typename TModel>
   struct SolverFactoryInterface;
