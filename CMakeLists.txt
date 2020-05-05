@@ -168,6 +168,28 @@ target_link_libraries(cal_run
   )
 
 
+add_executable(kal_run
+  src/kal_run.cpp
+  src/kal_run_main.cpp
+#    src/vtk_line_plot.cpp
+#    src/vtk_rand_dist.cpp
+#    src/vtk_multi_plot.cpp
+  src/kal_opencv_filter.cpp)
+
+target_link_libraries(kal_run
+  PRIVATE gtsam
+  PRIVATE opencv_core
+  PRIVATE opencv_calib3d
+  PRIVATE opencv_video
+  PRIVATE opencv_highgui
+#  PRIVATE ${VTK_LIBRARIES}
+  )
+
+#vtk_module_autoinit(TARGETS cal_run
+#  MODULES ${VTK_LIBRARIES}
+#  )
+
+
 add_executable(camsim_test
   src/test/camsim_test.cpp
   src/test/map_test.cpp
