@@ -174,7 +174,9 @@ add_executable(kal_run
 #    src/vtk_line_plot.cpp
 #    src/vtk_rand_dist.cpp
 #    src/vtk_multi_plot.cpp
-  src/kal_opencv_filter.cpp)
+  src/kal_opencv_filter.cpp
+  src/kal_kalman_filter_x.cpp
+)
 
 target_link_libraries(kal_run
   PRIVATE gtsam
