@@ -3,6 +3,6 @@
 
 int main()
 {
-  camsim::kal_opencv_filter();
+  camsim::kal_do_filter_x();
   return 0;
 }

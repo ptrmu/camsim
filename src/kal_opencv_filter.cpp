@@ -246,7 +246,7 @@ namespace camsim
     return 0;
   }
 
-  void next_model_state(Mat & model)
+  static void next_model_state(Mat & model)
   {
     float delta_phi = 0.1;
     static int loop_count{0};

@@ -6,5 +6,6 @@ namespace camsim
 {
   void kal_run();
   void kal_opencv_filter();
+  void kal_do_filter_x();
 }
 #endif //_KAL_RUN_HPP
