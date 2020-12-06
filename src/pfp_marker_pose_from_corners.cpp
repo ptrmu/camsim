@@ -75,7 +75,7 @@ namespace camsim
     std::cout << "Truth " << PoseWithCovariance::to_str(marker_model.marker_f_world_) << std::endl;
     std::cout << "Init  " << PoseWithCovariance::to_str(camera_f_world_initial) << std::endl;
     std::cout << "Found " << PoseWithCovariance::to_str(camera_f_world) << std::endl;
-    std::cout << PoseWithCovariance::to_str(camera_f_world_covariance) << std::endl;
+    std::cout << PoseWithCovariance::to_matrix_str(camera_f_world_covariance, true) << std::endl;
   }
 
   int pfp_marker_pose_from_corners()

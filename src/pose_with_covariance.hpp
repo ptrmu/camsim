@@ -36,7 +36,10 @@ namespace camsim
 
     std::string to_str() const; //
     static std::string to_str(const gtsam::Pose3 &pose); //
-    static std::string to_str(const gtsam::Matrix6 &cov); //
+    static std::string to_str(const gtsam::Rot3 &rot); //
+    static std::string to_row_str(gtsam::Vector v); //
+    template<class FixedSizeMatrix>
+    static std::string to_matrix_str(const FixedSizeMatrix &m, bool lower_only = false); //
     static std::string to_eigenvalues_str(const gtsam::Matrix6 &cov); //
     static std::string to_stddev_str(const gtsam::Matrix6 &cov);//
   };

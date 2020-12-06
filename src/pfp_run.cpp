@@ -19,39 +19,46 @@ namespace camsim
 
   int pfp_simple()
   {
-    // Create the world pose
+    // This sample explores how GTSAM rotates covariance matrices. Start with a pose and covariance. We are calling
+    // it world. The we have a transform that we are calling t_world_body. We measure this rotation with zero error.
+    // We put this original pose and transform measurement into the solver and find the pose body_f_world and the
+    // covariance body_f_world_covariance. This new covariance is the original covariance rotated by t_world_body.
+
+    gtsam::Symbol world_key('w', 0);
+    gtsam::Symbol body_key('b', 0);
+
+    // Create the world pose and a covariance in the world frame
     gtsam::Pose3 world{gtsam::Rot3::RzRyRx(0., 0., 0.),
                        gtsam::Point3{0., 0., 0.}};
 
-    gtsam::Matrix6 cov;
-    cov.setZero();
-    cov(0, 0) = 1.1e-2;
-    cov(1, 1) = 1.2e-2;
-    cov(2, 2) = 1.3e-2;
-    cov(3, 3) = 2.1e-2;
-    cov(4, 4) = 2.2e-2;
-    cov(5, 5) = 2.3e-2;
+    gtsam::Pose3::Jacobian world_covariance;
+    world_covariance.setZero();
+    world_covariance(0, 0) = 1.1e-2;
+    world_covariance(1, 1) = 1.2e-2;
+    world_covariance(2, 2) = 1.3e-2;
+    world_covariance(3, 3) = 2.1e-2;
+    world_covariance(4, 4) = 2.2e-2;
+    world_covariance(5, 5) = 2.3e-2;
     int cor_0 = 1;
-    int cor_1 = 5;
+    int cor_1 = 2;
     double cor_c = 1.0;
-    double cor_f = cor_c * cov(cor_0, cor_0) * cov(cor_1, cor_1);
-    cov(cor_0, cor_1) = cor_f;
-    cov(cor_1, cor_0) = cor_f;
-    auto world_noise_model = gtsam::noiseModel::Gaussian::Covariance(cov, false);
+    double cor_f = cor_c * world_covariance(cor_0, cor_0) * world_covariance(cor_1, cor_1);
+    world_covariance(cor_0, cor_1) = cor_f;
+    world_covariance(cor_1, cor_0) = cor_f;
+    auto world_noise_model = gtsam::noiseModel::Gaussian::Covariance(world_covariance, false);
 
-    gtsam::Symbol world_key('w', 0);
+    // Create the body transform measurement and the noise model with no variance.
+    double rx = 90 * degree;
+    double ry = 90 * degree;
+    double rz = 0 * degree;
+    gtsam::Pose3 t_world_body{gtsam::Rot3::Ypr(rx, ry, rz), gtsam::Point3{0., 5., 0.}};
+    auto t_world_body_measurement_noise = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
 
+    std::cout << "world" << endl << PoseWithCovariance::to_str(world) << std::endl;
+    std::cout << "world_covariance" << endl << PoseWithCovariance::to_matrix_str(world_covariance, true) << std::endl;
+    std::cout << "t_world_body" << endl << PoseWithCovariance::to_str(t_world_body) << std::endl;
 
-    // Create the body pose
-    gtsam::Pose3 body_f_world{gtsam::Rot3::Ypr(90. * degree, 90. * degree, 0. * degree),
-                              gtsam::Point3{0., 5., 0.}};
-
-    // Create the measurement constraint
-    auto body_f_world_measurement_noise = gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1);
-
-    gtsam::Symbol body_key('b', 0);
-
-
+    // Do the optimization
     gtsam::NonlinearFactorGraph graph;
     gtsam::Values initial;
 
@@ -60,62 +67,53 @@ namespace camsim
                                                             world, world_noise_model);
     graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(world_key,
                                                              body_key,
-                                                             body_f_world,
-                                                             body_f_world_measurement_noise);
+                                                             t_world_body,
+                                                             t_world_body_measurement_noise);
 
     // Add the initial estimates
     initial.insert(world_key, world);
-    initial.insert(body_key, body_f_world);
+    initial.insert(body_key, t_world_body);
 
     // Optimize
     gtsam::Values result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();
 
+    // Get the body pose and the rotated covariance.
     gtsam::Marginals marginals(graph, result);
-    auto result_body_f_world = result.at<gtsam::Pose3>(body_key);
-    gtsam::Matrix6 result_body_f_world_covariance = marginals.marginalCovariance(body_key);
+    auto body_f_world = result.at<gtsam::Pose3>(body_key);
+    gtsam::Pose3::Jacobian body_f_world_covariance = marginals.marginalCovariance(body_key);
 
-    std::cout << PoseWithCovariance::to_str(result_body_f_world) << std::endl;
-    std::cout << PoseWithCovariance::to_str(result_body_f_world_covariance) << std::endl;
+    std::cout << "body_f_world" << endl << PoseWithCovariance::to_str(body_f_world) << std::endl;
+    std::cout << "body_f_world_covariance" << endl << PoseWithCovariance::to_matrix_str(body_f_world_covariance, true)
+              << std::endl;
 
-    gtsam::Matrix6 adjoint_map = result_body_f_world.AdjointMap();
-    gtsam::Matrix6 r_adj_cov = adjoint_map * result_body_f_world_covariance * adjoint_map.transpose();
-    std::cout << r_adj_cov << std::endl;
+    std::cout << std::endl;
 
+    // Lets see where this covariance comes from.
+    // First try rotating the rotated covariance back to the body frame. Just work with the rotation part.
+    auto body_f_world_rotation = body_f_world.rotation();
+    auto body_f_world_rot_covariance = body_f_world_covariance.block<3, 3>(0, 0);
 
-    gtsam::Matrix3 t_cov{};
-    for (int r = 0; r < 3; r += 1) {
-      for (int c = 0; c < 3; c += 1) {
-        t_cov(r, c) = result_body_f_world_covariance(r + 3, c + 3);
-      }
-    }
-    std::cout << t_cov << std::endl;
-    gtsam::Matrix3 r_t_cov =
-      result_body_f_world.rotation().matrix() * t_cov * result_body_f_world.rotation().matrix().transpose();
-    std::cout << r_t_cov << std::endl;
+    std::cout << "Transform rotation part of body covariance back to world frame. Should match original." << std::endl;
+    gtsam::Rot3::Jacobian r_covariance = body_f_world_rotation.matrix() *
+                                         body_f_world_rot_covariance * body_f_world_rotation.matrix().transpose();
+    std::cout << "rotation part of body_f_world_covariance in world frame" << endl <<
+              PoseWithCovariance::to_matrix_str(r_covariance, true) << std::endl;
 
-    gtsam::Matrix6 rot_cov{};
-    rot_cov.setZero();
-    gtsam::Matrix3 rot = result_body_f_world.rotation().matrix();
-    for (int r = 0; r < 3; r += 1) {
-      for (int c = 0; c < 3; c += 1) {
-        rot_cov(r, c) = rot(r, c);
-        rot_cov(r + 3, c + 3) = rot(r, c);
-      }
-    }
-
-    gtsam::Matrix6 r_cov = rot_cov * result_body_f_world_covariance * rot_cov.transpose();
-    std::cout << r_cov << std::endl;
+    std::cout << "Transform full body covariance back to world frame using AdjointMap. Should match original."
+              << std::endl;
+    gtsam::Pose3::Jacobian adjoint_map = body_f_world.AdjointMap();
+    gtsam::Pose3::Jacobian r_adj_cov = adjoint_map * body_f_world_covariance * adjoint_map.transpose();
+    std::cout << "body_f_world_covariance in world frame" << endl <<
+              PoseWithCovariance::to_matrix_str(r_adj_cov, true) << std::endl;
 
     return 0;
   }
 
-  using namespace gtsam;
-
   int pfp_simplest()
   {
     // Create the world and body poses in the world frame
-    Pose3 t_world_world{};
-    Pose3 t_world_body{Rot3::RzRyRx(90. * degree, 0. * degree, 0. * degree), Point3{}};
+    gtsam::Pose3 t_world_world{};
+    gtsam::Pose3 t_world_body{gtsam::Rot3::RzRyRx(90. * degree, 0. * degree, 0. * degree), gtsam::Point3{}};
 
     gtsam::NonlinearFactorGraph graph;
     gtsam::Values initial;
@@ -124,13 +122,14 @@ namespace camsim
     graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(
       gtsam::Symbol('w', 0),
       t_world_world,
-      noiseModel::Diagonal::Variances((Vector(6) << 0.11, 0.12, 0.13, 0.21, 0.22, 0.23).finished()));
+      gtsam::noiseModel::Diagonal::Variances(
+        (gtsam::Vector(6) << 0.11, 0.12, 0.13, 0.21, 0.22, 0.23).finished()));
 
     graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
       gtsam::Symbol('w', 0),
       gtsam::Symbol('b', 0),
       t_world_body,
-      noiseModel::Constrained::MixedSigmas(Z_6x1));
+      gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Z_6x1));
 
     // Add the initial estimates
     initial.insert(gtsam::Symbol('w', 0), t_world_world);
@@ -141,10 +140,15 @@ namespace camsim
 
     gtsam::Marginals marginals(graph, result);
     auto result_body_f_world = result.at<gtsam::Pose3>(gtsam::Symbol('b', 0));
-    gtsam::Matrix6 result_body_f_world_covariance = marginals.marginalCovariance(gtsam::Symbol('b', 0));
+    gtsam::Matrix6 world_f_world_covariance = marginals.marginalCovariance(gtsam::Symbol('w', 0));
+    gtsam::Matrix6 body_f_world_covariance = marginals.marginalCovariance(gtsam::Symbol('b', 0));
 
-    std::cout << result_body_f_world << std::endl;
-    std::cout << result_body_f_world_covariance << std::endl;
+    std::cout << "Example of how covariance is transformed by a Pose3 transformation." << std::endl;
+    std::cout << "original world_f_world_covariance" << endl
+              << PoseWithCovariance::to_matrix_str(world_f_world_covariance, true) << std::endl;
+    std::cout << "result_body_f_world" << endl << PoseWithCovariance::to_str(result_body_f_world) << std::endl;
+    std::cout << "body_f_world_covariance" << endl
+              << PoseWithCovariance::to_matrix_str(body_f_world_covariance, true) << std::endl;
 
     return 0;
   }
@@ -152,36 +156,48 @@ namespace camsim
   int pfp_duplicate_prior()
   {
     // Create the world and body poses in the world frame
-    Point3 p0{0., 0., 0.};
-    auto p0_noise = noiseModel::Diagonal::Sigmas(Vector3{0.1, 0.1, 0.1});
-    Point3 p1{10., 10., 10.};
-    auto p1_noise = noiseModel::Diagonal::Sigmas(Vector3{10., 1., 0.1});
-    Pose3 t_world_body{Rot3::RzRyRx(90. * degree, 0. * degree, 0. * degree), Point3{}};
+    gtsam::Point3 p0{0., 0., 0.};
+    auto p0_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector3{0.1, 0.1, 0.1});
+    gtsam::Point3 p1{10., 10., 10.};
+    auto p1_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector3{10., 1., 0.1});
+    gtsam::Pose3 t_world_body{gtsam::Rot3::RzRyRx(90. * degree, 0. * degree, 0. * degree), gtsam::Point3{}};
+
+    std::cout << "Example of how multiple priors are combined." << std::endl;
+    std::cout << "p0" << endl << PoseWithCovariance::to_row_str(p0.transpose()) << std::endl;
+    std::cout << "p0_covariance" << endl
+              << PoseWithCovariance::to_matrix_str(gtsam::Matrix3{p0_noise->covariance()}, true) << std::endl;
+    std::cout << "p1" << endl << PoseWithCovariance::to_row_str(p1.transpose()) << std::endl;
+    std::cout << "p1_covariance" << endl
+              << PoseWithCovariance::to_matrix_str(gtsam::Matrix3{p1_noise->covariance()}, true) << std::endl;
 
     gtsam::NonlinearFactorGraph graph;
     gtsam::Values initial;
 
     // Add factors to the graph
-    graph.emplace_shared<PriorFactor<gtsam::Point3> >(
-      Symbol('w', 0),
+    graph.emplace_shared<gtsam::PriorFactor<gtsam::Point3> >(
+      gtsam::Symbol('w', 0),
       p0, p0_noise);
-    graph.emplace_shared<PriorFactor<gtsam::Point3> >(
-      Symbol('w', 0),
+    graph.emplace_shared<gtsam::PriorFactor<gtsam::Point3> >(
+      gtsam::Symbol('w', 0),
       p1, p1_noise);
 
     // Add the initial estimates
-    initial.insert(Symbol('w', 0), p0);
+    initial.insert(gtsam::Symbol('w', 0), p1);
 
     // Optimize
     gtsam::Values result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();
 
     gtsam::Marginals marginals(graph, result);
-    auto result_p0 = result.at<Point3>(gtsam::Symbol('w', 0));
+    auto result_p0 = result.at<gtsam::Point3>(gtsam::Symbol('w', 0));
     gtsam::Matrix3 result_p0_covariance = marginals.marginalCovariance(gtsam::Symbol('w', 0));
 
-    std::cout << result_p0 << std::endl;
-    std::cout << result_p0_covariance << std::endl;
+    std::cout << "result_p0" << endl << PoseWithCovariance::to_row_str(result_p0.transpose()) << std::endl;
+    std::cout << "result_p0_covariance" << endl
+              << PoseWithCovariance::to_matrix_str(result_p0_covariance, true) << std::endl;
 
+    // The resulting position coordinates are averaged based on their uncertainty. But notice the
+    // counter intuitive result that even though the two points had radically different values, the
+    // resulting uncertainty is small.
     return 0;
   }
 }

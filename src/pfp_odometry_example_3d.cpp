@@ -24,7 +24,7 @@ namespace camsim
     // Add a prior on the first pose, setting it to the origin
     // A prior factor consists of a mean and a noise model (covariance matrix)
     Rot3 identity = Rot3::Ypr(0.0, 0.0, 0.0);
-    Pose3 priorMean(identity, Point3::identity()); // prior at origin
+    Pose3 priorMean(identity, Point3{}); // prior at origin
     Vector6 priorSigmas;
     priorSigmas << 0.001, 0.001, 0.1, 0.3, 0.3, 0.0001;
     noiseModel::Diagonal::shared_ptr priorNoise = noiseModel::Diagonal::Sigmas(priorSigmas);
