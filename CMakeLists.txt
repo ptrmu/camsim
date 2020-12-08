@@ -168,6 +168,16 @@ target_link_libraries(cal_run
   )
 
 
+add_executable(sho_run
+  src/sho_run.cpp
+  src/sho_run_main.cpp
+  )
+
+target_link_libraries(sho_run
+  PRIVATE gtsam
+  )
+
+
 add_executable(kal_run
   src/kal_run.cpp
   src/kal_run_main.cpp

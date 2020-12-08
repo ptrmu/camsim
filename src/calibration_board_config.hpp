@@ -122,7 +122,7 @@ namespace camsim
 
     SquareId junction_id_to_square_id(JunctionId junction_id) const
     {
-
+        return SquareId();
     }
 
     PointFFacade junction_id_to_junction_location(JunctionId junction_id) const

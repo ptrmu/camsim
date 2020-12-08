@@ -66,6 +66,7 @@ namespace camsim
 
 
     solver_runner(solver_opencv_factory<CheckerboardCalibrationModel>());
+    return 0;
   }
 
   int cal_solver_homography()
@@ -96,6 +97,7 @@ namespace camsim
 
 
     solver_runner(solver_homography_factory<CheckerboardCalibrationModel>());
+    return 0;
   }
 }
 

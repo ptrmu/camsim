@@ -41,4 +41,5 @@ int opencv_resection()
   cv::Rodrigues(rotation_vector, rotation_matrix);
 
   std::cout << "Rotation matrix " << std::endl << rotation_matrix << std::endl;
+  return 0;
 }

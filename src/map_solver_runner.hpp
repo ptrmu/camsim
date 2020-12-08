@@ -72,8 +72,8 @@ namespace camsim
     const gtsam::SharedNoiseModel point2_noise_;
     const gtsam::SharedNoiseModel point2x4_noise_;
 
-    gtsam::Sampler pose3_sampler_{};
-    gtsam::Sampler point2_sampler_{};
+    gtsam::Sampler pose3_sampler_;
+    gtsam::Sampler point2_sampler_;
     int frames_processed_{0};
 
     SolverRunner(const Model &model,
@@ -88,7 +88,9 @@ namespace camsim
       print_covariance_{print_covariance},
       pose3_noise_{gtsam::noiseModel::Diagonal::Sigmas(pose3_noise_sigmas)},
       point2_noise_{gtsam::noiseModel::Diagonal::Sigmas(point2_noise_sigmas)},
-      point2x4_noise_{gtsam::noiseModel::Diagonal::Sigmas(point2_noise_sigmas.replicate<4, 1>())}
+      point2x4_noise_{gtsam::noiseModel::Diagonal::Sigmas(point2_noise_sigmas.replicate<4, 1>())},
+      pose3_sampler_(pose3_sampler_sigmas_),
+      point2_sampler_(point2_sampler_sigmas_)
     {}
 
     void operator()(const SolverFactoryFunc &solver_factory)
@@ -197,7 +199,7 @@ namespace camsim
     {
       auto corners_f_image{get_corners_f_image(camera, marker)};
       for (auto &corner_f_image : corners_f_image) {
-        corner_f_image = corner_f_image.retract(point2_sampler_.sample());
+        corner_f_image += point2_sampler_.sample();
       }
       return corners_f_image;
     }

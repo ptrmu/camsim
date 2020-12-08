@@ -1,0 +1,9 @@
+
+#ifndef _CAL_RUN_HPP
+#define _CAL_RUN_HPP
+
+namespace camsim
+{
+  int shonan_rotation_averaging();
+}
+#endif //_CAL_RUN_HPP

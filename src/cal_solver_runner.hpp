@@ -33,8 +33,8 @@ namespace camsim
     const gtsam::SharedNoiseModel point2_noise_;
     const gtsam::SharedNoiseModel point2x4_noise_;
 
-    gtsam::Sampler pose3_sampler_{};
-    gtsam::Sampler point2_sampler_{};
+    gtsam::Sampler pose3_sampler_;
+    gtsam::Sampler point2_sampler_;
     int frames_processed_{0};
 
     SolverRunnerBase(const TModel &model,
@@ -49,7 +49,9 @@ namespace camsim
       print_covariance_{print_covariance},
       pose3_noise_{gtsam::noiseModel::Diagonal::Sigmas(pose3_noise_sigmas)},
       point2_noise_{gtsam::noiseModel::Diagonal::Sigmas(point2_noise_sigmas)},
-      point2x4_noise_{gtsam::noiseModel::Diagonal::Sigmas(point2_noise_sigmas.replicate<4, 1>())}
+      point2x4_noise_{gtsam::noiseModel::Diagonal::Sigmas(point2_noise_sigmas.replicate<4, 1>())},
+      pose3_sampler_(pose3_sampler_sigmas),
+      point2_sampler_(point2_sampler_sigmas)
     {}
 
     gtsam::Pose3 get_perturbed_camera_f_world(const CameraModel &camera)
@@ -62,12 +64,14 @@ namespace camsim
       std::vector<JunctionFImage> junctions_f_image_perturbed{};
 
       for (auto &junction_f_image : junctions_f_image) {
+        auto p{junction_f_image.junction_};
+        p += gtsam::Point2(point2_sampler_.sample());
         junctions_f_image_perturbed.emplace_back(JunctionFImage(
-          junction_f_image.visible_,
-          junction_f_image.camera_key_,
-          junction_f_image.board_key_,
-          junction_f_image.junction_id_,
-          junction_f_image.junction_.retract(point2_sampler_.sample())));
+            junction_f_image.visible_,
+            junction_f_image.camera_key_,
+            junction_f_image.board_key_,
+            junction_f_image.junction_id_,
+            p));
       }
 
       return junctions_f_image_perturbed;
