@@ -200,4 +200,63 @@ namespace camsim
     // resulting uncertainty is small.
     return 0;
   }
+
+  int pfp_marker_marker_transform()
+  {
+    // This code calculates the pose transformation between two markers given
+    // the measurement of their transforms from a common camera.
+
+    // First set up the pose of the markers and camera.
+    gtsam::Point3 m0t{0, 0, 0};
+    gtsam::Point3 m1t{2, 0, 0};
+    gtsam::Point3 c0t{1, 0, 0};
+    gtsam::Rot3 m0r = gtsam::Rot3::RzRyRx(0, 0, 0);
+    gtsam::Rot3 m1r = gtsam::Rot3::RzRyRx(0, 0, 90 * degree);
+    gtsam::Rot3 c0r = gtsam::Rot3::RzRyRx(0, 0, 0);
+    gtsam::Pose3 m0_f_w{m0r, m0t};
+    gtsam::Pose3 m1_f_w{m1r, m1t};
+    gtsam::Pose3 c0_f_w{c0r, c0t};
+
+    auto cov_value = 0.1;
+    auto sigma_value = std::sqrt(cov_value);
+    gtsam::Pose3 t_c0_m0 = c0_f_w.inverse() * m0_f_w;
+    gtsam::Pose3 t_c0_m1 = c0_f_w.inverse() * m1_f_w;
+    auto t_c0_m0_sigma = gtsam::Pose3::TangentVector::Constant(sigma_value);
+    auto t_c0_m1_sigma = gtsam::Pose3::TangentVector::Constant(sigma_value);
+
+    // Prepare for an optimization
+    gtsam::NonlinearFactorGraph graph;
+    gtsam::Values initial;
+
+    // A prior on m0 has no uncertainty.
+    auto m0_f_w_covariance = gtsam::noiseModel::Constrained::All(gtsam::Pose3::dimension);
+    graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3> >(
+      gtsam::Symbol('m', 0), m0_f_w, m0_f_w_covariance);
+
+    // Add the measurements
+    graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+      gtsam::Symbol('c', 0), gtsam::Symbol('m', 0),
+      t_c0_m0, gtsam::noiseModel::Diagonal::Sigmas(t_c0_m0_sigma));
+    graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+      gtsam::Symbol('c', 0), gtsam::Symbol('m', 1),
+      t_c0_m1, gtsam::noiseModel::Diagonal::Sigmas(t_c0_m1_sigma));
+
+    // Set the initial values
+    initial.insert(gtsam::Symbol('m', 0), m0_f_w);
+    initial.insert(gtsam::Symbol('m', 1), m1_f_w);
+    initial.insert(gtsam::Symbol('c', 0), c0_f_w);
+
+    // Optimize
+    gtsam::Values result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();
+
+    gtsam::Marginals marginals(graph, result);
+    auto m1_f_m0_calc = result.at<gtsam::Pose3>(gtsam::Symbol('m', 1));
+    gtsam::Pose3::Jacobian m1_f_m0_calc_covariance = marginals.marginalCovariance(gtsam::Symbol('m', 1));
+
+    std::cout << "m1_f_w_calc" << endl << PoseWithCovariance::to_str(m1_f_m0_calc) << std::endl;
+    std::cout << "m1_f_w_calc_covariance" << endl
+              << PoseWithCovariance::to_matrix_str(m1_f_m0_calc_covariance, true) << std::endl;
+
+    return 0;
+  }
 }

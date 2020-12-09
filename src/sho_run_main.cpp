@@ -4,6 +4,7 @@
 
 int main()
 {
-  camsim::shonan_rotation_averaging();
+  camsim::shonan_RA_simple();
+//  camsim::shonan_rotation_averaging();
 }
 

@@ -7,7 +7,8 @@ int main()
 {
 //  camsim::pfp_simple();
 //  camsim::pfp_simplest();
-  camsim::pfp_duplicate_prior();
+//  camsim::pfp_duplicate_prior();
+  camsim::pfp_marker_marker_transform();
 //  camsim::odometry_example_3d();
 //  camsim::pfp_duplicate_prior();
 //  camsim::pfp_pose_unit_test();
