@@ -26,6 +26,7 @@ include_directories(
   ${GTSAM_INCLUDE_DIR}
   ${GTSAM_INCLUDE_DIR}/gtsam/3rdparty/Eigen
   ${OpenCV_INCLUDE_DIR}
+  include
 )
 
 # Debugging: set _dump_all_variables to true
@@ -171,6 +172,8 @@ target_link_libraries(cal_run
 add_executable(sho_run
   src/sho_run.cpp
   src/sho_run_main.cpp
+  src/fvlam/transform3_with_covariance.cpp 
+  src/pose_with_covariance_conversions.cpp
   )
 
 target_link_libraries(sho_run

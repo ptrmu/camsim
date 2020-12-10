@@ -10,9 +10,19 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/sfm/ShonanAveraging.h>
 
+#include "fvlam/observations.hpp"
+#include "fvlam/transform3_with_covariance.hpp"
 
 namespace camsim
 {
+  int test()
+  {
+    fvlam::Translate3WithCovariance x{};
+    fvlam::Transform3WithCovariance t{};
+    fvlam::Observations obs();
+    return 0;
+  }
+
   const double degree = M_PI / 180;
 
   int shonan_rotation_averaging()
@@ -89,24 +99,28 @@ namespace camsim
 
   int shonan_RA_simple()
   {
+    std::cout << "rotate [1, 0, 0] around z axis by 45 degrees  "
+              << (gtsam::Rot3::Rz(45 * degree) * gtsam::Point3(1, 0, 0) ).transpose()<< std::endl;
+    std::cout << "rotate [1, 0, 0] around x axis by 45 degrees then y axis by 90 "
+              << (gtsam::Rot3::RzRyRx(45 * degree, 90 * degree, 0 * degree) * gtsam::Point3(1, 0, 0) ).transpose()<< std::endl;
+
     // This code uses shonan averaging to figure out the pose of three points..
 
     // First set up the pose of the markers and camera.
-    gtsam::Point3 p_m0_f_w{-1, 0, 0};
-    gtsam::Point3 p_m1_f_w{1, 0, 0};
-    gtsam::Point3 p_c0_f_w{0, 1, 0};
-    gtsam::Rot3 r_m0_f_w = gtsam::Rot3::RzRyRx(0, 0, 0);
-    gtsam::Rot3 r_m1_f_w = gtsam::Rot3::RzRyRx(0, 0, 90 * degree);
-    gtsam::Rot3 r_c0_f_w = gtsam::Rot3::RzRyRx(0, 0, -90.00 * degree);
-    gtsam::Pose3 m0_f_w{r_m0_f_w, p_m0_f_w};
-    gtsam::Pose3 m1_f_w{r_m1_f_w, p_m1_f_w};
-    gtsam::Pose3 c0_f_w{r_c0_f_w, p_c0_f_w};
+    fvlam::Translate3 p_m0_f_w{-1, 0, 0};
+    fvlam::Translate3 p_m1_f_w{1, 0, 0};
+    fvlam::Translate3 p_c0_f_w{0, 1, 0};
+    fvlam::Rotate3 r_m0_f_w = fvlam::Rotate3::RzRyRx(0, 0, 0);
+    fvlam::Rotate3 r_m1_f_w = fvlam::Rotate3::RzRyRx(45 * degree, -45 * degree, 90 * degree);
+    fvlam::Rotate3 r_c0_f_w = fvlam::Rotate3::RzRyRx(0, 0, -90.00 * degree);
+    gtsam::Pose3 m0_f_w{fvlam::fromRotate3<gtsam::Rot3>(r_m0_f_w), p_m0_f_w.t()};
+    gtsam::Pose3 m1_f_w{fvlam::fromRotate3<gtsam::Rot3>(r_m1_f_w), p_m1_f_w.t()};
+    gtsam::Pose3 c0_f_w{fvlam::fromRotate3<gtsam::Rot3>(r_c0_f_w), p_c0_f_w.t()};
 
-    auto cov_value = 0.1;
     auto sigma_value = 0.01;
 
-    gtsam::Rot3 r_m0_f_c0 = r_c0_f_w.inverse() * r_m0_f_w;
-    gtsam::Rot3 r_m1_f_c0 = r_c0_f_w.inverse() * r_m1_f_w;
+    fvlam::Rotate3 r_m0_f_c0 = r_c0_f_w.inverse() * r_m0_f_w;
+    fvlam::Rotate3 r_m1_f_c0 = r_c0_f_w.inverse() * r_m1_f_w;
     auto r_m0_f_c0_sigma = gtsam::Rot3::TangentVector::Constant(sigma_value);
     auto r_m1_f_c0_sigma = gtsam::Rot3::TangentVector::Constant(sigma_value);
 
@@ -115,14 +129,21 @@ namespace camsim
     auto t_c0_m0_sigma = gtsam::Pose3::TangentVector::Constant(sigma_value);
     auto t_c0_m1_sigma = gtsam::Pose3::TangentVector::Constant(sigma_value);
 
-    r_m0_f_c0.print("r_m0_f_c0");
-    r_m1_f_c0.print("r_m1_f_c0");
+    std::cout << "r_m0_f_w  " << r_m0_f_w.to_string() << std::endl;
+    std::cout << "r_m1_f_w  " << r_m1_f_w.to_string() << std::endl;
+    std::cout << "r_c0_f_w  " << r_c0_f_w.to_string() << std::endl;
+    std::cout << "r_m0_f_c0 " << r_m0_f_c0.to_string() << std::endl;
+    std::cout << "r_m1_f_c0 " << r_m1_f_c0.to_string() << std::endl;
 
     gtsam::ShonanAveraging3::Measurements measurements{};
-    measurements.emplace_back(gtsam::BinaryMeasurement<gtsam::Rot3>{
-      0, 1, r_m0_f_c0, gtsam::noiseModel::Diagonal::Sigmas(r_m0_f_c0_sigma)});
-    measurements.emplace_back(gtsam::BinaryMeasurement<gtsam::Rot3>{
-      0, 2, r_m1_f_c0, gtsam::noiseModel::Diagonal::Sigmas(r_m1_f_c0_sigma)});
+    measurements.emplace_back(gtsam::BinaryMeasurement<gtsam::Rot3>{0, 1,
+                                                                    fvlam::fromRotate3<gtsam::Rot3>(r_m0_f_c0),
+                                                                    gtsam::noiseModel::Diagonal::Sigmas(
+                                                                      r_m0_f_c0_sigma)});
+    measurements.emplace_back(gtsam::BinaryMeasurement<gtsam::Rot3>{0, 2,
+                                                                    fvlam::fromRotate3<gtsam::Rot3>(r_m1_f_c0),
+                                                                    gtsam::noiseModel::Diagonal::Sigmas(
+                                                                      r_m1_f_c0_sigma)});
 
     gtsam::ShonanAveraging3 shonan(measurements);
     auto shonan_initial = shonan.initializeRandomly();
