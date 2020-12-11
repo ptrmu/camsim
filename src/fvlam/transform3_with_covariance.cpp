@@ -53,26 +53,70 @@ namespace fvlam
     return ss.str();
   }
 
+  template<class FixedSizeMatrix>
+  static std::string to_matrix_str(const FixedSizeMatrix &m, bool lower_only)
+  {
+    std::stringstream ss{};
+    NumFmt nf(9, 3);
+    for (int r = 0; r < m.rows(); r += 1) {
+      if (r != 0) {
+        ss << std::endl;
+      }
+      for (int c = 0; c <= (lower_only ? r : m.cols()); c += 1) {
+        if (c != 0) {
+          ss << " ";
+        }
+        ss << nf(m(r, c));
+      }
+    }
+    return ss.str();
+  }
 
   Eigen::Vector3d Rotate3::xyz() const
   {
-    auto A = matrix();
+    const auto X = q_.toRotationMatrix();
+    const double x = -atan2(-X(2, 1), X(2, 2));
 
-    const double x = -atan2(-A(2, 1), A(2, 2));
-    const auto Qx = Rx(-x).matrix();
-    const Eigen::Matrix3d B = A * Qx;
+#if 0
+    const Eigen::Matrix3d Y = X * Rx(-x).q().toRotationMatrix();
+    const double y = -atan2(Y(2, 0), Y(2, 2));
 
-    const double y = -atan2(B(2, 0), B(2, 2));
-    const auto Qy = Ry(-y).matrix();
-    const Eigen::Matrix3d C = B * Qy;
+    const Eigen::Matrix3d Z = Y * Ry(-y).q().toRotationMatrix();
+    const double z = -atan2(-Z(1, 0), Z(1, 1));
+#else
+    const auto qy = q_ * Rx(-x).q();
+    const auto Y = qy.toRotationMatrix();
+    const double y = -atan2(Y(2, 0), Y(2, 2));
 
-    const double z = -atan2(-C(1, 0), C(1, 1));
-
+    const auto qz = qy * Ry(-y).q();
+    const auto Z = qz.toRotationMatrix();
+    const double z = -atan2(-Z(1, 0), Z(1, 1));
+#endif
     return Eigen::Vector3d(x, y, z);
   }
 
-  std::string Rotate3::to_string()
+  std::string Translate3::to_string() const
+  {
+    return to_row_str(t_);
+  }
+
+  std::string Rotate3::to_string() const
   {
     return to_row_str(xyz());
+  }
+
+  std::string Transform3::to_string() const
+  {
+    return r_.to_string() + " " + t_.to_string();
+  }
+
+  std::string Transform3Covariance::to_string() const
+  {
+    return to_matrix_str(cov_, true);
+  }
+
+  std::string Transform3WithCovariance::to_string() const
+  {
+    return tf_.to_string()+"\n"+cov_.to_string();
   }
 }

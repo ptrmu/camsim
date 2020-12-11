@@ -1,8 +1,8 @@
 
 #include "pfp_run.hpp"
 
-#include "model.hpp"
-#include "pose_with_covariance.hpp"
+#include "../model.hpp"
+#include "../pose_with_covariance.hpp"
 
 namespace camsim
 {

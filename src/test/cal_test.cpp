@@ -7,7 +7,7 @@
 
 namespace camsim
 {
-#if 1
+#if 0
 
   TEST_CASE("aruco locations")
   {

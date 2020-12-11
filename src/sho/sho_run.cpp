@@ -15,14 +15,6 @@
 
 namespace camsim
 {
-  int test()
-  {
-    fvlam::Translate3WithCovariance x{};
-    fvlam::Transform3WithCovariance t{};
-    fvlam::Observations obs();
-    return 0;
-  }
-
   const double degree = M_PI / 180;
 
   int shonan_rotation_averaging()
@@ -99,23 +91,18 @@ namespace camsim
 
   int shonan_RA_simple()
   {
-    std::cout << "rotate [1, 0, 0] around z axis by 45 degrees  "
-              << (gtsam::Rot3::Rz(45 * degree) * gtsam::Point3(1, 0, 0) ).transpose()<< std::endl;
-    std::cout << "rotate [1, 0, 0] around x axis by 45 degrees then y axis by 90 "
-              << (gtsam::Rot3::RzRyRx(45 * degree, 90 * degree, 0 * degree) * gtsam::Point3(1, 0, 0) ).transpose()<< std::endl;
-
     // This code uses shonan averaging to figure out the pose of three points..
 
     // First set up the pose of the markers and camera.
-    fvlam::Translate3 p_m0_f_w{-1, 0, 0};
-    fvlam::Translate3 p_m1_f_w{1, 0, 0};
-    fvlam::Translate3 p_c0_f_w{0, 1, 0};
-    fvlam::Rotate3 r_m0_f_w = fvlam::Rotate3::RzRyRx(0, 0, 0);
-    fvlam::Rotate3 r_m1_f_w = fvlam::Rotate3::RzRyRx(45 * degree, -45 * degree, 90 * degree);
+    fvlam::Translate3 c0_f_w_translate{0, 1, 0};
+    fvlam::Translate3 m0_f_w_translate{-1, 0, 0};
+    fvlam::Translate3 m1_f_w_translate{1, 0, 0};
     fvlam::Rotate3 r_c0_f_w = fvlam::Rotate3::RzRyRx(0, 0, -90.00 * degree);
-    gtsam::Pose3 m0_f_w{fvlam::fromRotate3<gtsam::Rot3>(r_m0_f_w), p_m0_f_w.t()};
-    gtsam::Pose3 m1_f_w{fvlam::fromRotate3<gtsam::Rot3>(r_m1_f_w), p_m1_f_w.t()};
-    gtsam::Pose3 c0_f_w{fvlam::fromRotate3<gtsam::Rot3>(r_c0_f_w), p_c0_f_w.t()};
+    fvlam::Rotate3 r_m0_f_w = fvlam::Rotate3::RzRyRx(0, 0, 0);
+    fvlam::Rotate3 r_m1_f_w = fvlam::Rotate3::RzRyRx(45 * degree, -45 * degree, 45 * degree);
+    fvlam::Transform3 c0_f_w{r_c0_f_w, c0_f_w_translate};
+    fvlam::Transform3 m0_f_w{r_m0_f_w, m0_f_w_translate};
+    fvlam::Transform3 m1_f_w{r_m1_f_w, m1_f_w_translate};
 
     auto sigma_value = 0.01;
 
@@ -124,55 +111,91 @@ namespace camsim
     auto r_m0_f_c0_sigma = gtsam::Rot3::TangentVector::Constant(sigma_value);
     auto r_m1_f_c0_sigma = gtsam::Rot3::TangentVector::Constant(sigma_value);
 
-    gtsam::Pose3 t_c0_m0 = c0_f_w.inverse() * m0_f_w;
-    gtsam::Pose3 t_c0_m1 = c0_f_w.inverse() * m1_f_w;
+    fvlam::Transform3 t_c0_m0 = c0_f_w.inverse() * m0_f_w;
+    fvlam::Transform3 t_c0_m1 = c0_f_w.inverse() * m1_f_w;
     auto t_c0_m0_sigma = gtsam::Pose3::TangentVector::Constant(sigma_value);
     auto t_c0_m1_sigma = gtsam::Pose3::TangentVector::Constant(sigma_value);
 
-    std::cout << "r_m0_f_w  " << r_m0_f_w.to_string() << std::endl;
-    std::cout << "r_m1_f_w  " << r_m1_f_w.to_string() << std::endl;
-    std::cout << "r_c0_f_w  " << r_c0_f_w.to_string() << std::endl;
-    std::cout << "r_m0_f_c0 " << r_m0_f_c0.to_string() << std::endl;
-    std::cout << "r_m1_f_c0 " << r_m1_f_c0.to_string() << std::endl;
+    std::cout << "c0_f_w  " << c0_f_w.to_string() << std::endl;
+    std::cout << "m0_f_w  " << m0_f_w.to_string() << std::endl;
+    std::cout << "m1_f_w  " << m1_f_w.to_string() << std::endl;
+    std::cout << "t_c0_m0 " << t_c0_m0.to_string() << std::endl;
+    std::cout << "t_c0_m1 " << t_c0_m1.to_string() << std::endl;
 
     gtsam::ShonanAveraging3::Measurements measurements{};
     measurements.emplace_back(gtsam::BinaryMeasurement<gtsam::Rot3>{0, 1,
-                                                                    fvlam::fromRotate3<gtsam::Rot3>(r_m0_f_c0),
+                                                                    r_m0_f_c0.to<gtsam::Rot3>(),
                                                                     gtsam::noiseModel::Diagonal::Sigmas(
                                                                       r_m0_f_c0_sigma)});
     measurements.emplace_back(gtsam::BinaryMeasurement<gtsam::Rot3>{0, 2,
-                                                                    fvlam::fromRotate3<gtsam::Rot3>(r_m1_f_c0),
+                                                                    r_m1_f_c0.to<gtsam::Rot3>(),
                                                                     gtsam::noiseModel::Diagonal::Sigmas(
                                                                       r_m1_f_c0_sigma)});
 
     gtsam::ShonanAveraging3 shonan(measurements);
     auto shonan_initial = shonan.initializeRandomly();
     auto result = shonan.run(shonan_initial);
-
     std::cout << "error of Shonan Averaging " << result.second << std::endl;
-    result.first.print("result");
 
-
+    // Prepare to find the translations.
     gtsam::NonlinearFactorGraph graph;
 
     // A prior on m0.
     auto priorModel = gtsam::noiseModel::Unit::Create(gtsam::Pose3::dimension);
-    graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(1, m0_f_w, priorModel);
+    graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(1, m0_f_w.to<gtsam::Pose3>(), priorModel);
 
     // Add the measurements
     graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-      0, 1, t_c0_m0, gtsam::noiseModel::Diagonal::Sigmas(t_c0_m0_sigma));
+      0, 1, t_c0_m0.to<gtsam::Pose3>(), gtsam::noiseModel::Diagonal::Sigmas(t_c0_m0_sigma));
     graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-      0, 2, t_c0_m1, gtsam::noiseModel::Diagonal::Sigmas(t_c0_m1_sigma));
+      0, 2, t_c0_m1.to<gtsam::Pose3>(), gtsam::noiseModel::Diagonal::Sigmas(t_c0_m1_sigma));
 
-//    auto poseGraph = gtsam::initialize::buildPoseGraph<gtsam::Pose3>(graph);
     auto poses = myComputePoses<gtsam::Pose3>(result.first, &graph, false);
 
-    graph.print("graph ");
-//    poseGraph.print("poseGraph ");
-    poses.print("poses");
+    auto c0_f_w_calc = fvlam::Transform3::from(poses.at<gtsam::Pose3>(0));
+    auto m0_f_w_calc = fvlam::Transform3::from(poses.at<gtsam::Pose3>(1));
+    auto m1_f_w_calc = fvlam::Transform3::from(poses.at<gtsam::Pose3>(2));
+
+    std::cout << "c0_f_w_calc  " << c0_f_w_calc.to_string() << std::endl;
+    std::cout << "m0_f_w_calc  " << m0_f_w_calc.to_string() << std::endl;
+    std::cout << "m1_f_w_calc  " << m1_f_w_calc.to_string() << std::endl;
 
     return 0;
+  }
+
+  int test_rotate3()
+  {
+    int ret = 0;
+    std::vector<double> test_angles = {-89.999, -60, -45, -30, 0, 30, 45, 60, 89.999};
+    for (auto &a : test_angles)
+      a *= degree;
+    for (auto x : test_angles)
+      for (auto y : test_angles)
+        for (auto z : test_angles) {
+          auto v = fvlam::Rotate3::RzRyRx(x, y, z).xyz();
+          if (!gtsam::fpEqual(v(0), x, 1.0e-6) ||
+              !gtsam::fpEqual(v(1), y, 1.0e-6) ||
+              !gtsam::fpEqual(v(2), z, 1.0e-6)) {
+            std::cout << "Angle error "
+                      << v(0) / degree << "(" << x / degree << ") "
+                      << v(1) / degree << "(" << y / degree << ") "
+                      << v(2) / degree << "(" << z / degree << ") "
+                      << std::endl;
+            ret = 1;
+          }
+          v = gtsam::Rot3(fvlam::Rotate3::RzRyRx(x, y, z).matrix()).xyz();
+          if (!gtsam::fpEqual(v(0), x, 1.0e-6) ||
+              !gtsam::fpEqual(v(1), y, 1.0e-6) ||
+              !gtsam::fpEqual(v(2), z, 1.0e-6)) {
+            std::cout << "GTSAM difference error "
+                      << v(0) / degree << "(" << x / degree << ") "
+                      << v(1) / degree << "(" << y / degree << ") "
+                      << v(2) / degree << "(" << z / degree << ") "
+                      << std::endl;
+            ret = 1;
+          }
+        }
+    return ret;
   }
 }
 

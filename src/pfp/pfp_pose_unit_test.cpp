@@ -3,7 +3,7 @@
 
 #include "gtsam/geometry/Pose2.h"
 #include "gtsam/geometry/Pose3.h"
-#include "pose_with_covariance.hpp"
+#include "../pose_with_covariance.hpp"
 
 using namespace gtsam;
 

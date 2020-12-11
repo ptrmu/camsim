@@ -2,11 +2,11 @@
 
 #include "catch2/catch.hpp"
 
-#include "../pfp_run.hpp"
+#include "../pfp/pfp_run.hpp"
 
 namespace camsim
 {
-#if 0
+#if 1
   TEST_CASE("pfp_test - pfp_simple")
   {
     REQUIRE(pfp_simple() == 0);

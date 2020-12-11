@@ -6,6 +6,10 @@
 namespace fvlam
 {
 
+// ==============================================================================
+// Translate3 class
+// ==============================================================================
+
   class Translate3
   {
   public:
@@ -18,7 +22,7 @@ namespace fvlam
   public:
     Translate3() = default;
 
-    Translate3(const Derived &t) :
+    explicit Translate3(const Derived &t) :
       t_(t)
     {}
 
@@ -29,13 +33,23 @@ namespace fvlam
     const auto &t() const
     { return t_; }
 
-    std::string to_string();
+    template<typename T>
+    static Translate3 from(const T &other);
+
+    template<typename T>
+    T to() const;
+
+    std::string to_string() const;
 
     Translate3 operator+(const Translate3 &other) const
     {
       return Translate3(t_ + other.t_);
     }
   };
+
+// ==============================================================================
+// Translate3Covariance class
+// ==============================================================================
 
   class Translate3Covariance
   {
@@ -52,8 +66,21 @@ namespace fvlam
     const auto &cov() const
     { return cov_; }
 
-    std::string to_string();
+    const auto &matrix() const
+    { return cov_; }
+
+    template<typename T>
+    static Translate3Covariance from(const T &other);
+
+    template<typename T>
+    T to() const;
+
+    std::string to_string() const;
   };
+
+// ==============================================================================
+// Translate3WithCovariance class
+// ==============================================================================
 
   class Translate3WithCovariance
   {
@@ -78,8 +105,18 @@ namespace fvlam
     const auto &cov() const
     { return cov_; }
 
-    std::string to_string();
+    template<typename T>
+    static Translate3WithCovariance from(const T &other);
+
+    template<typename T>
+    T to() const;
+
+    std::string to_string() const;
   };
+
+// ==============================================================================
+// Rotate3 class
+// ==============================================================================
 
   class Rotate3
   {
@@ -93,11 +130,11 @@ namespace fvlam
   public:
     Rotate3() = default;
 
-    Rotate3(const Derived &q) :
+    explicit Rotate3(const Derived &q) :
       q_(q)
     {}
 
-    inline Rotate3(const double &w, const double &x, const double &y, const double &z) :
+    explicit Rotate3(const double &w, const double &x, const double &y, const double &z) :
       q_(w, x, y, z)
     {}
 
@@ -123,14 +160,20 @@ namespace fvlam
     const auto &q() const
     { return q_; }
 
-    const Eigen::Matrix3d matrix() const
+    Eigen::Matrix3d matrix() const
     { return q_.toRotationMatrix(); }
 
     Eigen::Vector3d xyz() const;
 
-    std::string to_string();
+    template<typename T>
+    static Rotate3 from(const T &other);
 
-    Rotate3 inverse()
+    template<typename T>
+    T to() const;
+
+    std::string to_string() const;
+
+    Rotate3 inverse() const
     {
       return Rotate3(q_.inverse());
     }
@@ -145,6 +188,10 @@ namespace fvlam
       return Translate3(q_ * other.t());
     }
   };
+
+// ==============================================================================
+// Transform3 class
+// ==============================================================================
 
   class Transform3
   {
@@ -167,16 +214,32 @@ namespace fvlam
     const auto &r() const
     { return r_; }
 
-    const auto &p() const
+    const auto &t() const
     { return t_; }
 
-    std::string to_string();
+    template<typename T>
+    static Transform3 from(const T &other);
+
+    template<typename T>
+    T to() const;
+
+    std::string to_string() const;
+
+    Transform3 inverse() const
+    {
+      auto qi = r_.q().inverse();
+      return Transform3(Rotate3(qi), Translate3(qi * -t_.t()));
+    }
 
     Transform3 operator*(const Transform3 &other) const
     {
       return Transform3(r_ * other.r_, t_ + r_ * other.t_);
     }
   };
+
+// ==============================================================================
+// Transform3Covariance class
+// ==============================================================================
 
   class Transform3Covariance
   {
@@ -192,15 +255,28 @@ namespace fvlam
   public:
     Transform3Covariance() = default;
 
-    explicit Transform3Covariance(Derived &cov) :
+    explicit Transform3Covariance(const Derived &cov) :
       cov_(cov)
     {}
 
     const auto &cov() const
     { return cov_; }
 
-    std::string to_string();
+    const auto &matrix() const
+    { return cov_; }
+
+    template<typename T>
+    static Transform3Covariance from(const T &other);
+
+    template<typename T>
+    T to() const;
+
+    std::string to_string() const;
   };
+
+// ==============================================================================
+// Observations class
+// ==============================================================================
 
   class Transform3WithCovariance
   {
@@ -228,31 +304,14 @@ namespace fvlam
     const auto &cov() const
     { return cov_; }
 
-    std::string to_string();
+    template<typename T>
+    static Transform3WithCovariance from(const T &other);
+
+    template<typename T>
+    T to() const;
+
+    std::string to_string() const;
   };
-
-
-  template<typename T>
-  Translate3 toTranslate3(const T &other); //
-  template<typename T>
-  Translate3Covariance toTranslate3Covariance(const T &other); //
-  template<typename T>
-  Rotate3 toRotate3(const T &other); //
-  template<typename T>
-  Transform3 toTransform3(const T &other); //
-  template<typename T>
-  Transform3Covariance toTransform3Covariance(const T &other); //
-  template<typename T>
-  T fromTranslate3(const Translate3 &other); //
-  template<typename T>
-  T fromTranslate3Covariance(const Translate3Covariance &other); //
-  template<typename T>
-  T fromRotate3(const Rotate3 &other); //
-  template<typename T>
-  T fromTransform3(const Transform3 &other); //
-  template<typename T>
-  T fromTransform3Covariance(const Transform3Covariance &other); //
-
 }
 
 #endif // FVLAM_TRANSFORM3_WITH_COVARIANCE_HPP

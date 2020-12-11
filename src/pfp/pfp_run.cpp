@@ -10,8 +10,8 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
-#include "model.hpp"
-#include "pose_with_covariance.hpp"
+#include "../model.hpp"
+#include "../pose_with_covariance.hpp"
 
 namespace camsim
 {
@@ -223,6 +223,7 @@ namespace camsim
     gtsam::Pose3 t_c0_m1 = c0_f_w.inverse() * m1_f_w;
     auto t_c0_m0_sigma = gtsam::Pose3::TangentVector::Constant(sigma_value);
     auto t_c0_m1_sigma = gtsam::Pose3::TangentVector::Constant(sigma_value);
+
 
     // Prepare for an optimization
     gtsam::NonlinearFactorGraph graph;

@@ -3,9 +3,9 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/Marginals.h>
-#include "model.hpp"
+#include "../model.hpp"
 #include "pfp_run.hpp"
-#include "pose_with_covariance.hpp"
+#include "../pose_with_covariance.hpp"
 
 using gtsam::symbol_shorthand::X;
 

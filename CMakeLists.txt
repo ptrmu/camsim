@@ -109,12 +109,12 @@ target_link_libraries(sfm_run
 add_executable(pfp_run
   src/model.cpp
   src/pose_with_covariance.cpp
-  src/pfp_run.cpp
-  src/pfp_odometry_example_3d.cpp
-  src/pfp_pose_unit_test.cpp
-  src/pfp_marker_pose_from_corners.cpp
-  src/pfp_gspnp.cpp
-  src/pfp_run_main.cpp
+  src/pfp/pfp_run.cpp
+  src/pfp/pfp_odometry_example_3d.cpp
+  src/pfp/pfp_pose_unit_test.cpp
+  src/pfp/pfp_marker_pose_from_corners.cpp
+  src/pfp/pfp_gspnp.cpp
+  src/pfp/pfp_run_main.cpp
   )
 
 target_link_libraries(pfp_run
@@ -170,10 +170,11 @@ target_link_libraries(cal_run
 
 
 add_executable(sho_run
-  src/sho_run.cpp
-  src/sho_run_main.cpp
+  src/sho/sho_run.cpp
+  src/sho/sho_run_main.cpp
   src/fvlam/transform3_with_covariance.cpp 
   src/pose_with_covariance_conversions.cpp
+  src/sho/sho_inter_marker_rotation.cpp
   )
 
 target_link_libraries(sho_run
@@ -207,41 +208,45 @@ target_link_libraries(kal_run
 
 add_executable(camsim_test
   src/test/camsim_test.cpp
-  src/test/map_test.cpp
   src/pose_with_covariance.cpp
+  src/pose_with_covariance_conversions.cpp
+  src/fvlam/transform3_with_covariance.cpp
   src/model.cpp
   src/gtsam_resection.cpp
   src/opencv_resection.cpp
-  src/map_solver_marker_marker.cpp
-  src/map_solver_project_between.cpp
-  src/test/pfm_test.cpp
-  src/pfm_run.cpp
-  src/pfm_resection_gtsam.cpp
-  src/pfm_resection_opencv.cpp
-  src/pfm_simple_rotation_example.cpp
-  src/pfm_optimize_pose3.cpp
-  src/pose_with_covariance.cpp
-  src/pfm_resection_projection.cpp
-  src/pfm_resection_monte_carlo.cpp
-  src/test/sfm_test.cpp
-  src/sfm_run.cpp
-  src/sfm_gtsam_example.cpp
-  src/sfm_gtsam_slam_example.cpp
-  src/sfm_resectioning.cpp
-  src/sfm_isam2_example.cpp
-  src/sfm_isam2.cpp
+#  src/test/map_test.cpp
+#  src/map_solver_marker_marker.cpp
+#  src/map_solver_project_between.cpp
+#  src/test/pfm_test.cpp
+#  src/pfm_run.cpp
+#  src/pfm_resection_gtsam.cpp
+#  src/pfm_resection_opencv.cpp
+#  src/pfm_simple_rotation_example.cpp
+#  src/pfm_optimize_pose3.cpp
+#  src/pfm_resection_projection.cpp
+#  src/pfm_resection_monte_carlo.cpp
+#  src/test/sfm_test.cpp
+#  src/sfm_run.cpp
+#  src/sfm_gtsam_example.cpp
+#  src/sfm_gtsam_slam_example.cpp
+#  src/sfm_resectioning.cpp
+#  src/sfm_isam2_example.cpp
+#  src/sfm_isam2.cpp
   src/test/pfp_test.cpp
-  src/pfp_run.cpp
-  src/pfp_odometry_example_3d.cpp
-  src/pfp_pose_unit_test.cpp
-  src/pfp_marker_pose_from_corners.cpp
-  src/pfp_gspnp.cpp
+  src/pfp/pfp_run.cpp
+  src/pfp/pfp_odometry_example_3d.cpp
+  src/pfp/pfp_pose_unit_test.cpp
+  src/pfp/pfp_marker_pose_from_corners.cpp
+  src/pfp/pfp_gspnp.cpp
   src/calibration_model.cpp
   src/test/cal_test.cpp
   src/cal_solver_opencv.cpp
   src/cal_solver_runner.cpp
   src/cal_solver_project_calibrate.cpp
   src/cal_solver_homography.cpp
+  src/test/sho_test.cpp
+  src/sho/sho_run.cpp
+  src/sho/sho_inter_marker_rotation.cpp
   )
 
 
