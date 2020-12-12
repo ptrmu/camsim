@@ -4,7 +4,7 @@ project(camsim)
 set(CMAKE_CXX_STANDARD 14)
 
 find_package(GTSAM REQUIRED)
-find_package(OpenCV REQUIRED)
+find_package(OpenCV 4 REQUIRED)
 #find_package(VTK REQUIRED)
 #find_package(VTK COMPONENTS
 #  vtkChartsCore
@@ -21,6 +21,7 @@ find_package(OpenCV REQUIRED)
 #  vtkRenderingOpenGL2
 #  vtkViewsContext2D
 #  QUIET)
+message(STATUS "Found OpenCV version ${OpenCV_VERSION}")
 
 include_directories(
   ${GTSAM_INCLUDE_DIR}
@@ -179,6 +180,7 @@ add_executable(sho_run
 
 target_link_libraries(sho_run
   PRIVATE gtsam
+  PRIVATE opencv_core
   )
 
 

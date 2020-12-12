@@ -8,5 +8,6 @@ namespace camsim
   int shonan_RA_simple(); //
   int test_rotate3(); //
   int inter_marker_rotation(); //
+  int inter_marker_rotation_from_file(); //
 }
 #endif //_CAL_RUN_HPP

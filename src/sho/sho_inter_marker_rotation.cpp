@@ -1,6 +1,9 @@
 
 #include "sho_run.hpp"
 
+#include "fvlam/build_marker_map_interface.hpp"
+#include "fvlam/marker_map.hpp"
+#include "fvlam/marker_observations.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 #include "gtsam/geometry/Pose3.h"
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
@@ -8,6 +11,7 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
+#include <opencv2/opencv.hpp>
 
 namespace camsim
 {
@@ -93,6 +97,16 @@ namespace camsim
     std::cout << "t_m0_m1_with_cov    " << std::endl << t_m0_m1_with_cov.to_string() << std::endl;
     std::cout << "t_m0_m1_truth       " << std::endl << (t_c0_m0.inverse() * t_c0_m1).to_string() << std::endl;
 
+    return 0;
+  }
+
+
+  int inter_marker_rotation_from_file()
+  {
+    cv::FileStorage fs("../src/data/observations_sequence.json", cv::FileStorage::READ | cv::FileStorage::FORMAT_JSON);
+    if (fs.isOpened()) {
+      std::cout << "Opened" << std::endl;
+    }
     return 0;
   }
 }

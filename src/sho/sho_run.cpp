@@ -10,7 +10,7 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/sfm/ShonanAveraging.h>
 
-#include "fvlam/observations.hpp"
+#include "fvlam/marker_observations.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 
 namespace camsim
