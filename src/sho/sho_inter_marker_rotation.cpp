@@ -2,6 +2,7 @@
 #include "sho_run.hpp"
 
 #include "fvlam/build_marker_map_interface.hpp"
+#include "fvlam/camera_info.hpp"
 #include "fvlam/marker_map.hpp"
 #include "fvlam/marker_observations.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
@@ -100,13 +101,152 @@ namespace camsim
     return 0;
   }
 
+  fvlam::CameraInfo camera_info_from(const cv::FileNode &ci_node)
+  {
+    std::uint32_t width = int(ci_node["width"]);
+    std::uint32_t height = int(ci_node["height"]);
+
+    fvlam::CameraInfo::CameraMatrix camera_matrix{fvlam::CameraInfo::CameraMatrix::Zero()};
+    auto k_node = ci_node["K"];
+    for (int r = 0; r < fvlam::CameraInfo::CameraMatrix::MaxRowsAtCompileTime; r += 1)
+      for (int c = 0; c < fvlam::CameraInfo::CameraMatrix::MaxColsAtCompileTime; c += 1) {
+        camera_matrix(r, c) = k_node[r * fvlam::CameraInfo::CameraMatrix::MaxColsAtCompileTime + c];
+      }
+
+    fvlam::CameraInfo::DistCoeffs dist_coeffs{fvlam::CameraInfo::DistCoeffs::Zero()};
+    auto d_node = ci_node["D"];
+    for (int r = 0; r < fvlam::CameraInfo::DistCoeffs::MaxSizeAtCompileTime; r += 1) {
+      dist_coeffs(r) = d_node[r];
+    }
+
+    return fvlam::CameraInfo{width, height, camera_matrix, dist_coeffs};
+  }
+
+  fvlam::MarkerObservation marker_observation_from(std::uint64_t id, const cv::FileNode &cfi_node)
+  {
+    fvlam::MarkerObservation::Derived cfi{fvlam::MarkerObservation::Derived::Zero()};
+    for (int r = 0; r < fvlam::MarkerObservation::Derived::MaxRowsAtCompileTime; r += 1)
+      for (int c = 0; c < fvlam::MarkerObservation::Derived::MaxColsAtCompileTime; c += 1) {
+        cfi(r, c) = cfi_node[c][r];
+      }
+    return fvlam::MarkerObservation{id, cfi};
+  }
+
+  fvlam::Transform3 transform3_from(const cv::FileNode &cfi_node)
+  {
+//    fvlam::MarkerObservation::Derived cfi{fvlam::MarkerObservation::Derived::Zero()};
+//    for (int r = 0; r < fvlam::MarkerObservation::Derived::MaxRowsAtCompileTime; r += 1)
+//      for (int c = 0; c < fvlam::MarkerObservation::Derived::MaxColsAtCompileTime; c += 1) {
+//        cfi(r, c) = cfi_node[c][r];
+//      }
+//    return fvlam::Transform3{id, cfi};
+  }
+
+  class MarkerMeasurement
+  {
+    std::uint64_t id_;
+    fvlam::MarkerObservation marker_observation_;
+    fvlam::Transform3 marker_r_camera_;
+
+  public:
+    MarkerMeasurement(std::uint64_t id,
+                      fvlam::MarkerObservation marker_observation,
+                      fvlam::Transform3 marker_r_camera) :
+      id_{id}, marker_observation_{std::move(marker_observation)}, marker_r_camera_{std::move(marker_r_camera)}
+    {}
+
+    const auto &id() const
+    { return id_; }
+
+    const auto &marker_observation() const
+    { return marker_observation_; }
+
+    const auto &cameramarker_r_camera_matrix() const
+    { return marker_r_camera_; }
+  };
+
+  class ImageMeasurement
+  {
+    std::uint64_t stamp_;
+    fvlam::CameraInfo camera_info_;
+    std::vector<MarkerMeasurement> marker_measurements_{};
+
+  public:
+    ImageMeasurement(std::uint64_t stamp,
+                     fvlam::CameraInfo camera_info,
+                     std::vector<MarkerMeasurement> marker_measurements) :
+      stamp_{stamp}, camera_info_{std::move(camera_info)}, marker_measurements_{std::move(marker_measurements)}
+    {}
+
+    const auto &stamp() const
+    { return stamp_; }
+
+    const auto &camera_info() const
+    { return camera_info_; }
+
+    const auto &measurements() const
+    { return marker_measurements_; }
+  };
+
+  std::vector<ImageMeasurement> load_image_measurements_from_file(const std::string &file_name)
+  {
+    std::vector<ImageMeasurement> image_measurements{};
+
+    cv::FileStorage fs("../src/data/observations_sequence.json", cv::FileStorage::READ | cv::FileStorage::FORMAT_JSON);
+    do {
+      if (!fs.isOpened()) {
+        std::cout << "Not opened." << std::endl;
+        break;
+      }
+      auto root = fs.root();
+      if (!root.isMap()) {
+        std::cout << "root not map." << std::endl;
+        break;
+      }
+      auto measurements_node = root["measurements"];
+      if (!measurements_node.isSeq()) {
+        std::cout << "no measurements sequence." << std::endl;
+        break;
+      }
+
+      for (auto measurement_node = measurements_node.begin();
+           measurement_node != measurements_node.end(); ++measurement_node) {
+
+        // Get stamp
+        std::uint64_t stamp = int((*measurement_node)["stamp"]);
+
+        // Get CameraInfo
+        auto camera_info_node = (*measurement_node)["camera_info"];
+        auto camera_info = camera_info_from(camera_info_node);
+
+        // Get MarkerMeasurements
+        auto observations_node = (*measurement_node)["observations"];
+        std::vector<MarkerMeasurement> marker_measurements;
+        for (auto observation_node = observations_node.begin();
+             observation_node != observations_node.end(); ++observation_node) {
+
+          // Get id, marker_observations, and t_camera_marker
+          std::uint64_t id = int((*observation_node)["id"]);
+          auto marker_observation = marker_observation_from(id, (*observation_node)["corners_f_image"]);
+          auto t_camera_marker = transform3_from((*observation_node)["marker_f_camera"]);
+
+          MarkerMeasurement marker_measurement{id, marker_observation, t_camera_marker};
+          marker_measurements.emplace_back(marker_measurement);
+        }
+
+        ImageMeasurement image_measurement{stamp, camera_info, marker_measurements};
+        image_measurements.emplace_back(image_measurement);
+      }
+
+    } while (false);
+
+    return image_measurements;
+  }
 
   int inter_marker_rotation_from_file()
   {
-    cv::FileStorage fs("../src/data/observations_sequence.json", cv::FileStorage::READ | cv::FileStorage::FORMAT_JSON);
-    if (fs.isOpened()) {
-      std::cout << "Opened" << std::endl;
-    }
+    auto image_measurements = load_image_measurements_from_file("../src/data/observations_sequence.json");
+
     return 0;
   }
 }

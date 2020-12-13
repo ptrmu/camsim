@@ -56,10 +56,16 @@ namespace fvlam
 
   class MarkerObservations
   {
+    std::uint64_t stamp_;
+
     // The list of observations
     std::vector<MarkerObservation> observations_{};
 
   public:
+    explicit MarkerObservations(std::uint64_t stamp = 0) :
+      stamp_(stamp)
+    {}
+
     auto &observations() const
     { return observations_; }
 
