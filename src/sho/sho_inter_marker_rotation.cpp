@@ -106,14 +106,14 @@ namespace camsim
     std::uint32_t width = int(ci_node["width"]);
     std::uint32_t height = int(ci_node["height"]);
 
-    fvlam::CameraInfo::CameraMatrix camera_matrix{fvlam::CameraInfo::CameraMatrix::Zero()};
+    fvlam::CameraInfo::CameraMatrix camera_matrix;
     auto k_node = ci_node["K"];
     for (int r = 0; r < fvlam::CameraInfo::CameraMatrix::MaxRowsAtCompileTime; r += 1)
       for (int c = 0; c < fvlam::CameraInfo::CameraMatrix::MaxColsAtCompileTime; c += 1) {
         camera_matrix(r, c) = k_node[r * fvlam::CameraInfo::CameraMatrix::MaxColsAtCompileTime + c];
       }
 
-    fvlam::CameraInfo::DistCoeffs dist_coeffs{fvlam::CameraInfo::DistCoeffs::Zero()};
+    fvlam::CameraInfo::DistCoeffs dist_coeffs;
     auto d_node = ci_node["D"];
     for (int r = 0; r < fvlam::CameraInfo::DistCoeffs::MaxSizeAtCompileTime; r += 1) {
       dist_coeffs(r) = d_node[r];
@@ -122,37 +122,39 @@ namespace camsim
     return fvlam::CameraInfo{width, height, camera_matrix, dist_coeffs};
   }
 
-  fvlam::MarkerObservation marker_observation_from(std::uint64_t id, const cv::FileNode &cfi_node)
+  fvlam::MarkerObservation marker_observation_from(std::uint64_t id, const cv::FileNode &camera_f_images_node)
   {
-    fvlam::MarkerObservation::Derived cfi{fvlam::MarkerObservation::Derived::Zero()};
+    fvlam::MarkerObservation::Derived cfi;
     for (int r = 0; r < fvlam::MarkerObservation::Derived::MaxRowsAtCompileTime; r += 1)
       for (int c = 0; c < fvlam::MarkerObservation::Derived::MaxColsAtCompileTime; c += 1) {
-        cfi(r, c) = cfi_node[c][r];
+        cfi(r, c) = camera_f_images_node[c][r];
       }
     return fvlam::MarkerObservation{id, cfi};
   }
 
-  fvlam::Transform3 transform3_from(const cv::FileNode &cfi_node)
+  fvlam::Transform3 transform3_from(const cv::FileNode &marker_f_image_node)
   {
-//    fvlam::MarkerObservation::Derived cfi{fvlam::MarkerObservation::Derived::Zero()};
-//    for (int r = 0; r < fvlam::MarkerObservation::Derived::MaxRowsAtCompileTime; r += 1)
-//      for (int c = 0; c < fvlam::MarkerObservation::Derived::MaxColsAtCompileTime; c += 1) {
-//        cfi(r, c) = cfi_node[c][r];
-//      }
-//    return fvlam::Transform3{id, cfi};
+    // NOTE: fvlam::Transform3 and fiducial_vlam::Transform have variables in their mu vector
+    // organized differently.
+    fvlam::Transform3::MuVector mu;
+    for (int r = 0; r < fvlam::Transform3::MuVector::MaxSizeAtCompileTime; r += 1)
+      mu(r) = marker_f_image_node[r];
+
+    return fvlam::Transform3{fvlam::Rotate3::RzRyRx(mu(3), mu(4), mu(5)),
+                             fvlam::Translate3{mu(0), mu(1), mu(2)}};
   }
 
   class MarkerMeasurement
   {
     std::uint64_t id_;
     fvlam::MarkerObservation marker_observation_;
-    fvlam::Transform3 marker_r_camera_;
+    fvlam::Transform3 marker_f_camera_;
 
   public:
     MarkerMeasurement(std::uint64_t id,
                       fvlam::MarkerObservation marker_observation,
                       fvlam::Transform3 marker_r_camera) :
-      id_{id}, marker_observation_{std::move(marker_observation)}, marker_r_camera_{std::move(marker_r_camera)}
+      id_{id}, marker_observation_{std::move(marker_observation)}, marker_f_camera_{std::move(marker_r_camera)}
     {}
 
     const auto &id() const
@@ -161,8 +163,8 @@ namespace camsim
     const auto &marker_observation() const
     { return marker_observation_; }
 
-    const auto &cameramarker_r_camera_matrix() const
-    { return marker_r_camera_; }
+    const auto &marker_f_camera() const
+    { return marker_f_camera_; }
   };
 
   class ImageMeasurement
@@ -234,6 +236,13 @@ namespace camsim
           marker_measurements.emplace_back(marker_measurement);
         }
 
+        // Sort the marker_measurements by marker id
+        std::sort(marker_measurements.begin(), marker_measurements.end(),
+                  [](const MarkerMeasurement &a, const MarkerMeasurement &b) -> bool
+                  {
+                    return a.id() < b.id();
+                  });
+
         ImageMeasurement image_measurement{stamp, camera_info, marker_measurements};
         image_measurements.emplace_back(image_measurement);
       }
@@ -246,6 +255,33 @@ namespace camsim
   int inter_marker_rotation_from_file()
   {
     auto image_measurements = load_image_measurements_from_file("../src/data/observations_sequence.json");
+
+//    for (auto &image_measurement : image_measurements)
+//      for (auto &measurement: image_measurement.measurements())
+//        std::cout << image_measurement.stamp()
+//                  << " " << measurement.id()
+//                  << " " << measurement.marker_f_camera().to_string()
+//                  << std::endl;
+
+    auto cov = fvlam::Transform3Covariance(fvlam::Transform3Covariance::Derived::Identity() * 0.1);
+    for (auto &image_measurement : image_measurements) {
+      auto &measurements = image_measurement.measurements();
+      for (std::size_t m0 = 0; m0 < measurements.size(); m0 += 1)
+        for (std::size_t m1 = m0 + 1; m1 < measurements.size(); m1 += 1) {
+          auto measurement0 = measurements[m0];
+          auto measurement1 = measurements[m1];
+          auto t_marker0_marker1 = calc_t_marker0_marker1(
+            fvlam::Transform3WithCovariance(measurement0.marker_f_camera(), cov),
+            fvlam::Transform3WithCovariance(measurement1.marker_f_camera(), cov));
+
+          if (measurement0.id() == 0 && measurement1.id() == 3) {
+            std::cout << image_measurement.stamp()
+                      << " " << measurement0.id() << " " << measurement1.id()
+                      << " " << t_marker0_marker1.tf().to_string()
+                      << std::endl;
+          }
+        }
+    }
 
     return 0;
   }

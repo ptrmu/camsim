@@ -211,6 +211,11 @@ namespace fvlam
       r_(r), t_(p)
     {}
 
+    Transform3(const MuVector &mu) :
+      r_(Rotate3::RzRyRx(mu(0), mu(1), mu(2))),
+      t_(Translate3(mu(3), mu(4), mu(5)))
+    {}
+
     const auto &r() const
     { return r_; }
 
