@@ -183,7 +183,7 @@ namespace camsim
                       << std::endl;
             ret = 1;
           }
-          v = gtsam::Rot3(fvlam::Rotate3::RzRyRx(x, y, z).matrix()).xyz();
+          v = gtsam::Rot3(fvlam::Rotate3::RzRyRx(x, y, z).rotation_matrix()).xyz();
           if (!gtsam::fpEqual(v(0), x, 1.0e-6) ||
               !gtsam::fpEqual(v(1), y, 1.0e-6) ||
               !gtsam::fpEqual(v(2), z, 1.0e-6)) {

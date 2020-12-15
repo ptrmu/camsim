@@ -66,7 +66,7 @@ namespace camsim
 
     return fvlam::Transform3WithCovariance(
       fvlam::Transform3::from(m1_f_m0_calc),
-      fvlam::Transform3Covariance(m1_f_m0_calc_covariance));
+      m1_f_m0_calc_covariance);
   }
 
   int inter_marker_rotation()
@@ -85,8 +85,8 @@ namespace camsim
     auto cov_value = 0.1;
     fvlam::Transform3 t_c0_m0 = c0_f_w.inverse() * m0_f_w;
     fvlam::Transform3 t_c0_m1 = c0_f_w.inverse() * m1_f_w;
-    fvlam::Transform3Covariance t_c0_m0_cov(fvlam::Transform3Covariance::Derived::Identity() * cov_value);
-    fvlam::Transform3Covariance t_c0_m1_cov(fvlam::Transform3Covariance::Derived::Identity() * cov_value);
+    fvlam::Transform3::CovarianceMatrix t_c0_m0_cov(fvlam::Transform3::CovarianceMatrix::Identity() * cov_value);
+    fvlam::Transform3::CovarianceMatrix t_c0_m1_cov(fvlam::Transform3::CovarianceMatrix::Identity() * cov_value);
     fvlam::Transform3WithCovariance t_c0_m0_with_cov(t_c0_m0, t_c0_m0_cov);
     fvlam::Transform3WithCovariance t_c0_m1_with_cov(t_c0_m1, t_c0_m1_cov);
 
@@ -263,7 +263,7 @@ namespace camsim
 //                  << " " << measurement.marker_f_camera().to_string()
 //                  << std::endl;
 
-    auto cov = fvlam::Transform3Covariance(fvlam::Transform3Covariance::Derived::Identity() * 0.1);
+    auto cov = fvlam::Transform3::CovarianceMatrix(fvlam::Transform3::CovarianceMatrix::Identity() * 0.1);
     for (auto &image_measurement : image_measurements) {
       auto &measurements = image_measurement.measurements();
       for (std::size_t m0 = 0; m0 < measurements.size(); m0 += 1)

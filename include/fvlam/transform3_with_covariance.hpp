@@ -1,5 +1,8 @@
 #ifndef FVLAM_TRANSFORM3_WITH_COVARIANCE_HPP
 #define FVLAM_TRANSFORM3_WITH_COVARIANCE_HPP
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
+#pragma ide diagnostic ignored "NotImplementedFunctions"
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 
 #include <Eigen/Geometry>
 
@@ -13,17 +16,18 @@ namespace fvlam
   class Translate3
   {
   public:
-    using Derived = Eigen::Vector3d;
-    using MuVector = Eigen::Matrix<double, Derived::MaxRowsAtCompileTime, 1>;
+    using MuVector = Eigen::Vector3d;
+    using TangentVector = Eigen::Matrix<double, MuVector::MaxSizeAtCompileTime, 1>;
+    using CovarianceMatrix = Eigen::Matrix<double, MuVector::MaxSizeAtCompileTime, MuVector::MaxSizeAtCompileTime>;
 
   private:
-    Derived t_{Derived::Zero()};
+    MuVector t_{MuVector::Zero()};
 
   public:
     Translate3() = default;
 
-    explicit Translate3(const Derived &t) :
-      t_(t)
+    explicit Translate3(MuVector t) :
+      t_(std::move(t))
     {}
 
     Translate3(double x, double y, double z) :
@@ -31,6 +35,9 @@ namespace fvlam
     {}
 
     const auto &t() const
+    { return t_; }
+
+    MuVector mu() const
     { return t_; }
 
     template<typename T>
@@ -41,41 +48,21 @@ namespace fvlam
 
     std::string to_string() const;
 
+    /// Exponential map at identity - create a translation from canonical coordinates \f$ [T_x,T_y,T_z] \f$
+    static Translate3 Expmap(const TangentVector &x)
+    { return Translate3(x); }
+
+    /// Log map at identity - return the canonical coordinates \f$ [T_x,T_y,T_z] \f$ of this translation
+    static TangentVector Logmap(const Translate3 &translate3)
+    { return translate3.t_; }
+
+    Translate3 cross(const Translate3 &v) const
+    { return Translate3{t_.cross(v.t_)}; }
+
     Translate3 operator+(const Translate3 &other) const
     {
       return Translate3(t_ + other.t_);
     }
-  };
-
-// ==============================================================================
-// Translate3Covariance class
-// ==============================================================================
-
-  class Translate3Covariance
-  {
-  public:
-    using Derived = Eigen::Vector3d;
-    using MuVector = Eigen::Matrix<double, 6, 1>;
-
-  private:
-    Derived cov_{Derived::Zero()};
-
-  public:
-    Translate3Covariance() = default;
-
-    const auto &cov() const
-    { return cov_; }
-
-    const auto &matrix() const
-    { return cov_; }
-
-    template<typename T>
-    static Translate3Covariance from(const T &other);
-
-    template<typename T>
-    T to() const;
-
-    std::string to_string() const;
   };
 
 // ==============================================================================
@@ -86,12 +73,12 @@ namespace fvlam
   {
   public:
     using MuVector = Eigen::Matrix<double, Translate3::MuVector::MaxSizeAtCompileTime +
-                                           Translate3Covariance::MuVector::MaxSizeAtCompileTime, 1>;
+                                           Translate3::CovarianceMatrix::MaxSizeAtCompileTime, 1>;
 
   private:
     bool is_valid_{false};
     Translate3 t_{};
-    Translate3Covariance cov_{};
+    Translate3::CovarianceMatrix cov_{};
 
   public:
     Translate3WithCovariance() = default;
@@ -121,10 +108,13 @@ namespace fvlam
   class Rotate3
   {
   public:
-    using Derived = Eigen::Quaterniond;
     using MuVector = Eigen::Matrix<double, 3, 1>;
+    using TangentVector = Eigen::Matrix<double, 3, 1>;
+    using RotationMatrix = Eigen::Matrix<double, 3, 3>;
+    using CovarianceMatrix = Eigen::Matrix<double, MuVector::MaxSizeAtCompileTime, MuVector::MaxSizeAtCompileTime>;
 
   private:
+    using Derived = Eigen::Quaterniond;
     Derived q_{Derived::Identity()};
 
   public:
@@ -132,6 +122,10 @@ namespace fvlam
 
     explicit Rotate3(const Derived &q) :
       q_(q)
+    {}
+
+    explicit Rotate3(const RotationMatrix &rotation_matrix) :
+      q_(rotation_matrix)
     {}
 
     explicit Rotate3(const double &w, const double &x, const double &y, const double &z) :
@@ -160,10 +154,13 @@ namespace fvlam
     const auto &q() const
     { return q_; }
 
-    Eigen::Matrix3d matrix() const
+    RotationMatrix rotation_matrix() const
     { return q_.toRotationMatrix(); }
 
-    Eigen::Vector3d xyz() const;
+    MuVector xyz() const;
+
+    MuVector mu() const
+    { return xyz(); }
 
     template<typename T>
     static Rotate3 from(const T &other);
@@ -177,6 +174,12 @@ namespace fvlam
     {
       return Rotate3(q_.inverse());
     }
+
+    /// Exponential map at identity - create a rotation from canonical coordinates \f$ [R_x,R_y,R_z] \f$
+    static Rotate3 Expmap(const TangentVector &x);
+
+    /// Log map at identity - return the canonical coordinates \f$ [R_x,R_y,R_z] \f$ of this rotation
+    static TangentVector Logmap(const Rotate3 &rotate3);
 
     Rotate3 operator*(const Rotate3 &other) const
     {
@@ -199,6 +202,10 @@ namespace fvlam
     using MuVector = Eigen::Matrix<double,
       Rotate3::MuVector::MaxSizeAtCompileTime +
       Translate3::MuVector::MaxSizeAtCompileTime, 1>;
+    using TangentVector = Eigen::Matrix<double,
+      Rotate3::MuVector::MaxSizeAtCompileTime +
+      Translate3::MuVector::MaxSizeAtCompileTime, 1>;
+    using CovarianceMatrix = Eigen::Matrix<double, MuVector::MaxSizeAtCompileTime, MuVector::MaxSizeAtCompileTime>;
 
   private:
     Rotate3 r_{};
@@ -207,11 +214,11 @@ namespace fvlam
   public:
     Transform3() = default;
 
-    Transform3(const Rotate3 &r, const Translate3 &p) :
-      r_(r), t_(p)
+    Transform3(Rotate3 r, Translate3 t) :
+      r_(std::move(r)), t_(std::move(t))
     {}
 
-    Transform3(const MuVector &mu) :
+    explicit Transform3(const MuVector &mu) :
       r_(Rotate3::RzRyRx(mu(0), mu(1), mu(2))),
       t_(Translate3(mu(3), mu(4), mu(5)))
     {}
@@ -222,6 +229,9 @@ namespace fvlam
     const auto &t() const
     { return t_; }
 
+    MuVector mu() const
+    { return (MuVector() << r_.mu(), t_.mu()).finished(); }
+
     template<typename T>
     static Transform3 from(const T &other);
 
@@ -230,11 +240,19 @@ namespace fvlam
 
     std::string to_string() const;
 
+    static std::string to_cov_string(const CovarianceMatrix &cov);
+
     Transform3 inverse() const
     {
       auto qi = r_.q().inverse();
       return Transform3(Rotate3(qi), Translate3(qi * -t_.t()));
     }
+
+    /// Exponential map at identity - create a transform from canonical coordinates \f$ [R_x,R_y,R_z,T_x,T_y,T_z] \f$
+    static Transform3 Expmap(const TangentVector &x);
+
+    /// Log map at identity - return the canonical coordinates \f$ [R_x,R_y,R_z,T_x,T_y,T_z] \f$ of this transform
+    static TangentVector Logmap(const Transform3 &transform3);
 
     Transform3 operator*(const Transform3 &other) const
     {
@@ -243,61 +261,25 @@ namespace fvlam
   };
 
 // ==============================================================================
-// Transform3Covariance class
-// ==============================================================================
-
-  class Transform3Covariance
-  {
-  public:
-    using Derived = Eigen::Matrix<double,
-      Transform3::MuVector::MaxSizeAtCompileTime,
-      Transform3::MuVector::MaxSizeAtCompileTime>;
-    using MuVector = Eigen::Matrix<double, 21, 1>;
-
-  private:
-    Derived cov_{Derived::Zero()};
-
-  public:
-    Transform3Covariance() = default;
-
-    explicit Transform3Covariance(const Derived &cov) :
-      cov_(cov)
-    {}
-
-    const auto &cov() const
-    { return cov_; }
-
-    const auto &matrix() const
-    { return cov_; }
-
-    template<typename T>
-    static Transform3Covariance from(const T &other);
-
-    template<typename T>
-    T to() const;
-
-    std::string to_string() const;
-  };
-
-// ==============================================================================
-// Observations class
+// Transform3WithCovariance class
 // ==============================================================================
 
   class Transform3WithCovariance
   {
   public:
-    using MuVector = Eigen::Matrix<double, Transform3::MuVector::MaxRowsAtCompileTime +
-                                           Transform3Covariance::MuVector::MaxRowsAtCompileTime, 1>;
+    using MuVector = Eigen::Matrix<double, Transform3::MuVector::MaxSizeAtCompileTime +
+                                           Transform3::CovarianceMatrix::MaxSizeAtCompileTime, 1>;
+
   private:
     bool is_valid_{false};
     Transform3 tf_{};
-    Transform3Covariance cov_{};
+    Transform3::CovarianceMatrix cov_{};
 
   public:
     Transform3WithCovariance() = default;
 
-    Transform3WithCovariance(const Transform3 &tf, const Transform3Covariance &cov) :
-      is_valid_(true), tf_(tf), cov_(cov)
+    Transform3WithCovariance(Transform3 tf, Transform3::CovarianceMatrix cov) :
+      is_valid_(true), tf_(std::move(tf)), cov_(std::move(cov))
     {}
 
     auto is_valid() const
