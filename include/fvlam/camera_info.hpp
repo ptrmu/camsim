@@ -1,5 +1,8 @@
 #ifndef FVLAM_CAMERA_INFO_HPP
 #define FVLAM_CAMERA_INFO_HPP
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
+#pragma ide diagnostic ignored "NotImplementedFunctions"
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 
 #include <Eigen/Geometry>
 

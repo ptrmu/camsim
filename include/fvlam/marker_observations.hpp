@@ -1,5 +1,8 @@
 #ifndef FVLAM_OBSERVATIONS_HPP
 #define FVLAM_OBSERVATIONS_HPP
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
+#pragma ide diagnostic ignored "NotImplementedFunctions"
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 
 #include <vector>
 
@@ -24,7 +27,7 @@ namespace fvlam
 
   public:
     MarkerObservation(std::uint64_t id, Derived corners_f_image)
-      : id_(id), corners_f_image_(corners_f_image)
+      : id_(id), corners_f_image_(std::move(corners_f_image))
     {}
 
     MarkerObservation(std::uint64_t id,

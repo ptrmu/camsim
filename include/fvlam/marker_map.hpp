@@ -1,6 +1,9 @@
 
 #ifndef FVLAM_MARKER_MAP_HPP
 #define FVLAM_MARKER_MAP_HPP
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
+#pragma ide diagnostic ignored "NotImplementedFunctions"
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 
 #include <array>
 #include <map>
