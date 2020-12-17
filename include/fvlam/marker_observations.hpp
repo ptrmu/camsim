@@ -3,6 +3,7 @@
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 #pragma ide diagnostic ignored "NotImplementedFunctions"
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
+#pragma ide diagnostic ignored "OCUnusedTypeAliasInspection"
 
 #include <vector>
 
@@ -69,13 +70,22 @@ namespace fvlam
       stamp_(stamp)
     {}
 
-    auto &observations() const
+    auto const &observations() const
     { return observations_; }
 
     auto size() const
     { return observations_.size(); }
 
-    void add(const MarkerObservation &observation); //
+    template<typename T>
+    static MarkerObservations from(const T &other);
+
+    template<typename T>
+    T to() const;
+
+    void add(const MarkerObservation &observation)
+    {
+      observations_.emplace_back(observation);
+    }
   };
 
 

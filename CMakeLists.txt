@@ -176,6 +176,7 @@ add_executable(sho_run
   src/fvlam/transform3_with_covariance.cpp 
   src/pose_with_covariance_conversions.cpp
   src/sho/sho_inter_marker_rotation.cpp
+  src/fvlam/build_marker_map_shonan.cpp
   )
 
 target_link_libraries(sho_run

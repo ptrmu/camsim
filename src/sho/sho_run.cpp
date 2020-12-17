@@ -20,7 +20,7 @@ namespace camsim
   int shonan_rotation_averaging()
   {
     std::string inputFile("../src/data/pose3example.txt");
-    int d, seed;
+    int seed;
 
     // Seed random number generator
     static std::mt19937 rng(seed);

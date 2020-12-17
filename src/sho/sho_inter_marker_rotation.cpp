@@ -1,3 +1,9 @@
+#pragma ide diagnostic ignored "modernize-loop-convert"
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
+#pragma ide diagnostic ignored "NotImplementedFunctions"
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
+#pragma ide diagnostic ignored "OCUnusedStructInspection"
+#pragma ide diagnostic ignored "OCUnusedTypeAliasInspection"
 
 #include "sho_run.hpp"
 
@@ -16,6 +22,79 @@
 
 namespace camsim
 {
+  class MarkerMeasurement
+  {
+    std::uint64_t id_;
+    fvlam::MarkerObservation marker_observation_;
+    fvlam::Transform3 marker_f_camera_;
+
+  public:
+    MarkerMeasurement(std::uint64_t id,
+                      fvlam::MarkerObservation marker_observation,
+                      fvlam::Transform3 marker_r_camera) :
+      id_{id}, marker_observation_{std::move(marker_observation)}, marker_f_camera_{std::move(marker_r_camera)}
+    {}
+
+    const auto &id() const
+    { return id_; }
+
+    const auto &marker_observation() const
+    { return marker_observation_; }
+
+    const auto &marker_f_camera() const
+    { return marker_f_camera_; }
+  };
+
+  class ImageMeasurement
+  {
+    std::uint64_t stamp_;
+    fvlam::CameraInfo camera_info_;
+    std::vector<MarkerMeasurement> marker_measurements_{};
+
+  public:
+    ImageMeasurement(std::uint64_t stamp,
+                     fvlam::CameraInfo camera_info,
+                     std::vector<MarkerMeasurement> marker_measurements) :
+      stamp_{stamp}, camera_info_{std::move(camera_info)}, marker_measurements_{std::move(marker_measurements)}
+    {}
+
+    const auto &stamp() const
+    { return stamp_; }
+
+    const auto &camera_info() const
+    { return camera_info_; }
+
+    const auto &measurements() const
+    { return marker_measurements_; }
+  };
+}
+
+namespace fvlam
+{
+  template<>
+  MarkerObservation MarkerObservation::from<camsim::MarkerMeasurement>(
+    const camsim::MarkerMeasurement &other)
+  {
+    return other.marker_observation();
+  }
+
+  template<>
+  MarkerObservations MarkerObservations::from<std::vector<camsim::MarkerMeasurement>>(
+    const std::vector<camsim::MarkerMeasurement> &other)
+  {
+    MarkerObservations marker_observations{};
+
+    for (auto &measurement : other) {
+      auto mo{MarkerObservation::from(measurement)};
+      marker_observations.add(mo);
+    }
+
+    return marker_observations;
+  }
+}
+
+namespace camsim
+{
 
   /* Calculate the transform from one marker to another given
    * their transforms from a camera. The optimization is done
@@ -23,8 +102,8 @@ namespace camsim
    * way to do this analytically but I don't know how.
    */
   fvlam::Transform3WithCovariance calc_t_marker0_marker1(
-    fvlam::Transform3WithCovariance t_camera_marker0,
-    fvlam::Transform3WithCovariance t_camera_marker1)
+    const fvlam::Transform3WithCovariance &t_camera_marker0,
+    const fvlam::Transform3WithCovariance &t_camera_marker1)
   {
     static const std::uint64_t camera_key = 0;
     static const std::uint64_t marker0_key = 1;
@@ -144,52 +223,6 @@ namespace camsim
                              fvlam::Translate3{mu(0), mu(1), mu(2)}};
   }
 
-  class MarkerMeasurement
-  {
-    std::uint64_t id_;
-    fvlam::MarkerObservation marker_observation_;
-    fvlam::Transform3 marker_f_camera_;
-
-  public:
-    MarkerMeasurement(std::uint64_t id,
-                      fvlam::MarkerObservation marker_observation,
-                      fvlam::Transform3 marker_r_camera) :
-      id_{id}, marker_observation_{std::move(marker_observation)}, marker_f_camera_{std::move(marker_r_camera)}
-    {}
-
-    const auto &id() const
-    { return id_; }
-
-    const auto &marker_observation() const
-    { return marker_observation_; }
-
-    const auto &marker_f_camera() const
-    { return marker_f_camera_; }
-  };
-
-  class ImageMeasurement
-  {
-    std::uint64_t stamp_;
-    fvlam::CameraInfo camera_info_;
-    std::vector<MarkerMeasurement> marker_measurements_{};
-
-  public:
-    ImageMeasurement(std::uint64_t stamp,
-                     fvlam::CameraInfo camera_info,
-                     std::vector<MarkerMeasurement> marker_measurements) :
-      stamp_{stamp}, camera_info_{std::move(camera_info)}, marker_measurements_{std::move(marker_measurements)}
-    {}
-
-    const auto &stamp() const
-    { return stamp_; }
-
-    const auto &camera_info() const
-    { return camera_info_; }
-
-    const auto &measurements() const
-    { return marker_measurements_; }
-  };
-
   std::vector<ImageMeasurement> load_image_measurements_from_file(const std::string &file_name)
   {
     std::vector<ImageMeasurement> image_measurements{};
@@ -283,6 +316,22 @@ namespace camsim
         }
     }
 
+    return 0;
+  }
+
+  int build_marker_map_from_file()
+  {
+    auto image_measurements = load_image_measurements_from_file("../src/data/observations_sequence.json");
+    auto build_marker_map = fvlam::make_build_marker_map_shonan();
+
+    for (auto &image_measurement : image_measurements) {
+      auto &measurements = image_measurement.measurements();
+      auto observations{fvlam::MarkerObservations::from(measurements)};
+      build_marker_map->process_image_observations(observations, image_measurement.camera_info());
+    }
+
+    fvlam::MarkerMap map{0.21};
+    build_marker_map->build_marker_map(map);
     return 0;
   }
 }

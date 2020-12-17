@@ -65,12 +65,14 @@ namespace fvlam
   class MarkerMap
   {
     const double marker_length_;
-    std::map<std::uint64_t, Marker> markers_{};
+    std::map<std::uint64_t, Marker> markers_;
 
   public:
     MarkerMap() = delete;
 
-    explicit MarkerMap(double marker_length_);
+    explicit MarkerMap(double marker_length) :
+      marker_length_{marker_length}, markers_{}
+    {}
 
     const auto &markers() const
     { return markers_; }

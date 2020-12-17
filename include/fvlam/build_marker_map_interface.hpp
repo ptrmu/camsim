@@ -10,7 +10,7 @@ namespace fvlam
 // BuildMarkerMapInterface class
 // ==============================================================================
 
-  class CameraInfoInterface; //
+  class CameraInfo; //
   class MarkerMap; //
   class MarkerObservations; //
 
@@ -23,8 +23,8 @@ namespace fvlam
 
     // Take the location of markers in one image and add them to the marker map
     // building algorithm.
-    virtual void add_image_observations(std::unique_ptr<const MarkerObservations> observations,
-                                        std::unique_ptr<const CameraInfoInterface> camera_info) = 0;
+    virtual void process_image_observations(const MarkerObservations &marker_observations,
+                                            const CameraInfo &camera_info) = 0;
 
     // Given the observations that have been added so far create and return a marker_map.
     // On entry to this routine the marker_map contains markers that have fixed locations.
@@ -33,5 +33,7 @@ namespace fvlam
     // Re-initialize the map_builder. (i.e. through out any data accumulated so far)
     virtual std::string reset(std::string &cmd) = 0;
   };
+
+  std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map_shonan();
 }
 #endif //FVLAM_BUILD_MARKER_MAP_INTERFACE_HPP
