@@ -10,7 +10,7 @@
 #include "fvlam/build_marker_map_interface.hpp"
 #include "fvlam/camera_info.hpp"
 #include "fvlam/marker_map.hpp"
-#include "fvlam/marker_observations.hpp"
+#include "fvlam/marker_observation.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 #include "gtsam/geometry/Pose3.h"
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
@@ -315,6 +315,12 @@ namespace camsim
           }
         }
     }
+
+    return 0;
+  }
+
+  int test_transform_from_observation()
+  {
 
     return 0;
   }

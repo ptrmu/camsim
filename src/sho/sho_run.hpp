@@ -9,6 +9,7 @@ namespace camsim
   int test_rotate3(); //
   int inter_marker_rotation(); //
   int inter_marker_rotation_from_file(); //
+  int test_transform_from_observation(); //
   int build_marker_map_from_file(); //
 }
 #endif //_CAL_RUN_HPP

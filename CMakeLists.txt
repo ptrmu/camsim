@@ -177,11 +177,13 @@ add_executable(sho_run
   src/pose_with_covariance_conversions.cpp
   src/sho/sho_inter_marker_rotation.cpp
   src/fvlam/build_marker_map_shonan.cpp
+  src/fvlam/transform_from_observation_cv.cpp
   )
 
 target_link_libraries(sho_run
   PRIVATE gtsam
   PRIVATE opencv_core
+  PRIVATE opencv_calib3d
   )
 
 
@@ -250,6 +252,7 @@ add_executable(camsim_test
   src/test/sho_test.cpp
   src/sho/sho_run.cpp
   src/sho/sho_inter_marker_rotation.cpp
+  src/fvlam/transform_from_observation_cv.cpp
   )
 
 

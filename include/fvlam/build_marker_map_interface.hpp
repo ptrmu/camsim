@@ -3,16 +3,47 @@
 
 #include <memory>
 
+#include "fvlam/transform3_with_covariance.hpp"
+
 namespace fvlam
 {
+
+  class CameraInfo; //
+  class MarkerMap; //
+  class MarkerObservation; //
+  class MarkerObservations; //
+
+// ==============================================================================
+// TransformFromObservationInterface class
+// ==============================================================================
+
+// An interface used to convert observations of marker corners into transforms.
+  class TransformFromObservationInterface
+  {
+  public:
+    virtual ~TransformFromObservationInterface() = default;
+
+    // calculate the pose of a marker in the camera frame.
+    virtual Transform3WithCovariance calc_t_camera_marker(const MarkerObservation &marker_observation,
+                                                          const CameraInfo &camera_info) = 0;
+
+    // Calculate the pose of marker1 in the frame of marker0.
+    virtual Transform3WithCovariance calc_t_marker0_marker1(const MarkerObservation &marker_observation,
+                                                            const CameraInfo &camera_info) = 0;
+  };
+
+  std::unique_ptr<TransformFromObservationInterface>
+  make_transform_from_observation_solve_pnp(double marker_length);
+
+  std::unique_ptr<TransformFromObservationInterface>
+  make_transform_from_observation_resection(double marker_length);
+
+  std::unique_ptr<TransformFromObservationInterface>
+  ake_transform_from_observation_custom_factor(double marker_length);
 
 // ==============================================================================
 // BuildMarkerMapInterface class
 // ==============================================================================
-
-  class CameraInfo; //
-  class MarkerMap; //
-  class MarkerObservations; //
 
 // An interface used to build maps of markers. This is a common interface to
 // several modules that use different techniques to build maps.

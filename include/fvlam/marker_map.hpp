@@ -28,6 +28,29 @@ namespace fvlam
     // Prevent modification if true
     bool is_fixed_{false};
 
+    using CornersMatrix = Eigen::Matrix<double, 2, 4>;
+
+    inline static CornersMatrix unit_corners_f_marker()
+    {
+      return (CornersMatrix() << -1, 1, 1, -1, 1, 1, -1, -1, 0, 0, 0, 0).finished();
+    }
+
+    inline static CornersMatrix calc_corners_f_marker(double marker_length)
+    {
+      return unit_corners_f_marker() * marker_length;
+    }
+
+    inline CornersMatrix calc_corners_f_map(double marker_length) const
+    {
+      auto corners_f_marker = calc_corners_f_marker(marker_length);
+      return (CornersMatrix()
+        <<
+        (t_map_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 0)}).mu(),
+        (t_map_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 1)}).mu(),
+        (t_map_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 2)}).mu(),
+        (t_map_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 3)}).mu()).finished();
+    }
+
   public:
     Marker() = default;
 
@@ -55,7 +78,11 @@ namespace fvlam
 
     std::string to_string() const;
 
-    std::array<Translate3, 4> corners_f_map(double marker_length) const;
+    template<typename T>
+    T to_corners_f_map(double marker_length) const;
+
+    template<typename T>
+    static T to_corners_f_marker(double marker_length);
   };
 
 // ==============================================================================

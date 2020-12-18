@@ -291,6 +291,11 @@ namespace fvlam
     /// Log map at identity - return the canonical coordinates \f$ [R_x,R_y,R_z,T_x,T_y,T_z] \f$ of this transform
     static TangentVector Logmap(const Transform3 &transform3);
 
+    Translate3 operator*(const Translate3 &other) const
+    {
+      return Translate3(r_ * other + t_);
+    }
+
     Transform3 operator*(const Transform3 &other) const
     {
       return Transform3(r_ * other.r_, t_ + r_ * other.t_);
