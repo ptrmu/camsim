@@ -252,6 +252,8 @@ add_executable(camsim_test
   src/test/sho_test.cpp
   src/sho/sho_run.cpp
   src/sho/sho_inter_marker_rotation.cpp
+  src/fvlam/build_marker_map_shonan.cpp
+  src/fvlam/transform3_with_covariance.cpp
   src/fvlam/transform_from_observation_cv.cpp
   )
 

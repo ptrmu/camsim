@@ -15,7 +15,7 @@ namespace fvlam
   class CameraInfo
   {
   public:
-    using CameraMatrix = Eigen::Vector3d;
+    using CameraMatrix = Eigen::Matrix3d;
     using DistCoeffs = Eigen::Matrix<double, 5, 1>;
 
   private:
@@ -27,6 +27,12 @@ namespace fvlam
   public:
     CameraInfo(std::uint32_t width, std::uint32_t height, CameraMatrix camera_matrix, DistCoeffs dist_coeffs) :
       width_{width}, height_{height}, camera_matrix_{std::move(camera_matrix)}, dist_coeffs_{std::move(dist_coeffs)}
+    {}
+
+    CameraInfo(double fx, double fy, double s, double u0, double v0) :
+      width_{std::uint32_t(std::ceil(u0 * 2))}, height_{std::uint32_t(std::ceil(v0 * 2))},
+      camera_matrix_{(CameraMatrix() << fx, s, u0, 0.0, fy, v0, 0.0, 0.0, 1.0).finished()},
+      dist_coeffs_{DistCoeffs::Zero()}
     {}
 
     auto &width() const

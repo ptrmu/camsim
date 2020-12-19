@@ -2,10 +2,15 @@
 #include <iostream>
 #include "catch2/catch.hpp"
 
+#include "opencv2/core.hpp"
+
 #include "gtsam/base/Vector.h"
 #include "gtsam/geometry/Pose3.h"
 #include "gtsam/geometry/Rot3.h"
 #include "../sho/sho_run.hpp"
+#include "../../include/fvlam/camera_info.hpp"
+#include "../../include/fvlam/marker_map.hpp"
+#include "../../include/fvlam/marker_observation.hpp"
 #include "../../include/fvlam/transform3_with_covariance.hpp"
 
 namespace camsim
@@ -92,6 +97,30 @@ namespace camsim
               }
         }
   }
+
+
+  using CvCameraCalibration = std::pair<cv::Matx33d, cv::Vec<double, 5>>;
+
+  TEST_CASE("sho_test - Test Project")
+  {
+    fvlam::CameraInfo camera_info{625, 625, 0, 0, 0};
+
+    gtsam::Pose3 camera_pose(gtsam::Rot3(gtsam::Vector3(1, -1, -1).asDiagonal()), gtsam::Point3(0, 0, 0.5));
+
+    gtsam::Point3 point1(-0.08, -0.08, 0.0);
+    gtsam::Point3 point2(-0.08, 0.08, 0.0);
+    gtsam::Point3 point3(0.08, 0.08, 0.0);
+    gtsam::Point3 point4(0.08, -0.08, 0.0);
+
+//    auto p_func = fvlam::Marker::project_t_world_marker(
+//      camera_info.to<CvCameraCalibration>(),
+//      fvlam::Transform3::from<gtsam::Pose3>(camera_pose), )
+
+//    EXPECT(assert_equal(camera.project(point1), Point2(-100, 100)));
+//    EXPECT(assert_equal(camera.project(point2), Point2(-100, -100)));
+//    EXPECT(assert_equal(camera.project(point3), Point2(100, -100)));
+//    EXPECT(assert_equal(camera.project(point4), Point2(100, 100)));
+   }
 
 #endif
 }

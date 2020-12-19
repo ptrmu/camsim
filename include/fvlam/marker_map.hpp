@@ -9,6 +9,7 @@
 #include <map>
 #include <vector>
 
+#include "fvlam/marker_observation.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 
 namespace fvlam
@@ -22,13 +23,13 @@ namespace fvlam
     // The id of the marker
     std::uint64_t id_{};
 
-    // The pose of the marker in the map frame
-    Transform3WithCovariance t_map_marker_;
+    // The pose of the marker in some world frame. Which frame is world depends on the context.
+    Transform3WithCovariance t_world_marker_;
 
     // Prevent modification if true
     bool is_fixed_{false};
 
-    using CornersMatrix = Eigen::Matrix<double, 2, 4>;
+    using CornersMatrix = Eigen::Matrix<double, 3, 4>;
 
     inline static CornersMatrix unit_corners_f_marker()
     {
@@ -40,22 +41,22 @@ namespace fvlam
       return unit_corners_f_marker() * marker_length;
     }
 
-    inline CornersMatrix calc_corners_f_map(double marker_length) const
+    inline CornersMatrix calc_corners_f_world(double marker_length) const
     {
       auto corners_f_marker = calc_corners_f_marker(marker_length);
       return (CornersMatrix()
         <<
-        (t_map_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 0)}).mu(),
-        (t_map_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 1)}).mu(),
-        (t_map_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 2)}).mu(),
-        (t_map_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 3)}).mu()).finished();
+        (t_world_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 0)}).mu(),
+        (t_world_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 1)}).mu(),
+        (t_world_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 2)}).mu(),
+        (t_world_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 3)}).mu()).finished();
     }
 
   public:
     Marker() = default;
 
-    Marker(std::uint64_t id, Transform3WithCovariance t_map_marker, bool is_fixed = false) :
-      id_(id), t_map_marker_(std::move(t_map_marker)), is_fixed_(is_fixed)
+    Marker(std::uint64_t id, Transform3WithCovariance t_world_marker, bool is_fixed = false) :
+      id_(id), t_world_marker_(std::move(t_world_marker)), is_fixed_(is_fixed)
     {}
 
     auto id() const
@@ -67,8 +68,8 @@ namespace fvlam
     void set_is_fixed(bool is_fixed)
     { is_fixed_ = is_fixed; }
 
-    const auto &t_map_marker() const
-    { return t_map_marker_; }
+    const auto &t_world_marker() const
+    { return t_world_marker_; }
 
     template<typename T>
     static Translate3 from(const T &other);
@@ -79,10 +80,29 @@ namespace fvlam
     std::string to_string() const;
 
     template<typename T>
-    T to_corners_f_map(double marker_length) const;
+    T to_corners_f_world(double marker_length) const;
 
     template<typename T>
     static T to_corners_f_marker(double marker_length);
+
+    using ProjectFunction = std::function<MarkerObservation(const Marker &marker)>;
+    using SolveFunction = std::function<Marker(const MarkerObservation &observation)>;
+
+    template<typename TCameraCalibration>
+    static ProjectFunction project_t_world_marker(const TCameraCalibration &camera_calibration,
+                                                  const Transform3 &t_world_camera,
+                                                  double marker_length);
+
+    template<typename TCameraCalibration>
+    static ProjectFunction project_t_camera_marker(const TCameraCalibration &camera_calibration,
+                                                   double marker_length)
+    {
+      return project_t_world_marker<TCameraCalibration>(camera_calibration, Transform3{}, marker_length);
+    }
+
+    template<typename TCameraCalibration>
+    static SolveFunction solve_t_camera_marker(const TCameraCalibration &camera_calibration,
+                                               double marker_length);
   };
 
 // ==============================================================================

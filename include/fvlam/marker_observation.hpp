@@ -49,6 +49,9 @@ namespace fvlam
     static MarkerObservation from(const T &other);
 
     template<typename T>
+    static MarkerObservation from(std::uint64_t id, const T &other);
+
+    template<typename T>
     T to() const;
 
     std::string to_string() const;
