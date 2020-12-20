@@ -6,7 +6,7 @@
 
 namespace fvlam
 {
-
+#if 0
   template<>
   gtsam::Rot3 Rotate3::to<gtsam::Rot3>() const
   {
@@ -24,4 +24,5 @@ namespace fvlam
   {
     return gtsam::Pose3{gtsam::Rot3(r().q()), gtsam::Point3(t().t())};
   }
+#endif
 }

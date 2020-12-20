@@ -11,6 +11,7 @@
 
 #include "fvlam/marker_observation.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
+#include <Eigen/Geometry>
 
 namespace fvlam
 {
@@ -20,6 +21,10 @@ namespace fvlam
 
   class Marker
   {
+  public:
+    using CornersMatrix = Eigen::Matrix<double, 3, 4>;
+
+  private:
     // The id of the marker
     std::uint64_t id_{};
 
@@ -29,11 +34,9 @@ namespace fvlam
     // Prevent modification if true
     bool is_fixed_{false};
 
-    using CornersMatrix = Eigen::Matrix<double, 3, 4>;
-
-    inline static CornersMatrix unit_corners_f_marker()
+     inline static CornersMatrix unit_corners_f_marker()
     {
-      return (CornersMatrix() << -1, 1, 1, -1, 1, 1, -1, -1, 0, 0, 0, 0).finished();
+      return (CornersMatrix() << -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0, 0, 0, 0).finished();
     }
 
     inline static CornersMatrix calc_corners_f_marker(double marker_length)
@@ -72,12 +75,14 @@ namespace fvlam
     { return t_world_marker_; }
 
     template<typename T>
-    static Translate3 from(const T &other);
+    static Marker from(const T &other);
 
     template<typename T>
     T to() const;
 
-    std::string to_string() const;
+    std::string to_string() const; //
+    std::string to_id_string() const; //
+    std::string to_corners_f_world_string(double marker_length) const; //
 
     template<typename T>
     T to_corners_f_world(double marker_length) const;

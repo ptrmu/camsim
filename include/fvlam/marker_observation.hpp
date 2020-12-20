@@ -7,6 +7,8 @@
 
 #include <vector>
 
+#include <Eigen/Geometry>
+
 namespace fvlam
 {
 // ==============================================================================

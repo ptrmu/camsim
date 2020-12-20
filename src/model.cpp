@@ -351,10 +351,10 @@ namespace camsim
     for (auto &marker : markers_) {
       auto &corners = marker.corners_;
       std::cout << PoseWithCovariance::to_str(marker.marker_f_world_) << " ";
-      std::cout << corners.corners_[0].point_f_world_
-                << corners.corners_[1].point_f_world_
-                << corners.corners_[2].point_f_world_
-                << corners.corners_[3].point_f_world_ << std::endl;
+      std::cout << corners.corners_[0].point_f_world_.transpose()
+                << corners.corners_[1].point_f_world_.transpose()
+                << corners.corners_[2].point_f_world_.transpose()
+                << corners.corners_[3].point_f_world_.transpose() << std::endl;
     }
   }
 
