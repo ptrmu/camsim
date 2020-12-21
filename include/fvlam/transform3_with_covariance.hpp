@@ -12,6 +12,58 @@ namespace fvlam
 {
 
 // ==============================================================================
+// Translate2 class
+// ==============================================================================
+
+  class Translate2
+  {
+  public:
+    using MuVector = Eigen::Vector2d;
+    using TangentVector = Eigen::Matrix<double, MuVector::MaxSizeAtCompileTime, 1>;
+    using CovarianceMatrix = Eigen::Matrix<double, MuVector::MaxSizeAtCompileTime, MuVector::MaxSizeAtCompileTime>;
+
+  private:
+    MuVector t_;
+
+  public:
+    Translate2() :
+      t_{MuVector::Zero()}
+    {}
+
+    explicit Translate2(MuVector t) :
+      t_(std::move(t))
+    {}
+
+    Translate2(double x, double y) :
+      t_(x, y)
+    {}
+
+    const auto &x() const
+    { return t_.x(); } //
+    const auto &y() const
+    { return t_.y(); } //
+
+    const auto &t() const
+    { return t_; }
+
+    MuVector mu() const
+    { return t_; }
+
+    template<typename T>
+    static Translate2 from(const T &other);
+
+    template<typename T>
+    T to() const;
+
+    std::string to_string() const;
+
+    Translate2 operator+(const Translate2 &other) const
+    {
+      return Translate2(t_ + other.t_);
+    }
+  };
+
+// ==============================================================================
 // Translate3 class
 // ==============================================================================
 
@@ -37,6 +89,13 @@ namespace fvlam
     Translate3(double x, double y, double z) :
       t_(x, y, z)
     {}
+
+    const auto &x() const
+    { return t_.x(); } //
+    const auto &y() const
+    { return t_.y(); } //
+    const auto &z() const
+    { return t_.z(); } //
 
     const auto &t() const
     { return t_; }
@@ -134,16 +193,17 @@ namespace fvlam
   private:
     using Derived = Eigen::Quaterniond;
     Derived q_{Derived::Identity()};
+    RotationMatrix debug_r_{RotationMatrix::Zero()};
 
   public:
     Rotate3() = default;
 
     explicit Rotate3(const Derived &q) :
-      q_(q)
+      q_(q), debug_r_{q_.toRotationMatrix()}
     {}
 
     explicit Rotate3(const RotationMatrix &rotation_matrix) :
-      q_(rotation_matrix)
+      q_(rotation_matrix), debug_r_{q_.toRotationMatrix()}
     {}
 
     static Rotate3 Rx(double x)
@@ -237,6 +297,10 @@ namespace fvlam
 
     Transform3(std::uint64_t id, Rotate3 r, Translate3 t) :
       id_{id}, r_(std::move(r)), t_(std::move(t))
+    {}
+
+    Transform3(double rx, double ry, double rz, double tx, double ty, double tz) :
+      id_{0}, r_{Rotate3::RzRyRx(rx, ry, rz)}, t_(Translate3{tx, ty, tz})
     {}
 
     explicit Transform3(const MuVector &mu) :

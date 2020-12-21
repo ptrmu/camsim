@@ -203,11 +203,10 @@ namespace camsim
 
   fvlam::MarkerObservation marker_observation_from(std::uint64_t id, const cv::FileNode &camera_f_images_node)
   {
-    fvlam::MarkerObservation::Derived cfi;
-    for (int r = 0; r < fvlam::MarkerObservation::Derived::MaxRowsAtCompileTime; r += 1)
-      for (int c = 0; c < fvlam::MarkerObservation::Derived::MaxColsAtCompileTime; c += 1) {
-        cfi(r, c) = camera_f_images_node[c][r];
-      }
+    fvlam::MarkerObservation::Array cfi;
+    for (int c = 0; c < fvlam::MarkerObservation::ArraySize; c += 1) {
+      cfi[c] = fvlam::Translate2{camera_f_images_node[c][0], camera_f_images_node[c][1]};
+    }
     return fvlam::MarkerObservation{id, cfi};
   }
 

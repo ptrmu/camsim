@@ -16,7 +16,7 @@ namespace fvlam
   {
   public:
     using CameraMatrix = Eigen::Matrix3d;
-    using DistCoeffs = Eigen::Matrix<double, 5, 1>;
+    using DistCoeffs = Eigen::Matrix<double, 5, 1>; // k1, k2, p1, p2 [, k3 [, k4, k5, k6]]
 
   private:
     std::uint32_t width_;
@@ -33,6 +33,13 @@ namespace fvlam
       width_{std::uint32_t(std::ceil(u0 * 2))}, height_{std::uint32_t(std::ceil(v0 * 2))},
       camera_matrix_{(CameraMatrix() << fx, s, u0, 0.0, fy, v0, 0.0, 0.0, 1.0).finished()},
       dist_coeffs_{DistCoeffs::Zero()}
+    {}
+
+    CameraInfo(double fx, double fy, double s, double u0, double v0,
+               double k1, double k2, double p1, double p2, double k3) :
+      width_{std::uint32_t(std::ceil(u0 * 2))}, height_{std::uint32_t(std::ceil(v0 * 2))},
+      camera_matrix_{(CameraMatrix() << fx, s, u0, 0.0, fy, v0, 0.0, 0.0, 1.0).finished()},
+      dist_coeffs_{(DistCoeffs() << k1, k2, p1, p2, k3).finished()}
     {}
 
     auto &width() const

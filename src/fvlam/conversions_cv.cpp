@@ -10,6 +10,11 @@
 
 namespace fvlam
 {
+
+// ==============================================================================
+// from fvlam/transform3_with_covariance.cpp
+// ==============================================================================
+
   template<>
   Translate3 Translate3::from<cv::Vec3d>(const cv::Vec3d &other)
   {
@@ -51,26 +56,30 @@ namespace fvlam
     return rvec;
   }
 
-  template<>
-  std::vector<cv::Point2d> MarkerObservation::to<std::vector<cv::Point2d>>() const
-  {
-    return std::vector<cv::Point2d>{
-      cv::Point2d{corners_f_image_(0, 0), corners_f_image_(1, 0)},
-      cv::Point2d{corners_f_image_(0, 1), corners_f_image_(1, 1)},
-      cv::Point2d{corners_f_image_(0, 2), corners_f_image_(1, 2)},
-      cv::Point2d{corners_f_image_(0, 3), corners_f_image_(1, 3)}
-    };
-  }
+// ==============================================================================
+// from fvlam/camera_info.cpp
+// ==============================================================================
+
+  using CvCameraCalibration = std::pair<cv::Matx33d, cv::Vec<double, 5>>;
 
   template<>
-  MarkerObservation MarkerObservation::from<std::vector<cv::Point2d>>(
-    std::uint64_t id, const std::vector<cv::Point2d> &cfi)
+  CvCameraCalibration CameraInfo::to<CvCameraCalibration>() const
   {
-    return MarkerObservation(id, (MarkerObservation::Derived()
-      <<
-      cfi[0].x, cfi[1].x, cfi[2].x, cfi[3].x,
-      cfi[0].y, cfi[1].y, cfi[2].y, cfi[3].y).finished());
+    cv::Matx33d cm{};
+    cv::Vec<double, 5> dc{};
+    for (int r = 0; r < 3; r += 1)
+      for (int c = 0; c < 3; c += 1) {
+        cm(r, c) = camera_matrix_(r, c);
+      }
+    for (int r = 0; r < DistCoeffs::MaxRowsAtCompileTime; r += 1) {
+      dc(r) = dist_coeffs_(r);
+    }
+    return CvCameraCalibration(cm, dc);
   }
+
+// ==============================================================================
+// from fvlam/marker_map.cpp
+// ==============================================================================
 
   template<>
   std::vector<cv::Point3d> Marker::to_corners_f_marker<std::vector<cv::Point3d>>(double marker_length)
@@ -96,22 +105,37 @@ namespace fvlam
     return corners_f_world;
   }
 
-  using CvCameraCalibration = std::pair<cv::Matx33d, cv::Vec<double, 5>>;
+// ==============================================================================
+// from fvlam/marker_observation.cpp
+// ==============================================================================
 
   template<>
-  CvCameraCalibration CameraInfo::to<CvCameraCalibration>() const
+  std::vector<cv::Point2d> MarkerObservation::to<std::vector<cv::Point2d>>() const
   {
-    cv::Matx33d cm{};
-    cv::Vec<double, 5> dc{};
-    for (int r = 0; r < 3; r += 1)
-      for (int c = 0; c < 3; c += 1) {
-        cm(r, c) = camera_matrix_(r, c);
-      }
-    for (int r = 0; r < DistCoeffs::MaxRowsAtCompileTime; r += 1) {
-      dc(r) = dist_coeffs_(r);
-    }
-    return CvCameraCalibration(cm, dc);
+    return std::vector<cv::Point2d>{
+      cv::Point2d{corners_f_image_[0].x(), corners_f_image_[0].y()},
+      cv::Point2d{corners_f_image_[1].x(), corners_f_image_[1].y()},
+      cv::Point2d{corners_f_image_[2].x(), corners_f_image_[2].y()},
+      cv::Point2d{corners_f_image_[3].x(), corners_f_image_[3].y()}
+    };
   }
+
+  template<>
+  MarkerObservation MarkerObservation::from<std::vector<cv::Point2d>>(
+    std::uint64_t id, const std::vector<cv::Point2d> &cfi)
+  {
+    return MarkerObservation(id, MarkerObservation::Array{
+      MarkerObservation::Element{cfi[0].x, cfi[0].y},
+      MarkerObservation::Element{cfi[1].x, cfi[1].y},
+      MarkerObservation::Element{cfi[2].x, cfi[2].y},
+      MarkerObservation::Element{cfi[3].x, cfi[3].y}
+    });
+  }
+
+// ==============================================================================
+// fvlam::Marker conversions that require MarkerObservation conversions so
+// have to be after those conversions in the file.
+// ==============================================================================
 
   template<>
   Marker::ProjectFunction Marker::project_t_world_marker<CvCameraCalibration>(
@@ -119,14 +143,21 @@ namespace fvlam
     const Transform3 &t_world_camera,
     double marker_length)
   {
+    // gtsam and OpencCv use different frames for their camera coordinates. Our default
+    // is the gtsam version os her we have to rotate the camera framw when using the
+    // opencv project function
+//    auto cv_t_world_camera = Transform3{Rotate3::RzRyRx(0.0, 0.0, 0.0), Translate3{}} * t_world_camera;
     return [
-      camera_matrix = camera_calibration.first,
-      dist_coeffs = camera_calibration.second,
-      rvec = t_world_camera.r().to<cv::Vec3d>(),
-      tvec = t_world_camera.t().to<cv::Vec3d>(),
+      camera_calibration,
+      t_world_camera,
       marker_length]
       (const Marker &marker) -> MarkerObservation
     {
+      auto camera_matrix = camera_calibration.first;
+      auto dist_coeffs = camera_calibration.second;
+      auto rvec = t_world_camera.r().to<cv::Vec3d>();
+      auto tvec = t_world_camera.t().to<cv::Vec3d>();
+
       std::vector<cv::Point2d> image_points;
       auto corners_f_world = marker.to_corners_f_world<std::vector<cv::Point3d>>(marker_length);
       cv::projectPoints(corners_f_world, rvec, tvec, camera_matrix, dist_coeffs, image_points);

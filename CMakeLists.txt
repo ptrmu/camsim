@@ -179,6 +179,7 @@ add_executable(sho_run
   src/fvlam/build_marker_map_shonan.cpp
   src/fvlam/transform_from_observation_cv.cpp
   src/fvlam/conversions_cv.cpp
+  src/fvlam/conversions_gtsam.cpp
   src/fvlam/to_string.cpp
   )
 

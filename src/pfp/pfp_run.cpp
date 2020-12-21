@@ -113,7 +113,7 @@ namespace camsim
   {
     // Create the world and body poses in the world frame
     gtsam::Pose3 t_world_world{};
-    gtsam::Pose3 t_world_body{gtsam::Rot3::RzRyRx(90. * degree, 0. * degree, 0. * degree), gtsam::Point3{}};
+    gtsam::Pose3 t_world_body{gtsam::Rot3::RzRyRx(90. * degree, 0. * degree, 0. * degree), gtsam::Point3::Zero()};
 
     gtsam::NonlinearFactorGraph graph;
     gtsam::Values initial;
@@ -160,7 +160,7 @@ namespace camsim
     auto p0_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector3{0.1, 0.1, 0.1});
     gtsam::Point3 p1{10., 10., 10.};
     auto p1_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector3{10., 1., 0.1});
-    gtsam::Pose3 t_world_body{gtsam::Rot3::RzRyRx(90. * degree, 0. * degree, 0. * degree), gtsam::Point3{}};
+    gtsam::Pose3 t_world_body{gtsam::Rot3::RzRyRx(90. * degree, 0. * degree, 0. * degree), gtsam::Point3::Zero()};
 
     std::cout << "Example of how multiple priors are combined." << std::endl;
     std::cout << "p0" << endl << PoseWithCovariance::to_row_str(p0.transpose()) << std::endl;

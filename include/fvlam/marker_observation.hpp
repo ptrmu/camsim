@@ -7,7 +7,7 @@
 
 #include <vector>
 
-#include <Eigen/Geometry>
+#include "fvlam/transform3_with_covariance.hpp"
 
 namespace fvlam
 {
@@ -18,18 +18,24 @@ namespace fvlam
   class MarkerObservation
   {
   public:
-    using Derived = Eigen::Matrix<double, 2, 4>;
-    using MuVector = Eigen::Matrix<double, Derived::MaxRowsAtCompileTime, 1>;
+    static constexpr size_t ArraySize = 4;
+    using Element = Translate2;
+    using Array = std::array<Element, ArraySize>;
+    using MuVector = Eigen::Matrix<double, Element::MuVector::MaxRowsAtCompileTime * ArraySize, 1>;
 
     // The id of the marker that we observed.
-    std::uint64_t id_{0};
+    std::uint64_t id_;
 
     // The four marker corners in the image frame.
     // origin = upper left, x -> left to right, y -> top to bottom
-    Derived corners_f_image_{Derived::Zero()};
+    Array corners_f_image_;
 
   public:
-    MarkerObservation(std::uint64_t id, Derived corners_f_image)
+    MarkerObservation() :
+      id_{0}, corners_f_image_{Translate2(), Translate2(), Translate2(), Translate2()}
+    {}
+
+    MarkerObservation(std::uint64_t id, Array corners_f_image)
       : id_(id), corners_f_image_(std::move(corners_f_image))
     {}
 
@@ -38,7 +44,10 @@ namespace fvlam
                       double x1, double y1,
                       double x2, double y2,
                       double x3, double y3)
-      : id_(id), corners_f_image_((Derived{} << x0, x1, x2, x3, y0, y1, y2, y3).finished())
+      : id_(id), corners_f_image_{Element{x0, y0},
+                                  Element{x1, y1},
+                                  Element{x2, y2},
+                                  Element{x3, y3}}
     {}
 
     auto id() const

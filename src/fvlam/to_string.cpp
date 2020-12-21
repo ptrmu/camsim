@@ -75,6 +75,21 @@ namespace fvlam
     return ss.str();
   }
 
+  static std::string to_id_str(const std::uint64_t id)
+  {
+    std::stringstream ss{};
+    ss.width(12);
+    ss << id;
+    return ss.str();
+  }
+
+// ==============================================================================
+// from fvlam/camera_info.hpp
+// ==============================================================================
+
+// ==============================================================================
+// from fvlam/marker_map.hpp
+// ==============================================================================
 
   std::string Marker::to_string() const
   {
@@ -88,10 +103,7 @@ namespace fvlam
 
   std::string Marker::to_id_string() const
   {
-    std::stringstream ss{};
-    ss.width(12);
-    ss << id_;
-    return ss.str();
+    return to_id_str(id_);
   }
 
   std::string Marker::to_corners_f_world_string(double marker_length) const
@@ -115,6 +127,36 @@ namespace fvlam
     }
 
     return ss.str();
+  }
+
+// ==============================================================================
+// from fvlam/marker_observations.hpp
+// ==============================================================================
+
+  std::string MarkerObservation::to_string() const
+  {
+    std::stringstream ss{};
+    NumFmt nf(9, 3);
+
+    ss << to_id_str(id_) << "  ";
+
+    for (int c = 0; c < MarkerObservation::ArraySize; c += 1) {
+      if (c != 0) {
+        ss << " ";
+      }
+      ss << "(" << nf(corners_f_image_[c].x()) << "," << nf(corners_f_image_[c].y()) << ")";
+    }
+
+    return ss.str();
+  }
+
+// ==============================================================================
+// from fvlam/transform3_with_covariance.hpp
+// ==============================================================================
+
+  std::string Translate2::to_string() const
+  {
+    return to_row_str(t_);
   }
 
   std::string Translate3::to_string() const

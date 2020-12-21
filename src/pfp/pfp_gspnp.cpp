@@ -73,7 +73,7 @@ namespace camsim
     ModelConfig model_config{[]() -> std::vector<gtsam::Pose3>
                              {
                                return std::vector<gtsam::Pose3>{gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI / 20, 0., 0.),
-                                                                             gtsam::Point3{}}};
+                                                                             gtsam::Point3::Zero()}};
                              },
                              PoseGens::CubeAlongZFacingOrigin{3, 2., 2.},
                              camsim::CameraTypes::simulation,

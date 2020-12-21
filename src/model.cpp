@@ -24,7 +24,7 @@ namespace camsim
     double delta_rotz = M_PI * 2 / n;
     for (int i = 0; i < n; i += 1) {
       auto rotz = delta_rotz * i;
-      pose_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0., 0., rotz), gtsam::Point3{}} * base);
+      pose_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0., 0., rotz), gtsam::Point3::Zero()} * base);
     }
     return pose_f_worlds;
   }
@@ -37,15 +37,15 @@ namespace camsim
 
   std::vector<gtsam::Pose3> PoseGens::SpinAboutZAtOriginFacingOut::operator()() const
   {
-    static gtsam::Pose3 base{gtsam::Rot3::RzRyRx(M_PI_2, 0., M_PI_2), gtsam::Point3{}};
+    static gtsam::Pose3 base{gtsam::Rot3::RzRyRx(M_PI_2, 0., M_PI_2), gtsam::Point3::Zero()};
     return rotate_around_z(n_, base);
   }
 
   std::vector<gtsam::Pose3> PoseGens::CircleInXYPlaneFacingAlongZ::operator()() const
   {
-    auto poses_in_circle = rotate_around_z(n_, gtsam::Pose3{gtsam::Rot3{},
+    auto poses_in_circle = rotate_around_z(n_, gtsam::Pose3{gtsam::Rot3::identity(),
                                                             gtsam::Point3{radius_, 0., 0.}});
-    auto rot = facing_z_plus_not_z_negative_ ? gtsam::Rot3{} : gtsam::Rot3::RzRyRx(M_PI, 0., M_PI_2);
+    auto rot = facing_z_plus_not_z_negative_ ? gtsam::Rot3::identity() : gtsam::Rot3::RzRyRx(M_PI, 0., M_PI_2);
     for (auto &pose : poses_in_circle) {
       pose = gtsam::Pose3{rot, gtsam::Point3{pose.translation().x(), pose.translation().y(), z_offset_}};
     }
@@ -350,11 +350,11 @@ namespace camsim
     std::cout << "Markers" << std::endl;
     for (auto &marker : markers_) {
       auto &corners = marker.corners_;
-      std::cout << PoseWithCovariance::to_str(marker.marker_f_world_) << " ";
-      std::cout << corners.corners_[0].point_f_world_.transpose()
-                << corners.corners_[1].point_f_world_.transpose()
-                << corners.corners_[2].point_f_world_.transpose()
-                << corners.corners_[3].point_f_world_.transpose() << std::endl;
+      std::cout << PoseWithCovariance::to_str(marker.marker_f_world_) << " (";
+      std::cout << corners.corners_[0].point_f_world_.transpose() << ") ("
+                << corners.corners_[1].point_f_world_.transpose() << ") ( "
+                << corners.corners_[2].point_f_world_.transpose() << ") ("
+                << corners.corners_[3].point_f_world_.transpose() << ")" << std::endl;
     }
   }
 
@@ -392,7 +392,7 @@ namespace camsim
 
     if (cfg.cameras_configuration_ == CamerasConfigurations::generator) {
       camera_f_worlds = cfg.camera_pose_generator_();
-      static gtsam::Pose3 base{gtsam::Rot3::RzRyRx(0., 0., M_PI), gtsam::Point3{}};
+      static gtsam::Pose3 base{gtsam::Rot3::RzRyRx(0., 0., M_PI), gtsam::Point3::Zero()};
       for (auto &camera_f_world : camera_f_worlds) {
         camera_f_world = camera_f_world * base;
       }
@@ -485,10 +485,10 @@ namespace camsim
     project_func_{gen_project_func(cfg_, calibration_)},
     cameras_{gen_cameras(cfg, calibration_)}
   {
-//    std::cout << "Cameras" << std::endl;
-//    for (auto &camera : cameras_) {
-//      std::cout << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
-//    }
+    std::cout << "Cameras" << std::endl;
+    for (auto &camera : cameras_) {
+      std::cout << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
+    }
   }
 
   gtsam::Cal3_S2 CamerasModel::get_Cal3_S2() const
