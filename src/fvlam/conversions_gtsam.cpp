@@ -100,27 +100,15 @@ namespace fvlam
 // ==============================================================================
 
   template<>
-  Marker::CornersMatrix Marker::to_corners_f_world<Marker::CornersMatrix>(double marker_length) const
-  {
-    return calc_corners_f_world(marker_length);
-  }
-
-  template<>
   std::vector<gtsam::Vector3> Marker::to_corners_f_world<std::vector<gtsam::Vector3>>(double marker_length) const
   {
-//    std::vector<gtsam::Vector3> corners_f_world;
-//    for (int i = 0; i < CornersMatrix::MaxColsAtCompileTime; i += 1) {
-//      corners_f_world.emplace_back()
-//    }
-//    return calc_corners_f_world(marker_length);
-
-    auto corners_f_marker = calc_corners_f_marker(marker_length);
-    std::vector<gtsam::Vector3> corners_f_world{};
-    for (int icol = 0; icol < CornersMatrix::ColsAtCompileTime; icol += 1) {
-      auto cfw = t_world_marker_.tf() * Translate3{corners_f_marker.col(icol)};
-      corners_f_world.emplace_back(gtsam::Vector3{cfw.t()(0), cfw.t()(1), cfw.t()(2)});
-    }
-    return corners_f_world;
+    auto corners_f_world = calc_corners3_f_world(marker_length);
+    return std::vector<gtsam::Vector3>{
+      gtsam::Vector3{corners_f_world[0].t()},
+      gtsam::Vector3{corners_f_world[1].t()},
+      gtsam::Vector3{corners_f_world[2].t()},
+      gtsam::Vector3{corners_f_world[3].t()}
+    };
   }
 
 // ==============================================================================

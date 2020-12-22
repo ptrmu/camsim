@@ -56,13 +56,13 @@ namespace fvlam
     auto &corners_f_image() const
     { return corners_f_image_; }
 
-    template<typename T>
+    template<class T>
     static MarkerObservation from(const T &other);
 
-    template<typename T>
+    template<class T>
     static MarkerObservation from(std::uint64_t id, const T &other);
 
-    template<typename T>
+    template<class T>
     T to() const;
 
     std::string to_string() const;

@@ -182,7 +182,7 @@ namespace camsim
 }
 
 
-#include "model.hpp"
+#include "../model.hpp"
 
 int sfm_run_resectioning()
 {

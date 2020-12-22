@@ -35,7 +35,7 @@ namespace fvlam
       dest.width(fmt.width_);
       if (fmt.set_) {
         fmt.set_ = false;
-        dest << (abs(fmt.val_) < 1.e-8 ? 0.0 : fmt.val_);
+        dest << (abs(fmt.val_) < 1.e-6 ? 0.0 : fmt.val_);
       }
       return dest;
     }
@@ -111,17 +111,17 @@ namespace fvlam
     std::stringstream ss{};
     NumFmt nf(9, 3);
 
-    auto corners_f_world = calc_corners_f_world(marker_length);
-    for (int c = 0; c < CornersMatrix::MaxColsAtCompileTime; c += 1) {
+    auto corners_f_world = calc_corners3_f_world(marker_length);
+    for (int c = 0; c < ArraySize; c += 1) {
       if (c != 0) {
         ss << " ";
       }
       ss << "(";
-      for (int r = 0; r < CornersMatrix::MaxRowsAtCompileTime; r += 1) {
+      for (int r = 0; r < Marker::Element3::MuVector::MaxRowsAtCompileTime; r += 1) {
         if (r != 0) {
           ss << " ";
         }
-        ss << nf(corners_f_world(r, c));
+        ss << nf(corners_f_world[c].t()(r));
       }
       ss << ")";
     }

@@ -49,10 +49,10 @@ namespace fvlam
     MuVector mu() const
     { return t_; }
 
-    template<typename T>
+    template<class T>
     static Translate2 from(const T &other);
 
-    template<typename T>
+    template<class T>
     T to() const;
 
     std::string to_string() const;
@@ -60,6 +60,11 @@ namespace fvlam
     Translate2 operator+(const Translate2 &other) const
     {
       return Translate2(t_ + other.t_);
+    }
+
+    Translate2 operator*(double factor) const
+    {
+      return Translate2(t_ * factor);
     }
   };
 
@@ -103,10 +108,10 @@ namespace fvlam
     MuVector mu() const
     { return t_; }
 
-    template<typename T>
+    template<class T>
     static Translate3 from(const T &other);
 
-    template<typename T>
+    template<class T>
     T to() const;
 
     std::string to_string() const;
@@ -125,6 +130,11 @@ namespace fvlam
     Translate3 operator+(const Translate3 &other) const
     {
       return Translate3(t_ + other.t_);
+    }
+
+    Translate3 operator*(double factor) const
+    {
+      return Translate3(t_ * factor);
     }
   };
 
@@ -169,10 +179,10 @@ namespace fvlam
     const auto &cov() const
     { return cov_; }
 
-    template<typename T>
+    template<class T>
     static Translate3WithCovariance from(const T &other);
 
-    template<typename T>
+    template<class T>
     T to() const;
 
     std::string to_string() const;
@@ -236,10 +246,10 @@ namespace fvlam
     MuVector mu() const
     { return xyz(); }
 
-    template<typename T>
+    template<class T>
     static Rotate3 from(const T &other);
 
-    template<typename T>
+    template<class T>
     T to() const;
 
     std::string to_string() const;
@@ -327,16 +337,16 @@ namespace fvlam
     MuVector mu() const
     { return (MuVector() << r_.mu(), t_.mu()).finished(); }
 
-    template<typename T>
+    template<class T>
     static Transform3 from(const T &other);
 
-    template<typename T>
+    template<class T>
     T to() const;
 
-    template<typename T>
+    template<class T>
     static CovarianceMatrix cov_from(const T &other);
 
-    template<typename T>
+    template<class T>
     static T cov_to(const CovarianceMatrix &cov);
 
     std::string to_string() const;
@@ -407,10 +417,10 @@ namespace fvlam
     const auto &cov() const
     { return cov_; }
 
-    template<typename T>
+    template<class T>
     static Transform3WithCovariance from(const T &other);
 
-    template<typename T>
+    template<class T>
     T to() const;
 
     std::string to_string() const;

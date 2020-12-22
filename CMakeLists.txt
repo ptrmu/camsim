@@ -86,14 +86,14 @@ target_link_libraries(pfm_run
 
 add_executable(sfm_run
   src/model.cpp
-  src/sfm_run.cpp
-  src/sfm_gtsam_example.cpp
-  src/sfm_gtsam_slam_example.cpp
-  src/sfm_resectioning.cpp
-  src/sfm_isam2_example.cpp
-  src/sfm_isam2.cpp
+  src/sfm/sfm_run.cpp
+  src/sfm/sfm_gtsam_example.cpp
+  src/sfm/sfm_gtsam_slam_example.cpp
+  src/sfm/sfm_resectioning.cpp
+  src/sfm/sfm_isam2_example.cpp
+  src/sfm/sfm_isam2.cpp
   src/pose_with_covariance.cpp
-  src/sfm_run_main.cpp
+  src/sfm/sfm_run_main.cpp
   )
 
 target_link_libraries(sfm_run
@@ -233,13 +233,13 @@ add_executable(camsim_test
 #  src/pfm_optimize_pose3.cpp
 #  src/pfm_resection_projection.cpp
 #  src/pfm_resection_monte_carlo.cpp
-#  src/test/sfm_test.cpp
-#  src/sfm_run.cpp
-#  src/sfm_gtsam_example.cpp
-#  src/sfm_gtsam_slam_example.cpp
-#  src/sfm_resectioning.cpp
-#  src/sfm_isam2_example.cpp
-#  src/sfm_isam2.cpp
+  src/test/sfm_test.cpp
+  src/sfm/sfm_run.cpp
+  src/sfm/sfm_gtsam_example.cpp
+  src/sfm/sfm_gtsam_slam_example.cpp
+  src/sfm/sfm_resectioning.cpp
+  src/sfm/sfm_isam2_example.cpp
+  src/sfm/sfm_isam2.cpp
   src/test/pfp_test.cpp
   src/pfp/pfp_run.cpp
   src/pfp/pfp_odometry_example_3d.cpp

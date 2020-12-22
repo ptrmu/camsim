@@ -1,4 +1,5 @@
 
+#include <gtsam/geometry/SimpleCamera.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/DoglegOptimizer.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>

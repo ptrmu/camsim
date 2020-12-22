@@ -9,7 +9,7 @@
 #include <gtsam/slam/PriorFactor.h>
 
 #include "sfm_isam2.hpp"
-#include "model.hpp"
+#include "../model.hpp"
 #include "sfm_resectioning.hpp"
 
 namespace camsim

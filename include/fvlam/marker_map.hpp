@@ -22,7 +22,13 @@ namespace fvlam
   class Marker
   {
   public:
-    using CornersMatrix = Eigen::Matrix<double, 3, 4>;
+    static constexpr size_t ArraySize = 4;
+    using Element2 = Translate2;
+    using Element3 = Translate3;
+    using Array2 = std::array<Element2, ArraySize>;
+    using Array3 = std::array<Element3, ArraySize>;
+    using Mu2Vector = Eigen::Matrix<double, Element2::MuVector::MaxRowsAtCompileTime * ArraySize, 1>;
+    using Mu3Vector = Eigen::Matrix<double, Element3::MuVector::MaxRowsAtCompileTime * ArraySize, 1>;
 
   private:
     // The id of the marker
@@ -34,25 +40,49 @@ namespace fvlam
     // Prevent modification if true
     bool is_fixed_{false};
 
-     inline static CornersMatrix unit_corners_f_marker()
+    inline static Array2 unit_corners2_f_marker()
     {
-      return (CornersMatrix() << -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0, 0, 0, 0).finished();
+      return Array2{Translate2{-1, 1},
+                    Translate2{1, 1},
+                    Translate2{1, -1},
+                    Translate2{-1, -1}};
     }
 
-    inline static CornersMatrix calc_corners_f_marker(double marker_length)
+    inline static Array3 unit_corners3_f_marker()
     {
-      return unit_corners_f_marker() * marker_length;
+      return Array3{Translate3{-1, 1, 0},
+                    Translate3{1, 1, 0},
+                    Translate3{1, -1, 0},
+                    Translate3{-1, -1, 0}};
     }
 
-    inline CornersMatrix calc_corners_f_world(double marker_length) const
+    inline static Array2 calc_corners2_f_marker(double marker_length)
     {
-      auto corners_f_marker = calc_corners_f_marker(marker_length);
-      return (CornersMatrix()
-        <<
-        (t_world_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 0)}).mu(),
-        (t_world_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 1)}).mu(),
-        (t_world_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 2)}).mu(),
-        (t_world_marker_.tf() * Translate3{corners_f_marker.block<3, 1>(0, 3)}).mu()).finished();
+      auto half_marker_length{marker_length / 2.0};
+      auto unit_corners2{unit_corners2_f_marker()};
+      return Array2{unit_corners2[0] * half_marker_length,
+                    unit_corners2[1] * half_marker_length,
+                    unit_corners2[2] * half_marker_length,
+                    unit_corners2[3] * half_marker_length};
+    }
+
+    inline static Array3 calc_corners3_f_marker(double marker_length)
+    {
+      auto half_marker_length{marker_length / 2.0};
+      auto unit_corners3{unit_corners3_f_marker()};
+      return Array3{unit_corners3[0] * half_marker_length,
+                    unit_corners3[1] * half_marker_length,
+                    unit_corners3[2] * half_marker_length,
+                    unit_corners3[3] * half_marker_length};
+    }
+
+    inline Array3 calc_corners3_f_world(double marker_length) const
+    {
+      auto corners_f_marker = calc_corners3_f_marker(marker_length);
+      return Array3{t_world_marker_.tf() * corners_f_marker[0],
+                    t_world_marker_.tf() * corners_f_marker[1],
+                    t_world_marker_.tf() * corners_f_marker[2],
+                    t_world_marker_.tf() * corners_f_marker[3]};
     }
 
   public:
@@ -74,40 +104,51 @@ namespace fvlam
     const auto &t_world_marker() const
     { return t_world_marker_; }
 
-    template<typename T>
+    template<class T>
     static Marker from(const T &other);
 
-    template<typename T>
+    template<class T>
     T to() const;
 
     std::string to_string() const; //
     std::string to_id_string() const; //
     std::string to_corners_f_world_string(double marker_length) const; //
 
-    template<typename T>
+    template<class T>
     T to_corners_f_world(double marker_length) const;
 
-    template<typename T>
+    template<class T>
     static T to_corners_f_marker(double marker_length);
 
     using ProjectFunction = std::function<MarkerObservation(const Marker &marker)>;
     using SolveFunction = std::function<Marker(const MarkerObservation &observation)>;
+    using SolveMarkerMarkerFunction = std::function<Transform3WithCovariance(const MarkerObservation &observation0,
+                                                                             const MarkerObservation &observation1)>;
 
-    template<typename TCameraCalibration>
+    template<class TCameraCalibration>
     static ProjectFunction project_t_world_marker(const TCameraCalibration &camera_calibration,
                                                   const Transform3 &t_world_camera,
                                                   double marker_length);
 
-    template<typename TCameraCalibration>
+    template<class TCameraCalibration>
     static ProjectFunction project_t_camera_marker(const TCameraCalibration &camera_calibration,
                                                    double marker_length)
     {
       return project_t_world_marker<TCameraCalibration>(camera_calibration, Transform3{}, marker_length);
     }
 
-    template<typename TCameraCalibration>
+    template<class TCameraCalibration>
     static SolveFunction solve_t_camera_marker(const TCameraCalibration &camera_calibration,
                                                double marker_length);
+
+    template<class TCameraCalibration>
+    static SolveFunction solve_t_world_marker(const TCameraCalibration &camera_calibration,
+                                              const Transform3 &t_world_camera,
+                                              double marker_length);
+
+    template<class TCameraCalibration>
+    static SolveMarkerMarkerFunction solve_t_marker0_marker1(const TCameraCalibration &camera_calibration,
+                                                             double marker_length);
   };
 
 // ==============================================================================
@@ -132,10 +173,10 @@ namespace fvlam
     auto marker_length() const
     { return marker_length_; }
 
-    template<typename T>
+    template<class T>
     static Translate3 from(const T &other);
 
-    template<typename T>
+    template<class T>
     T to() const;
 
     std::string to_string() const;

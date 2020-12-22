@@ -156,13 +156,13 @@ namespace camsim
       const gtsam::Matrix6 c_cov{marginals.marginalCovariance(gtsam::Symbol('c', camera_id))};
       std::cout << "c" << camera_id << std::endl
                 << PoseWithCovariance::to_str(c_pose)
-                << PoseWithCovariance::to_str(c_cov) << std::endl;
+                << PoseWithCovariance::to_matrix_str(c_cov, true) << std::endl;
       for (auto &camera_f_marker : camera_f_markers) {
         const auto m_pose{result.at<gtsam::Pose3>(gtsam::Symbol('m', camera_f_marker.id_))};
         const gtsam::Matrix6 m_cov{marginals.marginalCovariance(gtsam::Symbol('m', camera_f_marker.id_))};
         std::cout << "m" << camera_f_marker.id_ << std::endl
                   << PoseWithCovariance::to_str(m_pose)
-                  << PoseWithCovariance::to_str(m_cov) << std::endl;
+                  << PoseWithCovariance::to_matrix_str(m_cov, true) << std::endl;
       }
 
       // Save marker poses in the known marker array.
@@ -201,7 +201,7 @@ namespace camsim
   }
 }
 
-#include "model.hpp"
+#include "../model.hpp"
 
 camsim::PoseWithCovariance::StdVector sfm_run_isam2_camera_f_markers(
   camsim::Model &model,

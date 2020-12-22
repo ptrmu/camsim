@@ -602,7 +602,7 @@ namespace camsim
       REQUIRE(gtbigequal(result.calibration_.fx(), ccm.cameras_.calibration_.fx()));
       REQUIRE(gtbigequal(result.calibration_.fy(), ccm.cameras_.calibration_.fy()));
       REQUIRE(gtbigequal(result.calibration_.skew(), ccm.cameras_.calibration_.skew()));
-      REQUIRE(gtbigequal(result.calibration_.px(), ccm.cameras_.calibration_.px()));
+      REQUIRE(gtsam::assert_equal(result.calibration_.px(), ccm.cameras_.calibration_.px(), 5));
       REQUIRE(gtbigequal(result.calibration_.py(), ccm.cameras_.calibration_.py()));
       REQUIRE(gtlitequal(result.calibration_.k1(), ccm.cameras_.calibration_.k1()));
       REQUIRE(gtlitequal(result.calibration_.k2(), ccm.cameras_.calibration_.k2()));

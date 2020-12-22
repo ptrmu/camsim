@@ -1,13 +1,13 @@
 
 #include "catch2/catch.hpp"
 
-#include "../sfm_run.hpp"
-#include "../sfm_resectioning.hpp"
-#include "../sfm_isam2.hpp"
+#include "../sfm/sfm_run.hpp"
+#include "../sfm/sfm_resectioning.hpp"
+#include "../sfm/sfm_isam2.hpp"
 
 namespace camsim
 {
-#if 0
+#if 1
   TEST_CASE("sfm_gtsam_slam_example")
   {
     REQUIRE(sfm_gtsam_slam_example() == 0);

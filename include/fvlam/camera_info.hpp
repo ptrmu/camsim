@@ -54,10 +54,10 @@ namespace fvlam
     const auto &dist_coeffs() const
     { return dist_coeffs_; }
 
-    template<typename T>
+    template<class T>
     static CameraInfo from(const T &other);
 
-    template<typename T>
+    template<class T>
     T to() const;
 
     std::string to_string() const;

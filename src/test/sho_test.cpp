@@ -29,7 +29,7 @@ namespace fvlam
 namespace camsim
 {
 
-  const double degree = M_PI / 180;
+  const double degree = (M_PI / 180.0);
 
 #if 0
 
@@ -111,7 +111,7 @@ namespace camsim
               }
         }
   }
-
+#endif
 
 
   using CvCameraCalibration = std::pair<cv::Matx33d, cv::Vec<double, 5>>;
@@ -138,6 +138,42 @@ namespace camsim
     { return ps; };
   }
 
+  static auto master_marker_length = 0.1775;
+  static gtsam::Cal3DS2 master_cal3DS2{475, 475, 0, 400, 300, 0., 0.};
+//  static gtsam::Cal3DS2 master_cal3DS2{1, 1, 0, 400, 300, 0., 0.};
+
+  // Assuming world coordinate system is ENU
+  // Camera coordinate system is Left,down,forward (along camera axis)
+  static auto master_marker_pose_list = std::vector<fvlam::Transform3>{
+    fvlam::Transform3{0, 0, 0, 0, 0, 0},
+    fvlam::Transform3{0, 0, 0, 1, 0, 0},
+    fvlam::Transform3{0, 0, 0, 1, 1, 0},
+    fvlam::Transform3{0, 0, 0, 0, 1, 0},
+
+    fvlam::Transform3{1 * degree, 0, 0, 0, 0, 0},
+    fvlam::Transform3{1 * degree, 0, 0, 1, 1, 0},
+  };
+
+  static auto master_camera_pose_list = std::vector<fvlam::Transform3>{
+    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+
+    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
+
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+  };
+
+
+#if 0
   TEST_CASE("sho_test - Test Project function")
   {
 #if 0
@@ -165,8 +201,8 @@ namespace camsim
     };
 
 
-    ModelConfig model_config{pose_generator(marker_pose_list),
-                             pose_generator(camera_pose_list),
+    ModelConfig model_config{pose_generator(master_marker_pose_list),
+                             pose_generator(master_camera_pose_list),
                              camsim::CameraTypes::simulation,
                              0.1775};
 #endif
@@ -236,10 +272,6 @@ namespace camsim
       }
     }
   }
-#endif
-
-
-  using CvCameraCalibration = std::pair<cv::Matx33d, cv::Vec<double, 5>>;
 
   TEST_CASE("sho_test - Individual project test")
   {
@@ -293,6 +325,98 @@ namespace camsim
 
 //    do_test(camera_pose_list[0], marker_pose_list[0]);
     do_test(camera_pose_list[4], marker_pose_list[0]);
+  }
+#endif
+
+  TEST_CASE("sho_test - Solve cv_solve_t_world_marker test")
+  {
+    auto camera_calibration = fvlam::CameraInfo::from<gtsam::Cal3DS2>(master_cal3DS2);
+    auto cv_camera_calibration = camera_calibration.to<CvCameraCalibration>();
+    auto gtsam_camera_calibration = camera_calibration.to<gtsam::Cal3DS2>();
+
+    // Run some manual tests
+    auto do_test = [
+      &cv_camera_calibration,
+      &gtsam_camera_calibration](fvlam::Transform3 &camera_pose, fvlam::Transform3 &marker_pose)
+    {
+      auto cv_solve_t_world_marker_function = fvlam::Marker::solve_t_world_marker(
+        cv_camera_calibration,
+        camera_pose,
+        master_marker_length);
+
+      auto gtsam_project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
+        gtsam_camera_calibration,
+        camera_pose,
+        master_marker_length);
+
+//      std::cout << "camera pose  " << camera_pose.to_string()
+//                << "    marker pose  " << marker_pose.to_string() << std::endl;
+
+      auto f_marker = fvlam::Marker{0, fvlam::Transform3WithCovariance{marker_pose}};
+      auto gtsam_corners_f_image = gtsam_project_t_world_marker_function(f_marker);
+      auto cv_t_world_marker = cv_solve_t_world_marker_function(gtsam_corners_f_image);
+
+//      std::cout << "     marker pose " << marker_pose.to_string() << std::endl
+//                << "     calc pose   " << cv_t_world_marker.t_world_marker().tf().to_string() << std::endl;
+
+      REQUIRE(gtsam::assert_equal(f_marker.t_world_marker().tf().mu(),
+                                  cv_t_world_marker.t_world_marker().tf().mu(),
+                                  1.0e-6));
+    };
+
+    for (auto &camera_pose : master_camera_pose_list)
+      for (auto &marker_pose : master_marker_pose_list)
+        do_test(camera_pose, marker_pose);
+  }
+
+  TEST_CASE("sho_test - Solve cv_solve_t_marker0_marker1 test")
+  {
+    auto camera_calibration = fvlam::CameraInfo::from<gtsam::Cal3DS2>(master_cal3DS2);
+    auto cv_camera_calibration = camera_calibration.to<CvCameraCalibration>();
+    auto gtsam_camera_calibration = camera_calibration.to<gtsam::Cal3DS2>();
+
+    auto do_test = [
+      &cv_camera_calibration,
+      &gtsam_camera_calibration]
+      (fvlam::Transform3 &camera_f_world,
+       fvlam::Transform3 &marker0_f_world,
+       fvlam::Transform3 &marker1_f_world)
+    {
+//      std::cout << "camera pose  " << camera_f_world.to_string()
+//                << "    marker0 pose  " << marker0_f_world.to_string()
+//                << "    marker1 pose  " << marker1_f_world.to_string() << std::endl;
+
+      auto project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
+        gtsam_camera_calibration,
+        camera_f_world,
+        master_marker_length);
+
+      auto solve_t_marker0_marker1_function = fvlam::Marker::solve_t_marker0_marker1(
+        cv_camera_calibration,
+        master_marker_length);
+
+      fvlam::Marker marker0{0, fvlam::Transform3WithCovariance{marker0_f_world}};
+      fvlam::Marker marker1{0, fvlam::Transform3WithCovariance{marker1_f_world}};
+
+      auto observation0 = project_t_world_marker_function(marker0);
+      auto observation1 = project_t_world_marker_function(marker1);
+
+      auto actual_t_marker0_marker1 = solve_t_marker0_marker1_function(observation0, observation1);
+
+      auto expected_t_marker0_marker1 = marker0_f_world.inverse() * marker1_f_world;
+
+//      std::cout << "     expected t_marker0_marker1 " << expected_t_marker0_marker1.to_string() << std::endl
+//                << "     actual t_marker0_marker1   " << actual_t_marker0_marker1.tf().to_string() << std::endl;
+
+      REQUIRE(gtsam::assert_equal(expected_t_marker0_marker1.mu(),
+                                  actual_t_marker0_marker1.tf().mu(),
+                                  1.0e-6));
+    };
+
+    for (auto m0 = 0; m0 < master_marker_pose_list.size(); m0 += 1)
+      for (auto m1 = m0 + 1; m1 < master_marker_pose_list.size(); m1 += 1)
+        for (auto &camera_pose : master_camera_pose_list)
+          do_test(camera_pose, master_marker_pose_list[m0], master_marker_pose_list[m1]);
   }
 }
 

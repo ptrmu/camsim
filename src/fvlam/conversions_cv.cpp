@@ -84,25 +84,25 @@ namespace fvlam
   template<>
   std::vector<cv::Point3d> Marker::to_corners_f_marker<std::vector<cv::Point3d>>(double marker_length)
   {
-    auto corners_f_marker = calc_corners_f_marker(marker_length);
+    auto corners_f_marker = calc_corners3_f_marker(marker_length);
     return std::vector<cv::Point3d>{
-      cv::Point3d{corners_f_marker(0, 0), corners_f_marker(1, 0), corners_f_marker(2, 0)},
-      cv::Point3d{corners_f_marker(0, 1), corners_f_marker(1, 1), corners_f_marker(2, 1)},
-      cv::Point3d{corners_f_marker(0, 2), corners_f_marker(1, 2), corners_f_marker(2, 2)},
-      cv::Point3d{corners_f_marker(0, 3), corners_f_marker(1, 3), corners_f_marker(2, 3)}
+      cv::Point3d{corners_f_marker[0].t()(0), corners_f_marker[0].t()(1), corners_f_marker[2].t()(2)},
+      cv::Point3d{corners_f_marker[1].t()(0), corners_f_marker[1].t()(1), corners_f_marker[2].t()(2)},
+      cv::Point3d{corners_f_marker[2].t()(0), corners_f_marker[2].t()(1), corners_f_marker[2].t()(2)},
+      cv::Point3d{corners_f_marker[3].t()(0), corners_f_marker[3].t()(1), corners_f_marker[2].t()(2)}
     };
   }
 
   template<>
   std::vector<cv::Point3d> Marker::to_corners_f_world<std::vector<cv::Point3d>>(double marker_length) const
   {
-    auto corners_f_marker = calc_corners_f_marker(marker_length);
-    std::vector<cv::Point3d> corners_f_world{};
-    for (int icol = 0; icol < CornersMatrix::ColsAtCompileTime; icol += 1) {
-      auto cfw = t_world_marker_.tf() * Translate3{corners_f_marker.col(icol)};
-      corners_f_world.emplace_back(cv::Point3d{cfw.t()(0), cfw.t()(1), cfw.t()(2)});
-    }
-    return corners_f_world;
+    auto corners_f_world = calc_corners3_f_world(marker_length);
+    return std::vector<cv::Point3d>{
+      cv::Point3d{corners_f_world[0].t()(0), corners_f_world[0].t()(1), corners_f_world[2].t()(2)},
+      cv::Point3d{corners_f_world[1].t()(0), corners_f_world[1].t()(1), corners_f_world[2].t()(2)},
+      cv::Point3d{corners_f_world[2].t()(0), corners_f_world[2].t()(1), corners_f_world[2].t()(2)},
+      cv::Point3d{corners_f_world[3].t()(0), corners_f_world[3].t()(1), corners_f_world[2].t()(2)}
+    };
   }
 
 // ==============================================================================
@@ -190,6 +190,44 @@ namespace fvlam
       // So rvec, tvec are the transformation t_camera_marker.
       return Marker{marker_observation.id(),
                     Transform3WithCovariance(Transform3(Rotate3::from(rvec), Translate3::from(tvec)))};
+    };
+  }
+
+  template<>
+  Marker::SolveFunction Marker::solve_t_world_marker<CvCameraCalibration>(
+    const CvCameraCalibration &camera_calibration,
+    const Transform3 &t_world_camera,
+    double marker_length)
+  {
+    auto solve_t_camera_marker_function = solve_t_camera_marker<CvCameraCalibration>(camera_calibration,
+                                                                                     marker_length);
+    return [
+      solve_t_camera_marker_function,
+      t_world_camera]
+      (const MarkerObservation &marker_observation) -> Marker
+    {
+      auto t_camera_marker = solve_t_camera_marker_function(marker_observation);
+      return Marker{marker_observation.id(),
+                    Transform3WithCovariance{t_world_camera * t_camera_marker.t_world_marker().tf()}};
+    };
+  }
+
+  template<>
+  Marker::SolveMarkerMarkerFunction Marker::solve_t_marker0_marker1<CvCameraCalibration>(
+    const CvCameraCalibration &camera_calibration,
+    double marker_length)
+  {
+    auto solve_t_camera_marker_function = solve_t_camera_marker<CvCameraCalibration>(camera_calibration,
+                                                                                     marker_length);
+    return [
+      solve_t_camera_marker_function,
+      marker_length]
+      (const MarkerObservation &marker_observation0,
+       const MarkerObservation &marker_observation1) -> Transform3WithCovariance
+    {
+      auto t_camera_marker0 = solve_t_camera_marker_function(marker_observation0).t_world_marker().tf();
+      auto t_camera_marker1 = solve_t_camera_marker_function(marker_observation1).t_world_marker().tf();
+      return Transform3WithCovariance{t_camera_marker0.inverse() * t_camera_marker1};
     };
   }
 }
