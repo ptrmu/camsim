@@ -1,8 +1,8 @@
 
 #include "catch2/catch.hpp"
 
-#include "../map_run.hpp"
-#include "../map_solver_runner.hpp"
+#include "../map/map_run.hpp"
+#include "../map/map_solver_runner.hpp"
 #include "../model.hpp"
 
 namespace camsim

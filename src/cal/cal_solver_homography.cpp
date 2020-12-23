@@ -2,7 +2,7 @@
 
 #include "cal_run.hpp"
 #include "cal_solver_runner.hpp"
-#include "calibration_model.hpp"
+#include "../calibration_model.hpp"
 #include "opencv2/opencv.hpp"
 #include "opencv2/calib3d.hpp"
 

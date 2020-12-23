@@ -10,6 +10,7 @@
 
 namespace fvlam
 {
+#if 0
   class TransformFromObservationSolvePnp : public TransformFromObservationInterface
   {
     double marker_length_;
@@ -56,5 +57,5 @@ namespace fvlam
   {
     return std::make_unique<TransformFromObservationSolvePnp>(marker_length);
   }
-
+#endif
 }

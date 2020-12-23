@@ -104,7 +104,7 @@ namespace camsim
     fvlam::Transform3 m0_f_w{r_m0_f_w, m0_f_w_translate};
     fvlam::Transform3 m1_f_w{r_m1_f_w, m1_f_w_translate};
 
-    auto sigma_value = 0.01;
+    auto sigma_value = 0.1;
 
     fvlam::Rotate3 r_m0_f_c0 = r_c0_f_w.inverse() * r_m0_f_w;
     fvlam::Rotate3 r_m1_f_c0 = r_c0_f_w.inverse() * r_m1_f_w;
@@ -136,6 +136,10 @@ namespace camsim
     auto shonan_initial = shonan.initializeRandomly();
     auto result = shonan.run(shonan_initial);
     std::cout << "error of Shonan Averaging " << result.second << std::endl;
+
+    std::cout << "r_c0_f_w_calc  " << fvlam::Rotate3::from(result.first.at<gtsam::Rot3>(0)).to_string() << std::endl;
+    std::cout << "r_m0_f_w_calc  " << fvlam::Rotate3::from(result.first.at<gtsam::Rot3>(1)).to_string() << std::endl;
+    std::cout << "r_m1_f_w_calc  " << fvlam::Rotate3::from(result.first.at<gtsam::Rot3>(2)).to_string() << std::endl;
 
     // Prepare to find the translations.
     gtsam::NonlinearFactorGraph graph;

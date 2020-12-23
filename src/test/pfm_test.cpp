@@ -1,7 +1,7 @@
 
 #include "catch2/catch.hpp"
 
-#include "../pfm_run.hpp"
+#include "../pfm/pfm_run.hpp"
 
 namespace camsim
 {

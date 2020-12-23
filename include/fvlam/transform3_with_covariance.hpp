@@ -309,6 +309,10 @@ namespace fvlam
       id_{id}, r_(std::move(r)), t_(std::move(t))
     {}
 
+    Transform3(std::uint64_t id, Transform3 tf) :
+      id_{id}, r_(std::move(tf.r_)), t_(std::move(tf.t_))
+    {}
+
     Transform3(double rx, double ry, double rz, double tx, double ty, double tz) :
       id_{0}, r_{Rotate3::RzRyRx(rx, ry, rz)}, t_(Translate3{tx, ty, tz})
     {}

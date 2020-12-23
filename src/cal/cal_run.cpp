@@ -3,8 +3,8 @@
 
 #include "cal_run.hpp"
 
-#include "calibration_model.hpp"
-#include "model.hpp"
+#include "../calibration_model.hpp"
+#include "../model.hpp"
 #include "cal_solver_runner.hpp"
 
 namespace camsim

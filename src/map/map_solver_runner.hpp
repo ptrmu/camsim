@@ -2,8 +2,8 @@
 #ifndef _MAP_SOLVER_RUNNER_HPP
 #define _MAP_SOLVER_RUNNER_HPP
 
-#include "model.hpp"
-#include "pose_with_covariance.hpp"
+#include "../model.hpp"
+#include "../pose_with_covariance.hpp"
 
 #define ENABLE_TIMING
 
@@ -148,7 +148,7 @@ namespace camsim
                 << " std: " << PoseWithCovariance::to_stddev_str(pose_f_world.cov_)
                 << std::endl;
       if (print_covariance_) {
-        std::cout << PoseWithCovariance::to_str(pose_f_world.cov_) << std::endl;
+        std::cout << PoseWithCovariance::to_matrix_str(pose_f_world.cov_, true) << std::endl;
       }
     }
 

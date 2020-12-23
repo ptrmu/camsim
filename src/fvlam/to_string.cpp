@@ -150,6 +150,27 @@ namespace fvlam
     return ss.str();
   }
 
+  std::string MarkerMap::to_string() const
+  {
+    std::stringstream ss{};
+
+    // get the sorted keys.
+    std::vector<decltype(markers_)::key_type> keys{};
+    for (auto it = markers_.begin(); it != markers_.end(); ++it) {
+      keys.emplace_back(it->first);
+    }
+    std::sort(keys.begin(), keys.end());
+
+    for (auto &key : keys) {
+      auto f = markers_.find(key);
+      if (f != markers_.end()) {
+        ss << f->second.to_string();
+      }
+    }
+
+    return ss.str();
+  }
+
 // ==============================================================================
 // from fvlam/transform3_with_covariance.hpp
 // ==============================================================================

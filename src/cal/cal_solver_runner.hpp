@@ -2,8 +2,8 @@
 #ifndef _CAL_SOLVER_RUNNER_HPP
 #define _CAL_SOLVER_RUNNER_HPP
 
-#include "calibration_model.hpp"
-#include "pose_with_covariance.hpp"
+#include "../calibration_model.hpp"
+#include "../pose_with_covariance.hpp"
 
 #define ENABLE_TIMING
 

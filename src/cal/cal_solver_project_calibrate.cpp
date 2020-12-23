@@ -2,7 +2,7 @@
 
 #include "cal_run.hpp"
 #include "cal_solver_runner.hpp"
-#include "calibration_model.hpp"
+#include "../calibration_model.hpp"
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/PinholeCamera.h>
 #include <gtsam/nonlinear/DoglegOptimizer.h>

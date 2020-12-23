@@ -107,13 +107,15 @@ namespace camsim
     marker_spacing_{gen_marker_spacing(markers_configuration, marker_size_)},
     camera_spacing_{gen_camera_spacing(cameras_configuration, marker_spacing_)},
     marker_pose_generator_{PoseGens::Noop{}},
-    camera_pose_generator_{PoseGens::Noop{}}
+    camera_pose_generator_{PoseGens::Noop{}},
+    do_not_rotate_cameras_{false}
   {}
 
   ModelConfig::ModelConfig(PoseGenerator marker_pose_generator,
                            PoseGenerator camera_pose_generator,
                            CameraTypes camera_type,
-                           double marker_size) :
+                           double marker_size,
+                           bool do_not_rotate_cameras) :
     markers_configuration_{MarkersConfigurations::generator},
     cameras_configuration_{CamerasConfigurations::generator},
     camera_type_{camera_type},
@@ -122,7 +124,8 @@ namespace camsim
     marker_spacing_{0.},
     camera_spacing_{0.},
     marker_pose_generator_{std::move(marker_pose_generator)},
-    camera_pose_generator_{std::move(camera_pose_generator)}
+    camera_pose_generator_{std::move(camera_pose_generator)},
+    do_not_rotate_cameras_{do_not_rotate_cameras}
   {}
 
   ModelConfig::ModelConfig(PoseGenerator marker_pose_generator,
@@ -136,7 +139,8 @@ namespace camsim
     marker_spacing_{0.},
     camera_spacing_{0.},
     marker_pose_generator_{std::move(marker_pose_generator)},
-    camera_pose_generator_{std::move(camera_pose_generator)}
+    camera_pose_generator_{std::move(camera_pose_generator)},
+    do_not_rotate_cameras_{false}
   {}
 
   std::size_t CornerModel::index() const
@@ -393,8 +397,10 @@ namespace camsim
     if (cfg.cameras_configuration_ == CamerasConfigurations::generator) {
       camera_f_worlds = cfg.camera_pose_generator_();
       static gtsam::Pose3 base{gtsam::Rot3::RzRyRx(0., 0., M_PI), gtsam::Point3::Zero()};
-      for (auto &camera_f_world : camera_f_worlds) {
-        camera_f_world = camera_f_world * base;
+      if (!cfg.do_not_rotate_cameras_) {
+        for (auto &camera_f_world : camera_f_worlds) {
+          camera_f_world = camera_f_world * base;
+        }
       }
 
     } else if (cfg.cameras_configuration_ == CamerasConfigurations::z2_facing_origin) {

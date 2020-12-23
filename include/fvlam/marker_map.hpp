@@ -185,7 +185,10 @@ namespace fvlam
 
     const Marker *find_marker_const(std::uint64_t id) const;
 
-    void add_marker(Marker marker);
+    void add_marker(Marker marker)
+    {
+      markers_.emplace(marker.id(), std::move(marker));
+    }
   };
 }
 #endif //FVLAM_MARKER_MAP_HPP

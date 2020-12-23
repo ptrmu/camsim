@@ -3,8 +3,8 @@
 
 
 #include <gtsam/geometry/Cal3_S2.h>
-#include "model.hpp"
-#include "pose_with_covariance.hpp"
+#include "../model.hpp"
+#include "../pose_with_covariance.hpp"
 
 namespace camsim
 {
@@ -30,7 +30,7 @@ namespace camsim
 
     std::cout << "gtsam_camera_f_world" << std::endl
               << PoseWithCovariance::to_str(gtsam_camera_f_world) << std::endl
-              << PoseWithCovariance::to_str(gtsam_camera_f_world_covariance) << std::endl;
+              << PoseWithCovariance::to_matrix_str(gtsam_camera_f_world_covariance, true) << std::endl;
 
     // Get projection results
     gtsam::Pose3 projection_camera_f_world;
@@ -45,7 +45,7 @@ namespace camsim
 
     std::cout << "projection_camera_f_world" << std::endl
               << PoseWithCovariance::to_str(projection_camera_f_world) << std::endl
-              << PoseWithCovariance::to_str(projection_camera_f_world_covariance) << std::endl;
+              << PoseWithCovariance::to_matrix_str(projection_camera_f_world_covariance, true) << std::endl;
 
     // Get opencv results
     gtsam::Pose3 opencv_camera_f_marker;
@@ -60,7 +60,7 @@ namespace camsim
 
     std::cout << "opencv_camera_f_world" << std::endl
               << PoseWithCovariance::to_str(opencv_camera_f_marker) << std::endl
-              << PoseWithCovariance::to_str(opencv_camera_f_marker_covariance) << std::endl;
+              << PoseWithCovariance::to_matrix_str(opencv_camera_f_marker_covariance, true) << std::endl;
 
     // Get monte carlo results
     gtsam::Pose3 monte_carlo_camera_f_marker;
@@ -75,7 +75,7 @@ namespace camsim
 
     std::cout << "monte_carlo_camera_f_world" << std::endl
               << PoseWithCovariance::to_str(monte_carlo_camera_f_marker) << std::endl
-              << PoseWithCovariance::to_str(monte_carlo_camera_f_marker_covariance) << std::endl;
+              << PoseWithCovariance::to_matrix_str(monte_carlo_camera_f_marker_covariance, true) << std::endl;
 
     std::cout << std::endl;
   }

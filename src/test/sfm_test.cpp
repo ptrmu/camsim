@@ -7,7 +7,7 @@
 
 namespace camsim
 {
-#if 1
+#if 0
   TEST_CASE("sfm_gtsam_slam_example")
   {
     REQUIRE(sfm_gtsam_slam_example() == 0);

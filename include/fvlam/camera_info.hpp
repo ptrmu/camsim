@@ -25,6 +25,10 @@ namespace fvlam
     DistCoeffs dist_coeffs_;
 
   public:
+    CameraInfo() :
+      width_{0}, height_{0}, camera_matrix_{CameraMatrix::Identity()}, dist_coeffs_{DistCoeffs::Zero()}
+    {}
+
     CameraInfo(std::uint32_t width, std::uint32_t height, CameraMatrix camera_matrix, DistCoeffs dist_coeffs) :
       width_{width}, height_{height}, camera_matrix_{std::move(camera_matrix)}, dist_coeffs_{std::move(dist_coeffs)}
     {}

@@ -1,7 +1,7 @@
 
 #include "catch2/catch.hpp"
-#include "../cal_run.hpp"
-#include "../cal_solver_runner.hpp"
+#include "../cal/cal_run.hpp"
+#include "../cal/cal_solver_runner.hpp"
 #include "../calibration_model.hpp"
 #include "../model.hpp"
 

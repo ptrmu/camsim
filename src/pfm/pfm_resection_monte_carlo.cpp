@@ -1,6 +1,6 @@
 
 #include "pfm_run.hpp"
-#include "pose_with_covariance.hpp"
+#include "../pose_with_covariance.hpp"
 #include <random>
 
 namespace camsim

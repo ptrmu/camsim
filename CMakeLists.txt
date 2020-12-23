@@ -62,15 +62,15 @@ target_link_libraries(camsim
 
 add_executable(pfm_run
   src/model.cpp
-  src/pfm_run.cpp
-  src/pfm_resection_gtsam.cpp
-  src/pfm_resection_opencv.cpp
-  src/pfm_simple_rotation_example.cpp
-  src/pfm_optimize_pose3.cpp
+  src/pfm/pfm_run.cpp
+  src/pfm/pfm_resection_gtsam.cpp
+  src/pfm/pfm_resection_opencv.cpp
+  src/pfm/pfm_simple_rotation_example.cpp
+  src/pfm/pfm_optimize_pose3.cpp
   src/pose_with_covariance.cpp
-  src/pfm_resection_projection.cpp
-  src/pfm_resection_monte_carlo.cpp
-  src/pfm_run_main.cpp
+  src/pfm/pfm_resection_projection.cpp
+  src/pfm/pfm_resection_monte_carlo.cpp
+  src/pfm/pfm_run_main.cpp
   )
 
 target_link_libraries(pfm_run
@@ -130,12 +130,12 @@ target_link_libraries(pfp_run
 #  )
 
 add_executable(map_run
-  src/map_run.cpp
-  src/map_global.cpp
+  src/map/map_run.cpp
+  src/map/map_global.cpp
   src/model.cpp
   src/pose_with_covariance.cpp
-  src/map_solver_marker_marker.cpp
-  src/map_solver_project_between.cpp
+  src/map/map_solver_marker_marker.cpp
+  src/map/map_solver_project_between.cpp
   )
 
 target_link_libraries(map_run
@@ -152,15 +152,15 @@ target_link_libraries(map_run
 
 
 add_executable(cal_run
-  src/cal_run.cpp
+  src/cal/cal_run.cpp
   src/model.cpp
   src/pose_with_covariance.cpp
-  src/cal_run_main.cpp
+  src/cal/cal_run_main.cpp
   src/calibration_model.cpp
-  src/cal_solver_opencv.cpp
-  src/cal_solver_runner.cpp
-  src/cal_solver_project_calibrate.cpp
-  src/cal_solver_homography.cpp
+  src/cal/cal_solver_opencv.cpp
+  src/cal/cal_solver_runner.cpp
+  src/cal/cal_solver_project_calibrate.cpp
+  src/cal/cal_solver_homography.cpp
   )
 
 target_link_libraries(cal_run
@@ -181,6 +181,7 @@ add_executable(sho_run
   src/fvlam/conversions_cv.cpp
   src/fvlam/conversions_gtsam.cpp
   src/fvlam/to_string.cpp
+  src/build_marker_map_runner.cpp
   )
 
 target_link_libraries(sho_run
@@ -191,13 +192,13 @@ target_link_libraries(sho_run
 
 
 add_executable(kal_run
-  src/kal_run.cpp
-  src/kal_run_main.cpp
+  src/kal/kal_run.cpp
+  src/kal/kal_run_main.cpp
 #    src/vtk_line_plot.cpp
 #    src/vtk_rand_dist.cpp
 #    src/vtk_multi_plot.cpp
-  src/kal_opencv_filter.cpp
-  src/kal_kalman_filter_x.cpp
+  src/kal/kal_opencv_filter.cpp
+  src/kal/kal_kalman_filter_x.cpp
 )
 
 target_link_libraries(kal_run
@@ -222,17 +223,17 @@ add_executable(camsim_test
   src/model.cpp
   src/gtsam_resection.cpp
   src/opencv_resection.cpp
-#  src/test/map_test.cpp
-#  src/map_solver_marker_marker.cpp
-#  src/map_solver_project_between.cpp
-#  src/test/pfm_test.cpp
-#  src/pfm_run.cpp
-#  src/pfm_resection_gtsam.cpp
-#  src/pfm_resection_opencv.cpp
-#  src/pfm_simple_rotation_example.cpp
-#  src/pfm_optimize_pose3.cpp
-#  src/pfm_resection_projection.cpp
-#  src/pfm_resection_monte_carlo.cpp
+  src/test/map_test.cpp
+  src/map/map_solver_marker_marker.cpp
+  src/map/map_solver_project_between.cpp
+  src/test/pfm_test.cpp
+  src/pfm/pfm_run.cpp
+  src/pfm/pfm_resection_gtsam.cpp
+  src/pfm/pfm_resection_opencv.cpp
+  src/pfm/pfm_simple_rotation_example.cpp
+  src/pfm/pfm_optimize_pose3.cpp
+  src/pfm/pfm_resection_projection.cpp
+  src/pfm/pfm_resection_monte_carlo.cpp
   src/test/sfm_test.cpp
   src/sfm/sfm_run.cpp
   src/sfm/sfm_gtsam_example.cpp
@@ -248,10 +249,10 @@ add_executable(camsim_test
   src/pfp/pfp_gspnp.cpp
   src/calibration_model.cpp
   src/test/cal_test.cpp
-  src/cal_solver_opencv.cpp
-  src/cal_solver_runner.cpp
-  src/cal_solver_project_calibrate.cpp
-  src/cal_solver_homography.cpp
+  src/cal/cal_solver_opencv.cpp
+  src/cal/cal_solver_runner.cpp
+  src/cal/cal_solver_project_calibrate.cpp
+  src/cal/cal_solver_homography.cpp
   src/test/sho_test.cpp
   src/sho/sho_run.cpp
   src/sho/sho_inter_marker_rotation.cpp
@@ -261,6 +262,7 @@ add_executable(camsim_test
   src/fvlam/conversions_cv.cpp
   src/fvlam/conversions_gtsam.cpp 
   src/fvlam/to_string.cpp
+  src/build_marker_map_runner.cpp
   )
 
 

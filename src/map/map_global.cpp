@@ -2,7 +2,7 @@
 
 #include "map_run.hpp"
 #include "map_solver_runner.hpp"
-#include "task_thread.hpp"
+#include "../task_thread.hpp"
 
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/PinholeCamera.h>

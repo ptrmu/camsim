@@ -173,6 +173,7 @@ namespace camsim
     const double camera_spacing_;
     const PoseGenerator marker_pose_generator_;
     const PoseGenerator camera_pose_generator_;
+    const bool do_not_rotate_cameras_;
 
     ModelConfig(MarkersConfigurations markers_configuration,
                 CamerasConfigurations cameras_configuration,
@@ -181,7 +182,8 @@ namespace camsim
     ModelConfig(PoseGenerator marker_pose_generator,
                 PoseGenerator camera_pose_generator,
                 CameraTypes camera_type,
-                double marker_size);
+                double marker_size,
+                bool do_not_rotate_cameras = false);
 
     ModelConfig(PoseGenerator marker_pose_generator,
                 PoseGenerator camera_pose_generator,
