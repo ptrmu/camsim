@@ -7,6 +7,7 @@
 
 #include <gtsam/slam/dataset.h>
 #include <gtsam/slam/InitializePose.h>
+#include <gtsam/nonlinear/GaussNewtonOptimizer.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/sfm/ShonanAveraging.h>
 

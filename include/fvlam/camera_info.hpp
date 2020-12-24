@@ -6,6 +6,15 @@
 
 #include <Eigen/Geometry>
 
+// Used for specializing the from/to methods on CameraInfo
+namespace cv
+{
+  template<typename T, int M, int N>
+  class Matx;
+  template <typename T, int N>
+  class Vec;
+}
+
 namespace fvlam
 {
 // ==============================================================================
@@ -66,6 +75,8 @@ namespace fvlam
 
     std::string to_string() const;
   };
-}
 
+// Used for specializing the from/to methods on CameraInfo
+  using CvCameraCalibration = std::pair<cv::Matx<double, 3, 3>, cv::Vec<double, 5>>;
+}
 #endif //FVLAM_CAMERA_INFO_HPP

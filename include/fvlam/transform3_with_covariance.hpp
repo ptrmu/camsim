@@ -353,7 +353,7 @@ namespace fvlam
     template<class T>
     static T cov_to(const CovarianceMatrix &cov);
 
-    std::string to_string() const;
+    std::string to_string(bool also_id = false) const;
 
     static std::string to_cov_string(const CovarianceMatrix &cov);
 
@@ -420,6 +420,9 @@ namespace fvlam
 
     const auto &cov() const
     { return cov_; }
+
+    auto id() const
+    { return tf_.id(); }
 
     template<class T>
     static Transform3WithCovariance from(const T &other);

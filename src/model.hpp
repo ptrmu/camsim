@@ -168,7 +168,7 @@ namespace camsim
     const CamerasConfigurations cameras_configuration_;
     const CameraTypes camera_type_;
     const gtsam::Cal3DS2 cal3ds2_;
-    const double marker_size_;
+    const double marker_length_;
     const double marker_spacing_;
     const double camera_spacing_;
     const PoseGenerator marker_pose_generator_;
@@ -182,7 +182,7 @@ namespace camsim
     ModelConfig(PoseGenerator marker_pose_generator,
                 PoseGenerator camera_pose_generator,
                 CameraTypes camera_type,
-                double marker_size,
+                double marker_length,
                 bool do_not_rotate_cameras = false);
 
     ModelConfig(PoseGenerator marker_pose_generator,

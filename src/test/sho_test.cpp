@@ -16,35 +16,10 @@
 #include "../../src/build_marker_map_runner.hpp"
 #include "../../src/model.hpp"
 
-namespace fvlam
-{
-
-  template<>
-  Transform3 Transform3::from<camsim::CameraModel>(const camsim::CameraModel &other)
-  {
-    return Transform3::from<gtsam::Pose3>(other.camera_f_world_);
-  }
-
-  template<>
-  Transform3 Transform3::from<camsim::MarkerModel>(const camsim::MarkerModel &other)
-  {
-    return Transform3::from<gtsam::Pose3>(other.marker_f_world_);
-  }
-
-  template<>
-  Marker Marker::from<camsim::MarkerModel>(const camsim::MarkerModel &other)
-  {
-    return Marker{other.key_, fvlam::Transform3WithCovariance{Transform3::from(other)}};
-  }
-}
-
 namespace camsim
 {
 
   const double degree = (M_PI / 180.0);
-
-
-  using CvCameraCalibration = std::pair<cv::Matx33d, cv::Vec<double, 5>>;
 
   struct TestParams
   {
@@ -77,29 +52,29 @@ namespace camsim
   static auto master_marker_pose_list = std::vector<fvlam::Transform3>{
     fvlam::Transform3{0, 0, 0, 0, 0, 0},
     fvlam::Transform3{0, 0, 0, 1, 0, 0},
-    fvlam::Transform3{0, 0, 0, 1, 1, 0},
-    fvlam::Transform3{0, 0, 0, 0, 1, 0},
+//    fvlam::Transform3{0, 0, 0, 1, 1, 0},
+//    fvlam::Transform3{0, 0, 0, 0, 1, 0},
 
     fvlam::Transform3{1 * degree, 0, 0, 0, 0, 0},
-    fvlam::Transform3{1 * degree, 0, 0, 1, 1, 0},
+    fvlam::Transform3{-1 * degree, 0, 0, 1, 1, 0},
   };
 
   static auto master_camera_pose_list = std::vector<fvlam::Transform3>{
     fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
-
-    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
-
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+//    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
+//    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
+//    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
+//    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+//
+//    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
+//    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
+//    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
+//    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
+//
+//    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
+//    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+//    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+//    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
   };
 
 #if 0
@@ -218,7 +193,7 @@ namespace camsim
 #endif
 
     Model model{model_config};
-    auto marker_length = model.markers_.cfg_.marker_size_;
+    auto marker_length = model.markers_.cfg_.marker_length_;
 
     auto camera_calibration = fvlam::CameraInfo::from<gtsam::Cal3DS2>(model.cameras_.calibration_);
     auto cv_camera_calibration = camera_calibration.to<CvCameraCalibration>();
@@ -446,7 +421,7 @@ namespace camsim
   }
 #endif
 
-  TEST_CASE("sho_test - shonan build_marker_map from model")
+  TEST_CASE("sho_test - shonan build from model")
   {
     ModelConfig model_config{pose_generator(master_marker_pose_list),
                              pose_generator(master_camera_pose_list),
@@ -456,14 +431,14 @@ namespace camsim
 
     Model model{model_config};
 
-    auto map_initial = std::make_unique<fvlam::MarkerMap>(model.cfg_.marker_size_);
+    auto map_initial = std::make_unique<fvlam::MarkerMap>(model.cfg_.marker_length_);
     auto marker_initial = fvlam::Marker{0, fvlam::Transform3WithCovariance{}, true};
     map_initial->add_marker(marker_initial);
 
     std::cout << "initial map\n" << map_initial->to_string() << std::endl;
 
     auto cxt = fvlam::BuildMarkerMapShonanContext(5);
-    auto bmm_shonan = make_build_marker_map(cxt, std::move(map_initial));
+    auto bmm_shonan = make_build_marker_map(cxt, *map_initial);
 
     auto runner_config = BuildMarkerMapRunnerConfig{
       (fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(test_params.r_sigma),

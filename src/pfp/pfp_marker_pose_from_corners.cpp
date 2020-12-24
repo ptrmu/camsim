@@ -38,7 +38,7 @@ namespace camsim
 
   static void marker_pose_from_corners(const MarkerModel &marker_model,
                                        const std::vector<gtsam::Point3> &corners_f_marker,
-                                       double marker_size)
+                                       double marker_length)
   {
     auto measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector3(.5, .5, .5));
 
@@ -87,7 +87,7 @@ namespace camsim
     for (auto &marker_model : model.markers_.markers_) {
       marker_pose_from_corners(marker_model,
                                model.markers_.corners_f_marker_,
-                               model.markers_.cfg_.marker_size_);
+                               model.markers_.cfg_.marker_length_);
     }
 
     return 0;

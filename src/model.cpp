@@ -103,8 +103,8 @@ namespace camsim
     cameras_configuration_{cameras_configuration},
     camera_type_{camera_type},
     cal3ds2_{},
-    marker_size_{gen_marker_size(markers_configuration)},
-    marker_spacing_{gen_marker_spacing(markers_configuration, marker_size_)},
+    marker_length_{gen_marker_size(markers_configuration)},
+    marker_spacing_{gen_marker_spacing(markers_configuration, marker_length_)},
     camera_spacing_{gen_camera_spacing(cameras_configuration, marker_spacing_)},
     marker_pose_generator_{PoseGens::Noop{}},
     camera_pose_generator_{PoseGens::Noop{}},
@@ -114,13 +114,13 @@ namespace camsim
   ModelConfig::ModelConfig(PoseGenerator marker_pose_generator,
                            PoseGenerator camera_pose_generator,
                            CameraTypes camera_type,
-                           double marker_size,
+                           double marker_length,
                            bool do_not_rotate_cameras) :
     markers_configuration_{MarkersConfigurations::generator},
     cameras_configuration_{CamerasConfigurations::generator},
     camera_type_{camera_type},
     cal3ds2_{},
-    marker_size_{marker_size},
+    marker_length_{marker_length},
     marker_spacing_{0.},
     camera_spacing_{0.},
     marker_pose_generator_{std::move(marker_pose_generator)},
@@ -135,7 +135,7 @@ namespace camsim
     cameras_configuration_{CamerasConfigurations::generator},
     camera_type_{CameraTypes::custom},
     cal3ds2_{cal3ds2},
-    marker_size_{0.},
+    marker_length_{0.},
     marker_spacing_{0.},
     camera_spacing_{0.},
     marker_pose_generator_{std::move(marker_pose_generator)},
@@ -239,7 +239,7 @@ namespace camsim
   static std::vector<MarkerModel> gen_markers(const ModelConfig &cfg,
                                               const std::vector<gtsam::Point3> &corners_f_marker)
   {
-    auto marker_size = cfg.marker_size_;
+    auto marker_length = cfg.marker_length_;
     auto markers_configuration = cfg.markers_configuration_;
 
     std::vector<gtsam::Pose3> marker_f_worlds{};
@@ -249,13 +249,13 @@ namespace camsim
 
     } else if (markers_configuration == MarkersConfigurations::square_around_origin_xy_plane) {
       marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
-                                                gtsam::Point3(marker_size, marker_size, 0)});
+                                                gtsam::Point3(marker_length, marker_length, 0)});
       marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
-                                                gtsam::Point3(marker_size, -marker_size, 0)});
+                                                gtsam::Point3(marker_length, -marker_length, 0)});
       marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
-                                                gtsam::Point3(-marker_size, -marker_size, 0)});
+                                                gtsam::Point3(-marker_length, -marker_length, 0)});
       marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
-                                                gtsam::Point3(-marker_size, marker_size, 0)});
+                                                gtsam::Point3(-marker_length, marker_length, 0)});
 
     } else if (markers_configuration == MarkersConfigurations::single_center) {
       marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
@@ -263,11 +263,11 @@ namespace camsim
 
     } else if (markers_configuration == MarkersConfigurations::single_south_west) {
       marker_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(0, 0, 0),
-                                                gtsam::Point3(-marker_size, -marker_size, 0)});
+                                                gtsam::Point3(-marker_length, -marker_length, 0)});
 
     } else if (markers_configuration == MarkersConfigurations::along_x_axis) {
       int marker_number = 3;
-      double marker_spacing = 5 * marker_size;
+      double marker_spacing = 5 * marker_length;
 
       for (int i = 0; i < marker_number; i += 1) {
         double offset = i - static_cast<double>(marker_number - 1) / 2;
@@ -277,7 +277,7 @@ namespace camsim
 
     } else if (markers_configuration == MarkersConfigurations::circle_around_z_axis) {
       int n = 8;
-      double radius = 2. * marker_size;
+      double radius = 2. * marker_length;
       double delta_theta = M_PI * 2 / n;
       for (int i = 0; i < n; i += 1) {
         auto theta = delta_theta * i;
@@ -288,7 +288,7 @@ namespace camsim
 
     } else if (markers_configuration == MarkersConfigurations::upright_circle_around_z_axis) {
       int n = 8;
-      double radius = 2. * marker_size;
+      double radius = 2. * marker_length;
       double delta_theta = M_PI * 2 / n;
       for (int i = 0; i < n; i += 1) {
         auto theta = delta_theta * i;
@@ -302,7 +302,7 @@ namespace camsim
                          gtsam::Point3{-1, -1, 1},
                          gtsam::Point3{1, -1, -1},
                          gtsam::Point3{-1, 1, -1},},
-                        marker_size * 4, marker_f_worlds);
+                        marker_length * 4, marker_f_worlds);
 
     } else if (markers_configuration == MarkersConfigurations::cube) {
       add_sphere_points({gtsam::Point3{1, 1, 1},
@@ -313,7 +313,7 @@ namespace camsim
                          gtsam::Point3{-1, 1, -1},
                          gtsam::Point3{1, -1, -1},
                          gtsam::Point3{-1, -1, -1},},
-                        marker_size * 4, marker_f_worlds);
+                        marker_length * 4, marker_f_worlds);
 
     } else if (markers_configuration == MarkersConfigurations::octahedron) {
       add_sphere_points({gtsam::Point3{1, 0, 0},
@@ -322,7 +322,7 @@ namespace camsim
                          gtsam::Point3{0, -1, 0},
                          gtsam::Point3{0, 0, 1},
                          gtsam::Point3{0, 0, -1},},
-                        marker_size * 4, marker_f_worlds);
+                        marker_length * 4, marker_f_worlds);
     }
 
     std::vector<MarkerModel> markers{};
@@ -345,10 +345,10 @@ namespace camsim
 
   MarkersModel::MarkersModel(const ModelConfig &cfg) :
     cfg_{cfg},
-    corners_f_marker_{gtsam::Point3{-cfg_.marker_size_ / 2, cfg_.marker_size_ / 2, 0},
-                      gtsam::Point3{cfg_.marker_size_ / 2, cfg_.marker_size_ / 2, 0},
-                      gtsam::Point3{cfg_.marker_size_ / 2, -cfg_.marker_size_ / 2, 0},
-                      gtsam::Point3{-cfg_.marker_size_ / 2, -cfg_.marker_size_ / 2, 0}},
+    corners_f_marker_{gtsam::Point3{-cfg_.marker_length_ / 2, cfg_.marker_length_ / 2, 0},
+                      gtsam::Point3{cfg_.marker_length_ / 2, cfg_.marker_length_ / 2, 0},
+                      gtsam::Point3{cfg_.marker_length_ / 2, -cfg_.marker_length_ / 2, 0},
+                      gtsam::Point3{-cfg_.marker_length_ / 2, -cfg_.marker_length_ / 2, 0}},
     markers_{gen_markers(cfg_, corners_f_marker_)}
   {
     std::cout << "Markers" << std::endl;
@@ -417,17 +417,17 @@ namespace camsim
 
     } else if (cfg.cameras_configuration_ == CamerasConfigurations::plus_x_facing_markers) {
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(cfg.marker_size_, 0, 2)});
+                                                gtsam::Point3(cfg.marker_length_, 0, 2)});
 
     } else if (cfg.cameras_configuration_ == CamerasConfigurations::square_around_z_axis) {
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(cfg.marker_size_, cfg.marker_size_, 2)});
+                                                gtsam::Point3(cfg.marker_length_, cfg.marker_length_, 2)});
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(cfg.marker_size_, -cfg.marker_size_, 2)});
+                                                gtsam::Point3(cfg.marker_length_, -cfg.marker_length_, 2)});
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(-cfg.marker_size_, -cfg.marker_size_, 2)});
+                                                gtsam::Point3(-cfg.marker_length_, -cfg.marker_length_, 2)});
       camera_f_worlds.emplace_back(gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0, 0),
-                                                gtsam::Point3(-cfg.marker_size_, cfg.marker_size_, 2)});
+                                                gtsam::Point3(-cfg.marker_length_, cfg.marker_length_, 2)});
 
     } else if (cfg.cameras_configuration_ == CamerasConfigurations::fly_to_plus_y) {
       const int camera_number = 5;
@@ -443,7 +443,7 @@ namespace camsim
 
     } else if (cfg.cameras_configuration_ == CamerasConfigurations::c_along_x_axis) {
       int camera_number = 5;
-      double camera_spacing = 1.25 * cfg.marker_size_;
+      double camera_spacing = 1.25 * cfg.marker_length_;
 
       for (int i = 0; i < camera_number; i += 1) {
         double offset = i - static_cast<double>(camera_number - 1) / 2;

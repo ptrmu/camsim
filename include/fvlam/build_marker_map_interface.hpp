@@ -25,12 +25,11 @@ namespace fvlam
 
     // Take the location of markers in one image and add them to the marker map
     // building algorithm.
-    virtual void process_image_observations(const MarkerObservations &marker_observations,
-                                            const CameraInfo &camera_info) = 0;
+    virtual void process(const MarkerObservations &marker_observations,
+                         const CameraInfo &camera_info) = 0;
 
-    // Given the observations that have been added so far create and return a marker_map.
-    // On entry to this routine the marker_map contains markers that have fixed locations.
-    virtual std::unique_ptr<MarkerMap> build_marker_map() = 0;
+    // Given the observations that have been added so far, create and return a marker_map.
+    virtual std::unique_ptr<MarkerMap> build() = 0;
 
     // Re-initialize the map_builder. (i.e. through out any data accumulated so far)
     virtual std::string reset(std::string &cmd) = 0;
@@ -38,7 +37,7 @@ namespace fvlam
 
   template<class TContext>
   std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map(const TContext &context,
-                                                                 std::unique_ptr<MarkerMap> map_initial);
+                                                                 const MarkerMap &map_initial);
 
 // ==============================================================================
 // BuildMarkerMapShonanContext class

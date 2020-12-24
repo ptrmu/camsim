@@ -129,6 +129,18 @@ namespace fvlam
     return ss.str();
   }
 
+  std::string MarkerMap::to_string() const
+  {
+    std::stringstream ss{};
+
+    // Assume a map keeps items sorted
+    for (auto it = markers_.begin(); it != markers_.end(); ++it) {
+      ss << "marker id:" << it->second.to_string() << std::endl;
+    }
+
+    return ss.str();
+  }
+
 // ==============================================================================
 // from fvlam/marker_observations.hpp
 // ==============================================================================
@@ -145,27 +157,6 @@ namespace fvlam
         ss << " ";
       }
       ss << "(" << nf(corners_f_image_[c].x()) << "," << nf(corners_f_image_[c].y()) << ")";
-    }
-
-    return ss.str();
-  }
-
-  std::string MarkerMap::to_string() const
-  {
-    std::stringstream ss{};
-
-    // get the sorted keys.
-    std::vector<decltype(markers_)::key_type> keys{};
-    for (auto it = markers_.begin(); it != markers_.end(); ++it) {
-      keys.emplace_back(it->first);
-    }
-    std::sort(keys.begin(), keys.end());
-
-    for (auto &key : keys) {
-      auto f = markers_.find(key);
-      if (f != markers_.end()) {
-        ss << f->second.to_string();
-      }
     }
 
     return ss.str();
@@ -190,9 +181,9 @@ namespace fvlam
     return to_row_str(xyz());
   }
 
-  std::string Transform3::to_string() const
+  std::string Transform3::to_string(bool also_id) const
   {
-    return r_.to_string() + " " + t_.to_string();
+    return (also_id ? to_id_str(id_) + "\n" : "") + r_.to_string() + " " + t_.to_string();
   }
 
   std::string Transform3::to_cov_string(const Transform3::CovarianceMatrix &cov)

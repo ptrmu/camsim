@@ -60,8 +60,6 @@ namespace fvlam
 // from fvlam/camera_info.cpp
 // ==============================================================================
 
-  using CvCameraCalibration = std::pair<cv::Matx33d, cv::Vec<double, 5>>;
-
   template<>
   CvCameraCalibration CameraInfo::to<CvCameraCalibration>() const
   {
@@ -200,7 +198,7 @@ namespace fvlam
     double marker_length)
   {
     auto solve_t_camera_marker_function = solve_t_camera_marker<CvCameraCalibration>(camera_calibration,
-                                                                                     marker_length);
+                                                                                         marker_length);
     return [
       solve_t_camera_marker_function,
       t_world_camera]
@@ -218,7 +216,7 @@ namespace fvlam
     double marker_length)
   {
     auto solve_t_camera_marker_function = solve_t_camera_marker<CvCameraCalibration>(camera_calibration,
-                                                                                     marker_length);
+                                                                                         marker_length);
     return [
       solve_t_camera_marker_function,
       marker_length]
@@ -227,7 +225,9 @@ namespace fvlam
     {
       auto t_camera_marker0 = solve_t_camera_marker_function(marker_observation0).t_world_marker().tf();
       auto t_camera_marker1 = solve_t_camera_marker_function(marker_observation1).t_world_marker().tf();
-      return Transform3WithCovariance{t_camera_marker0.inverse() * t_camera_marker1};
+      auto t_marker0_marker1 = t_camera_marker0.inverse() * t_camera_marker1;
+      return Transform3WithCovariance{Transform3{
+        marker_observation0.id() * 1000000L + marker_observation1.id(), t_marker0_marker1}};
     };
   }
 }

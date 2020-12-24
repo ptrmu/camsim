@@ -329,15 +329,15 @@ namespace camsim
     auto image_measurements = load_image_measurements_from_file("../src/data/observations_sequence.json");
     fvlam::BuildMarkerMapShonanContext cxt{5};
     auto map_initial = std::make_unique<fvlam::MarkerMap>(0.21);
-    auto build_marker_map = fvlam::make_build_marker_map(cxt, std::move(map_initial));
+    auto build_marker_map = fvlam::make_build_marker_map(cxt, *map_initial);
 
     for (auto &image_measurement : image_measurements) {
       auto &measurements = image_measurement.measurements();
       auto observations{fvlam::MarkerObservations::from(measurements)};
-      build_marker_map->process_image_observations(observations, image_measurement.camera_info());
+      build_marker_map->process(observations, image_measurement.camera_info());
     }
 
-    auto map = build_marker_map->build_marker_map();
+    auto map = build_marker_map->build();
     return 0;
   }
 }
