@@ -49,17 +49,16 @@ namespace camsim
   {
     const Model &model_;
     const BuildMarkerMapRunnerConfig cfg_;
+    fvlam::CameraInfo camera_info_;
 
-    gtsam::Sampler pose3_sampler_{fvlam::Transform3::MuVector::Zero()};
-    gtsam::Sampler point2_sampler_{fvlam::Translate2::MuVector::Zero()};
+    std::vector<fvlam::Transform3WithCovariance> t_world_cameras_perturbed_{};
+    std::vector<fvlam::Marker> markers_perturbed_{};
+    std::vector<fvlam::MarkerObservations> observations_perturbed_{};
     int frames_processed_{0};
 
   public:
     BuildMarkerMapRunner(const Model &model,
-                         const BuildMarkerMapRunnerConfig &cfg) :
-      model_{model},
-      cfg_{std::move(cfg)}
-    {}
+                         const BuildMarkerMapRunnerConfig &cfg);
 
     std::unique_ptr<fvlam::MarkerMap> operator()(fvlam::BuildMarkerMapInterface &build_map);
   };

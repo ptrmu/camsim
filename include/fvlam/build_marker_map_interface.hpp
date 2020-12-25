@@ -56,5 +56,53 @@ namespace fvlam
     static Transform3 from(const T &other);
   };
 
+// ==============================================================================
+// EstimateMeanAndCovariance class
+// ==============================================================================
+
+  template<class MUVECTOR>
+  class EstimateMeanAndCovariance
+  {
+    using CovarianceMatrix = Eigen::Matrix<double, MUVECTOR::MaxSizeAtCompileTime, MUVECTOR::MaxSizeAtCompileTime>;
+    std::uint64_t id_;
+    MUVECTOR first_sample_{MUVECTOR::Zero()};
+    CovarianceMatrix first_cov_{CovarianceMatrix::Zero()};
+    MUVECTOR mu_sum_{MUVECTOR::Zero()};
+    CovarianceMatrix mu_mu_sum_{CovarianceMatrix::Zero()};
+    std::uint64_t n_{0};
+
+  public:
+    explicit EstimateMeanAndCovariance(std::uint64_t id) :
+      id_{id}
+    {}
+
+    void accumulate(const MUVECTOR &mu, const CovarianceMatrix cov)
+    {
+      if (n_ == 0) {
+        first_sample_ = mu;
+        first_cov_ = cov;
+      }
+      MUVECTOR mu_centered = mu - first_sample_;
+      mu_sum_ += mu_centered;
+      mu_mu_sum_ += mu_centered * mu_centered.transpose();
+      n_ += 1;
+    }
+
+    MUVECTOR mean() const
+    {
+      if (n_ <= 0) {
+        return mu_sum_ + first_sample_;
+      }
+      return mu_sum_ / n_ + first_sample_;
+    }
+
+    CovarianceMatrix cov() const
+    {
+      if (n_ <= 1) {
+        return first_cov_;
+      }
+      return (mu_mu_sum_ - (mu_sum_ * mu_sum_.transpose()) / n_) / n_;
+    }
+  };
 }
 #endif //FVLAM_BUILD_MARKER_MAP_INTERFACE_HPP

@@ -198,7 +198,7 @@ namespace fvlam
     double marker_length)
   {
     auto solve_t_camera_marker_function = solve_t_camera_marker<CvCameraCalibration>(camera_calibration,
-                                                                                         marker_length);
+                                                                                     marker_length);
     return [
       solve_t_camera_marker_function,
       t_world_camera]
@@ -216,7 +216,7 @@ namespace fvlam
     double marker_length)
   {
     auto solve_t_camera_marker_function = solve_t_camera_marker<CvCameraCalibration>(camera_calibration,
-                                                                                         marker_length);
+                                                                                     marker_length);
     return [
       solve_t_camera_marker_function,
       marker_length]
@@ -226,9 +226,13 @@ namespace fvlam
       auto t_camera_marker0 = solve_t_camera_marker_function(marker_observation0).t_world_marker().tf();
       auto t_camera_marker1 = solve_t_camera_marker_function(marker_observation1).t_world_marker().tf();
       auto t_marker0_marker1 = t_camera_marker0.inverse() * t_camera_marker1;
-      return Transform3WithCovariance{Transform3{
-        marker_observation0.id() * 1000000L + marker_observation1.id(), t_marker0_marker1}};
-    };
+
+      // NOTE: using an arbitrary uncertainty. Someday do this better - combine uncertainties from measurements.
+      return Transform3WithCovariance{
+        Transform3{
+          marker_observation0.id() * 1000000L + marker_observation1.id(), t_marker0_marker1},
+        (Transform3::MuVector::Ones() * std::pow(0.1, 2)).asDiagonal()};
+      };
+    }
   }
-}
 

@@ -91,13 +91,17 @@ namespace fvlam
 // from fvlam/marker_map.hpp
 // ==============================================================================
 
-  std::string Marker::to_string() const
+  std::string Marker::to_string(bool also_cov) const
   {
     std::stringstream ss{};
 
     NumFmt nf(9, 3);
 
-    ss << nf(id_) << std::endl << t_world_marker_.to_string();
+    if (also_cov) {
+      ss << nf(id_) << std::endl << t_world_marker_.to_string();
+    } else {
+      ss << nf(id_) << t_world_marker_.tf().to_string();
+    }
     return ss.str();
   }
 
@@ -129,13 +133,13 @@ namespace fvlam
     return ss.str();
   }
 
-  std::string MarkerMap::to_string() const
+  std::string MarkerMap::to_string(bool also_cov) const
   {
     std::stringstream ss{};
 
     // Assume a map keeps items sorted
     for (auto it = markers_.begin(); it != markers_.end(); ++it) {
-      ss << "marker id:" << it->second.to_string() << std::endl;
+      ss << "marker id:" << it->second.to_string(also_cov) << std::endl;
     }
 
     return ss.str();

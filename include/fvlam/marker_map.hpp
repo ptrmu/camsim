@@ -110,7 +110,7 @@ namespace fvlam
     template<class T>
     T to() const;
 
-    std::string to_string() const; //
+    std::string to_string(bool also_cov = false) const; //
     std::string to_id_string() const; //
     std::string to_corners_f_world_string(double marker_length) const; //
 
@@ -179,7 +179,7 @@ namespace fvlam
     template<class T>
     T to() const;
 
-    std::string to_string() const;
+    std::string to_string(bool also_cov = false) const;
 
     Marker *find_marker(int id);
 

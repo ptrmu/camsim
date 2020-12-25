@@ -28,8 +28,8 @@ namespace camsim
 
     double r_sigma = 0.1;
     double t_sigma = 0.3;
-    double u_sampler_sigma = 1.0;
-    double u_noise_sigma = 1.0;
+    double u_sampler_sigma = 0.0001;
+    double u_noise_sigma = 0.01;
   };
 
   static TestParams test_params;
@@ -52,8 +52,8 @@ namespace camsim
   static auto master_marker_pose_list = std::vector<fvlam::Transform3>{
     fvlam::Transform3{0, 0, 0, 0, 0, 0},
     fvlam::Transform3{0, 0, 0, 1, 0, 0},
-//    fvlam::Transform3{0, 0, 0, 1, 1, 0},
-//    fvlam::Transform3{0, 0, 0, 0, 1, 0},
+    fvlam::Transform3{0, 0, 0, 1, 1, 0},
+    fvlam::Transform3{0, 0, 0, 0, 1, 0},
 
     fvlam::Transform3{1 * degree, 0, 0, 0, 0, 0},
     fvlam::Transform3{-1 * degree, 0, 0, 1, 1, 0},
@@ -61,20 +61,95 @@ namespace camsim
 
   static auto master_camera_pose_list = std::vector<fvlam::Transform3>{
     fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
-//    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
-//    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
-//    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
-//    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
-//
-//    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
-//    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
-//    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
-//    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
-//
-//    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
-//    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
-//    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
-//    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+
+    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
+
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+
+    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
+
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+
+    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
+
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+
+    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
+
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+
+    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
+
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
+    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+
+    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
+    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
+
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
+    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
   };
 
 #if 0
@@ -421,8 +496,45 @@ namespace camsim
   }
 #endif
 
+  TEST_CASE("sho_test - Test EstimateMeanAndCovariance")
+  {
+    gtsam::Vector2 v0{1, 4};
+    gtsam::Vector2 v1{3, 8};
+    auto c0{gtsam::Vector2{0.01, 0.01}.asDiagonal()};
+    auto c1{gtsam::Vector2{0.01, 0.01}.asDiagonal()};
+
+    fvlam::EstimateMeanAndCovariance<gtsam::Vector2> emac{1};
+    emac.accumulate(v0, c0);
+    emac.accumulate(v1, c1);
+
+    auto mean = emac.mean();
+    auto cov = emac.cov();
+
+    std::cout << mean.transpose() << std::endl
+              << cov << std::endl;
+
+    REQUIRE(gtsam::assert_equal(2., mean(0), 1.0e-4));
+    REQUIRE(gtsam::assert_equal(6., mean(1), 1.0e-4));
+
+    REQUIRE(gtsam::assert_equal(1., cov(0, 0), 1.0e-4));
+    REQUIRE(gtsam::assert_equal(4., cov(1, 1), 1.0e-4));
+    REQUIRE(gtsam::assert_equal(2., cov(0, 1), 1.0e-4));
+  }
+
   TEST_CASE("sho_test - shonan build from model")
   {
+    struct TestParams
+    {
+      double r_sampler_sigma = 0.0;
+      double t_sampler_sigma = 0.0;
+      double u_sampler_sigma = 0.5;
+      double r_noise_sigma = 0.1;
+      double t_noise_sigma = 0.1;
+      double u_noise_sigma = 0.5;
+    };
+
+    TestParams tp;
+
     ModelConfig model_config{pose_generator(master_marker_pose_list),
                              pose_generator(master_camera_pose_list),
                              camsim::CameraTypes::simulation,
@@ -435,18 +547,18 @@ namespace camsim
     auto marker_initial = fvlam::Marker{0, fvlam::Transform3WithCovariance{}, true};
     map_initial->add_marker(marker_initial);
 
-    std::cout << "initial map\n" << map_initial->to_string() << std::endl;
+//    std::cout << "initial map\n" << map_initial->to_string() << std::endl;
 
     auto cxt = fvlam::BuildMarkerMapShonanContext(5);
     auto bmm_shonan = make_build_marker_map(cxt, *map_initial);
 
     auto runner_config = BuildMarkerMapRunnerConfig{
-      (fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(test_params.r_sigma),
-        fvlam::Translate3::MuVector::Constant(test_params.t_sigma)).finished(),
-      (fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(test_params.r_sigma),
-        fvlam::Translate3::MuVector::Constant(test_params.t_sigma)).finished(),
-      fvlam::Translate2::MuVector::Constant(test_params.u_sampler_sigma),
-      fvlam::Translate2::MuVector::Constant(test_params.u_noise_sigma),
+      (fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(tp.r_sampler_sigma),
+        fvlam::Translate3::MuVector::Constant(tp.t_sampler_sigma)).finished(),
+      (fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(tp.r_noise_sigma),
+        fvlam::Translate3::MuVector::Constant(tp.t_noise_sigma)).finished(),
+      fvlam::Translate2::MuVector::Constant(tp.u_sampler_sigma),
+      fvlam::Translate2::MuVector::Constant(tp.u_noise_sigma),
       false
     };
     auto runner = BuildMarkerMapRunner(model, runner_config);
@@ -455,5 +567,6 @@ namespace camsim
 
     std::cout << "solved map\n" << map_solved->to_string() << std::endl;
   }
+
 }
 
