@@ -180,6 +180,16 @@ namespace fvlam
     return to_row_str(t_);
   }
 
+  std::string Translate3::to_cov_string(const Translate3::CovarianceMatrix &cov)
+  {
+    return to_matrix_str(cov, true);
+  }
+
+  std::string Translate3WithCovariance::to_string() const
+  {
+    return t_.to_string() + "\n" + Translate3::to_cov_string(cov_);
+  }
+
   std::string Rotate3::to_string() const
   {
     return to_row_str(xyz());

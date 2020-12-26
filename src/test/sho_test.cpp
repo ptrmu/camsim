@@ -75,81 +75,6 @@ namespace camsim
     fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
     fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
     fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
-
-    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
-
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
-
-    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
-
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
-
-    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
-
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
-
-    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
-
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
-    fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
-
-    fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
-    fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
-
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
-    fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
-    fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
   };
 
 #if 0
@@ -229,10 +154,14 @@ namespace camsim
                 auto SE3_gtsam = gtsam::Pose3::Expmap(se3_gtsam);
                 REQUIRE(gtsam::assert_equal(SE3_gtsam.rotation().matrix(), SE3_fvlam.r().rotation_matrix(), 1.0e-6));
                 REQUIRE(gtsam::assert_equal(SE3_gtsam.translation(), SE3_fvlam.t().t(), 1.0e-6));
+
+                auto SE3_fvlam_inverse = SE3_fvlam.inverse();
+                auto SE3_gtsam_inverse = SE3_gtsam.inverse();
+                REQUIRE(gtsam::assert_equal(SE3_gtsam_inverse.rotation().matrix(), SE3_fvlam_inverse.r().rotation_matrix(), 1.0e-6));
+                REQUIRE(gtsam::assert_equal(SE3_gtsam_inverse.translation(), SE3_fvlam_inverse.t().t(), 1.0e-6));
               }
         }
   }
-
 
   TEST_CASE("sho_test - Test Project function")
   {
@@ -494,7 +423,6 @@ namespace camsim
                   fvlam::Transform3::from(model.markers_.markers_[m0]),
                   fvlam::Transform3::from(model.markers_.markers_[m1]));
   }
-#endif
 
   TEST_CASE("sho_test - Test EstimateMeanAndCovariance")
   {
@@ -519,6 +447,86 @@ namespace camsim
     REQUIRE(gtsam::assert_equal(1., cov(0, 0), 1.0e-4));
     REQUIRE(gtsam::assert_equal(4., cov(1, 1), 1.0e-4));
     REQUIRE(gtsam::assert_equal(2., cov(0, 1), 1.0e-4));
+  }
+
+  TEST_CASE("sho_test - Test EstimateMeanAndCovariance with sampler")
+  {
+    std::vector<fvlam::Translate3::MuVector> sigmas{
+      fvlam::Translate3::MuVector{0.1, 0.0, 0.0},
+      fvlam::Translate3::MuVector{0.1, 0.1, 0.0},
+      fvlam::Translate3::MuVector{0.1, 0.1, 0.1},
+    };
+
+    for (auto &sigma : sigmas) {
+      gtsam::Sampler sampler{sigma};
+      fvlam::EstimateMeanAndCovariance<fvlam::Translate3::MuVector> emac{0};
+
+      for (int i = 0; i < 10000; i += 1) {
+        fvlam::Translate3::MuVector sample{sampler.sample()};
+        emac.accumulate(sample, fvlam::Translate3::CovarianceMatrix::Zero());
+      }
+
+      auto mean = emac.mean();
+      auto cov = emac.cov();
+
+//      fvlam::Translate3WithCovariance twc{fvlam::Translate3::from(mean), cov};
+//      std::cout << twc.to_string() << std::endl;
+
+      REQUIRE(gtsam::assert_equal<fvlam::Translate3::MuVector>(fvlam::Translate3::MuVector::Zero(), mean, 1.0e-2));
+      REQUIRE(gtsam::assert_equal<double>(sigma[0] * sigma[0], cov(0, 0), 1.0e-3));
+      REQUIRE(gtsam::assert_equal<double>(sigma[1] * sigma[0], cov(1, 1), 1.0e-3));
+      REQUIRE(gtsam::assert_equal<double>(sigma[2] * sigma[0], cov(2, 2), 1.0e-3));
+    }
+  }
+#endif
+
+  TEST_CASE("sho_test - Test EstimatePoseMeanAndCovariance with sampler")
+  {
+    using Pose = fvlam::Transform3;
+    using PoseMu = fvlam::Transform3::MuVector;
+
+    std::vector<Pose> poses{
+      Pose{1 * degree, 1 * degree, 1 * degree, 2, 1, 1},
+      Pose{81 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+      Pose{79 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+      Pose{79 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+    };
+
+    std::vector<PoseMu> sigmas{
+      (PoseMu{} << 0.1, 0.0, 0.0, 0.0, 0.0, 0.0).finished(),
+      (PoseMu{} << 0.1, 0.1, 0.0, 0.0, 0.0, 0.0).finished(),
+      (PoseMu{} << 0.1, 0.1, 0.1, 0.0, 0.0, 0.0).finished(),
+      (PoseMu{} << 0.1, 0.0, 0.0, 0.2, 0.0, 0.0).finished(),
+      (PoseMu{} << 0.1, 0.1, 0.0, 0.2, 0.2, 0.0).finished(),
+      (PoseMu{} << 0.1, 0.1, 0.1, 0.2, 0.2, 0.2).finished(),
+    };
+
+    for (auto pose : poses)
+      for (auto &sigma : sigmas) {
+        gtsam::Sampler sampler{sigma};
+        fvlam::EstimateTransform3MeanAndCovariance emac{0};
+
+        for (int i = 0; i < 10000; i += 1) {
+          PoseMu offset = sampler.sample();
+          auto sample{pose.retract(offset)};
+//          Pose sample{pose.mu() + sampler.sample()};
+          emac.accumulate(sample);
+        }
+
+        auto mean = emac.mean();
+        auto cov = emac.cov();
+
+        fvlam::Transform3WithCovariance twc{mean, cov};
+        std::cout << twc.to_string() << std::endl;
+
+        REQUIRE(gtsam::assert_equal<PoseMu>(pose.mu(), mean.mu(), 1.0e-2));
+        REQUIRE(gtsam::assert_equal<double>(sigma[0] * sigma[0], cov(0, 0), 1.0e-3));
+        REQUIRE(gtsam::assert_equal<double>(sigma[1] * sigma[1], cov(1, 1), 1.0e-3));
+        REQUIRE(gtsam::assert_equal<double>(sigma[2] * sigma[2], cov(2, 2), 1.0e-3));
+        REQUIRE(gtsam::assert_equal<double>(sigma[3] * sigma[3], cov(3, 3), 1.0e-3));
+        REQUIRE(gtsam::assert_equal<double>(sigma[4] * sigma[4], cov(4, 4), 1.0e-3));
+        REQUIRE(gtsam::assert_equal<double>(sigma[5] * sigma[5], cov(5, 5), 1.0e-3));
+      }
   }
 
   TEST_CASE("sho_test - shonan build from model")

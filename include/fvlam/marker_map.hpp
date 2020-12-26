@@ -32,7 +32,7 @@ namespace fvlam
 
   private:
     // The id of the marker
-    std::uint64_t id_{};
+    std::uint64_t id_;
 
     // The pose of the marker in some world frame. Which frame is world depends on the context.
     Transform3WithCovariance t_world_marker_;
@@ -92,14 +92,14 @@ namespace fvlam
       id_(id), t_world_marker_(std::move(t_world_marker)), is_fixed_(is_fixed)
     {}
 
+    auto is_valid() const
+    { return t_world_marker_.is_valid(); }
+    
     auto id() const
     { return id_; }
 
     auto is_fixed() const
     { return is_fixed_; }
-
-    void set_is_fixed(bool is_fixed)
-    { is_fixed_ = is_fixed; }
 
     const auto &t_world_marker() const
     { return t_world_marker_; }

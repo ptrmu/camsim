@@ -114,7 +114,8 @@ namespace fvlam
     template<class T>
     T to() const;
 
-    std::string to_string() const;
+    std::string to_string() const; //
+    static std::string to_cov_string(const CovarianceMatrix &cov); //
 
     /// Exponential map at identity - create a translation from canonical coordinates \f$ [T_x,T_y,T_z] \f$
     static Translate3 Expmap(const TangentVector &x)
@@ -353,9 +354,8 @@ namespace fvlam
     template<class T>
     static T cov_to(const CovarianceMatrix &cov);
 
-    std::string to_string(bool also_id = false) const;
-
-    static std::string to_cov_string(const CovarianceMatrix &cov);
+    std::string to_string(bool also_id = false) const; //
+    static std::string to_cov_string(const CovarianceMatrix &cov); //
 
     Transform3 inverse() const
     {
@@ -368,6 +368,9 @@ namespace fvlam
 
     /// Log map at identity - return the canonical coordinates \f$ [R_x,R_y,R_z,T_x,T_y,T_z] \f$ of this transform
     static TangentVector Logmap(const Transform3 &transform3);
+
+    Transform3 retract(const TangentVector &v)
+    { return *this * Expmap(v); }
 
     Translate3 operator*(const Translate3 &other) const
     {
