@@ -181,7 +181,8 @@ namespace fvlam
       cv::Vec3d rvec, tvec;
       cv::solvePnP(corners_f_marker, corners_f_image,
                    camera_matrix, dist_coeffs,
-                   rvec, tvec);
+                   rvec, tvec,
+                   false, cv::SolvePnPMethod::SOLVEPNP_IPPE_SQUARE);
 
       // rvec, tvec output from solvePnp "brings points from the model coordinate system to the
       // camera coordinate system". In this case the marker frame is the model coordinate system.
@@ -232,7 +233,7 @@ namespace fvlam
         Transform3{
           marker_observation0.id() * 1000000L + marker_observation1.id(), t_marker0_marker1},
         (Transform3::MuVector::Ones() * std::pow(0.1, 2)).asDiagonal()};
-      };
-    }
+    };
   }
+}
 

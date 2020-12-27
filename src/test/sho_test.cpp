@@ -52,11 +52,11 @@ namespace camsim
   static auto master_marker_pose_list = std::vector<fvlam::Transform3>{
     fvlam::Transform3{0, 0, 0, 0, 0, 0},
     fvlam::Transform3{0, 0, 0, 1, 0, 0},
-    fvlam::Transform3{0, 0, 0, 1, 1, 0},
-    fvlam::Transform3{0, 0, 0, 0, 1, 0},
+    fvlam::Transform3{5 * degree, 5 * degree, 0, 1, 1, 0},
+    fvlam::Transform3{0, 0, 5 * degree, 0, 1, 0},
 
-    fvlam::Transform3{1 * degree, 0, 0, 0, 0, 0},
-    fvlam::Transform3{-1 * degree, 0, 0, 1, 1, 0},
+    fvlam::Transform3{5 * degree, 0, 0, 0, 0, 0.25},
+    fvlam::Transform3{-5 * degree, 0, 0, 1, 1, 0},
   };
 
   static auto master_camera_pose_list = std::vector<fvlam::Transform3>{
@@ -459,26 +459,35 @@ namespace camsim
 
     for (auto &sigma : sigmas) {
       gtsam::Sampler sampler{sigma};
-      fvlam::EstimateMeanAndCovariance<fvlam::Translate3::MuVector> emac{0};
+      fvlam::EstimateMeanAndCovarianceSimple<fvlam::Translate3::MuVector> emac{0};
+      fvlam::EstimateMeanAndCovariance2PSimple<fvlam::Translate3::MuVector> emac_2p{0};
 
       for (int i = 0; i < 10000; i += 1) {
         fvlam::Translate3::MuVector sample{sampler.sample()};
         emac.accumulate(sample, fvlam::Translate3::CovarianceMatrix::Zero());
+        emac_2p.accumulate(sample);
       }
 
       auto mean = emac.mean();
       auto cov = emac.cov();
+      auto mean_2p = emac_2p.mean();
+      auto cov_2p = emac_2p.cov();
 
-//      fvlam::Translate3WithCovariance twc{fvlam::Translate3::from(mean), cov};
-//      std::cout << twc.to_string() << std::endl;
+      std::cout << "mu" << std::endl;
+      fvlam::Translate3WithCovariance twc{fvlam::Translate3::from(mean), cov};
+      std::cout << twc.to_string() << std::endl;
+      fvlam::Translate3WithCovariance twc_2p{fvlam::Translate3::from(mean_2p), cov_2p};
+      std::cout << twc_2p.to_string() << std::endl;
 
       REQUIRE(gtsam::assert_equal<fvlam::Translate3::MuVector>(fvlam::Translate3::MuVector::Zero(), mean, 1.0e-2));
+      REQUIRE(gtsam::assert_equal<fvlam::Translate3::MuVector>(mean, mean_2p, 1.0e-6));
       REQUIRE(gtsam::assert_equal<double>(sigma[0] * sigma[0], cov(0, 0), 1.0e-3));
       REQUIRE(gtsam::assert_equal<double>(sigma[1] * sigma[0], cov(1, 1), 1.0e-3));
       REQUIRE(gtsam::assert_equal<double>(sigma[2] * sigma[0], cov(2, 2), 1.0e-3));
+      REQUIRE(gtsam::assert_equal<fvlam::EstimateMeanAndCovarianceSimple
+        <fvlam::Translate3::MuVector>::CovarianceMatrix>(cov, cov_2p, 1.0e-6));
     }
   }
-#endif
 
   TEST_CASE("sho_test - Test EstimatePoseMeanAndCovariance with sampler")
   {
@@ -490,6 +499,10 @@ namespace camsim
       Pose{81 * degree, 1 * degree, 1 * degree, 1, 1, 2},
       Pose{79 * degree, -1 * degree, -1 * degree, 0, 0, 2},
       Pose{79 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+      Pose{181 * degree, 1 * degree, 1 * degree, 2, 1, 1},
+      Pose{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+      Pose{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+      Pose{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
     };
 
     std::vector<PoseMu> sigmas{
@@ -519,15 +532,18 @@ namespace camsim
         fvlam::Transform3WithCovariance twc{mean, cov};
         std::cout << twc.to_string() << std::endl;
 
-        REQUIRE(gtsam::assert_equal<PoseMu>(pose.mu(), mean.mu(), 1.0e-2));
-        REQUIRE(gtsam::assert_equal<double>(sigma[0] * sigma[0], cov(0, 0), 1.0e-3));
-        REQUIRE(gtsam::assert_equal<double>(sigma[1] * sigma[1], cov(1, 1), 1.0e-3));
-        REQUIRE(gtsam::assert_equal<double>(sigma[2] * sigma[2], cov(2, 2), 1.0e-3));
-        REQUIRE(gtsam::assert_equal<double>(sigma[3] * sigma[3], cov(3, 3), 1.0e-3));
-        REQUIRE(gtsam::assert_equal<double>(sigma[4] * sigma[4], cov(4, 4), 1.0e-3));
-        REQUIRE(gtsam::assert_equal<double>(sigma[5] * sigma[5], cov(5, 5), 1.0e-3));
+        REQUIRE(gtsam::assert_equal<fvlam::Rotate3::CovarianceMatrix>(pose.r().rotation_matrix(),
+                                                                      mean.r().rotation_matrix(), 1.0e-2));
+        REQUIRE(gtsam::assert_equal<fvlam::Translate3::MuVector>(pose.t().t(), mean.t().t(), 1.0e-2));
+        REQUIRE(gtsam::assert_equal<double>(sigma[0] * sigma[0], cov(0, 0), 5.0e-2));
+        REQUIRE(gtsam::assert_equal<double>(sigma[1] * sigma[1], cov(1, 1), 5.0e-2));
+        REQUIRE(gtsam::assert_equal<double>(sigma[2] * sigma[2], cov(2, 2), 5.0e-2));
+        REQUIRE(gtsam::assert_equal<double>(sigma[3] * sigma[3], cov(3, 3), 5.0e-2));
+        REQUIRE(gtsam::assert_equal<double>(sigma[4] * sigma[4], cov(4, 4), 5.0e-2));
+        REQUIRE(gtsam::assert_equal<double>(sigma[5] * sigma[5], cov(5, 5), 5.0e-2));
       }
   }
+#endif
 
   TEST_CASE("sho_test - shonan build from model")
   {
@@ -535,7 +551,7 @@ namespace camsim
     {
       double r_sampler_sigma = 0.0;
       double t_sampler_sigma = 0.0;
-      double u_sampler_sigma = 0.5;
+      double u_sampler_sigma = 0.25;
       double r_noise_sigma = 0.1;
       double t_noise_sigma = 0.1;
       double u_noise_sigma = 0.5;
@@ -557,8 +573,16 @@ namespace camsim
 
 //    std::cout << "initial map\n" << map_initial->to_string() << std::endl;
 
-    auto cxt = fvlam::BuildMarkerMapShonanContext(5);
-    auto bmm_shonan = make_build_marker_map(cxt, *map_initial);
+    auto camera_info{fvlam::CameraInfo::from(model.cameras_.calibration_)};
+    auto solve_tmm_context = fvlam::SolveTmmContextCvSolvePnp{};
+    solve_tmm_context.average_on_space_not_manifold = false;
+    auto solve_tmm_factory = fvlam::make_solve_tmm_factory(solve_tmm_context,
+                                                           camera_info,
+                                                           model.cfg_.marker_length_);
+
+
+    auto bmm_cxt = fvlam::BuildMarkerMapShonanContext(5);
+    auto bmm_shonan = make_build_marker_map(bmm_cxt, solve_tmm_factory, *map_initial);
 
     auto runner_config = BuildMarkerMapRunnerConfig{
       (fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(tp.r_sampler_sigma),

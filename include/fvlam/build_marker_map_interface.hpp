@@ -14,50 +14,6 @@ namespace fvlam
   class MarkerObservations; //
 
 // ==============================================================================
-// BuildMarkerMapInterface class
-// ==============================================================================
-
-// An interface used to build maps of markers. This is a common interface to
-// several modules that use different techniques to build maps.
-  class BuildMarkerMapInterface
-  {
-  public:
-    virtual ~BuildMarkerMapInterface() = default;
-
-    // Take the location of markers in one image and add them to the marker map
-    // building algorithm.
-    virtual void process(const MarkerObservations &marker_observations,
-                         const CameraInfo &camera_info) = 0;
-
-    // Given the observations that have been added so far, create and return a marker_map.
-    virtual std::unique_ptr<MarkerMap> build() = 0;
-
-    // Re-initialize the map_builder. (i.e. through out any data accumulated so far)
-    virtual std::string reset(std::string &cmd) = 0;
-  };
-
-  template<class TContext>
-  std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map(const TContext &context,
-                                                                 const MarkerMap &map_initial);
-
-// ==============================================================================
-// BuildMarkerMapShonanContext class
-// ==============================================================================
-
-  class BuildMarkerMapShonanContext
-  {
-  public:
-    const int flags_;
-
-    explicit BuildMarkerMapShonanContext(int flags) :
-      flags_{flags}
-    {}
-
-    template<class T>
-    static Transform3 from(const T &other);
-  };
-
-// ==============================================================================
 // SolveTMarker0Marker1Interface class
 // ==============================================================================
 
@@ -82,102 +38,235 @@ namespace fvlam
 
   using SolveTMarker0Marker1Factory = std::function<std::unique_ptr<SolveTMarker0Marker1Interface>()>;
 
-  template<class TContext>
-  SolveTMarker0Marker1Factory make_solve_t_marker0_marker1_factory(const TContext &context,
-                                                                   const CameraInfo &camera_info,
-                                                                   double marker_length);
+  template<class TSolveTmmContext>
+  SolveTMarker0Marker1Factory make_solve_tmm_factory(const TSolveTmmContext &solve_tmm_context,
+                                                     const CameraInfo &camera_info,
+                                                     double marker_length);
 
   // Solve t_marker0_marker1 using OpenCV's SolvePnp and then average the results
   // on the SE3 manifold or the se3 tangent space
-  struct SolveTmmCvSolvePnp
+  struct SolveTmmContextCvSolvePnp
   {
     bool average_on_space_not_manifold{true};
   };
 
 // ==============================================================================
-// EstimateMeanAndCovariance class
+// BuildMarkerMapInterface class
+// ==============================================================================
+
+// An interface used to build maps of markers. This is a common interface to
+// several modules that use different techniques to build maps.
+  class BuildMarkerMapInterface
+  {
+  public:
+    virtual ~BuildMarkerMapInterface() = default;
+
+    // Take the location of markers in one image and add them to the marker map
+    // building algorithm.
+    virtual void process(const MarkerObservations &marker_observations,
+                         const CameraInfo &camera_info) = 0;
+
+    // Given the observations that have been added so far, create and return a marker_map.
+    virtual std::unique_ptr<MarkerMap> build() = 0;
+
+    // Re-initialize the map_builder. (i.e. through out any data accumulated so far)
+    virtual std::string reset(std::string &cmd) = 0;
+  };
+
+  template<class TBmmContext>
+  std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map(const TBmmContext &bmm_context,
+                                                                 SolveTMarker0Marker1Factory solve_tmm_factory,
+                                                                 const MarkerMap &map_initial);
+
+// ==============================================================================
+// BuildMarkerMapShonanContext class
+// ==============================================================================
+
+  class BuildMarkerMapShonanContext
+  {
+  public:
+    const int flags_;
+
+    explicit BuildMarkerMapShonanContext(int flags) :
+      flags_{flags}
+    {}
+
+    template<class T>
+    static Transform3 from(const T &other);
+  };
+
+// ==============================================================================
+// EstimateTransform3MeanAndCovariance class
 // ==============================================================================
 
   template<class MUVECTOR>
-  class EstimateMeanAndCovariance
+  class EstimateMeanAndCovarianceSimple
   {
+  public:
     using CovarianceMatrix = Eigen::Matrix<double, MUVECTOR::MaxSizeAtCompileTime, MUVECTOR::MaxSizeAtCompileTime>;
-    std::uint64_t id_;
-    MUVECTOR first_sample_{MUVECTOR::Zero()};
-    CovarianceMatrix first_cov_{CovarianceMatrix::Zero()};
+
+  protected:
     MUVECTOR mu_sum_{MUVECTOR::Zero()};
     CovarianceMatrix mu_mu_sum_{CovarianceMatrix::Zero()};
     std::uint64_t n_{0};
 
   public:
-    explicit EstimateMeanAndCovariance(std::uint64_t id) :
-      id_{id}
-    {}
 
-    void accumulate(const MUVECTOR &mu, const CovarianceMatrix cov)
+    void accumulate(const MUVECTOR &mu)
     {
-//      if (n_ == 0) {
-//        first_sample_ = mu;
-//        first_cov_ = cov;
-//      }
-      MUVECTOR mu_centered = mu - first_sample_;
-      mu_sum_ += mu_centered;
-      mu_mu_sum_ += mu_centered * mu_centered.transpose();
+      mu_sum_ += mu;
+      mu_mu_sum_ += mu * mu.transpose();
       n_ += 1;
     }
 
     MUVECTOR mean() const
     {
-      if (n_ == 0) {
-        return mu_sum_ + first_sample_;
-      }
-      return mu_sum_ / n_ + first_sample_;
+      return (n_ == 0) ? mu_sum_ : mu_sum_ / n_;
     }
 
     CovarianceMatrix cov() const
     {
-      if (n_ <= 1) {
-        return first_cov_;
-      }
-      return (mu_mu_sum_ - (mu_sum_ * mu_sum_.transpose()) / n_) / n_;
+      return (n_ == 0) ? mu_mu_sum_ : (mu_mu_sum_ - (mu_sum_ * mu_sum_.transpose()) / n_) / n_;
     }
   };
 
-  class EstimateTransform3MeanAndCovariance
+  class EstimateTransform3MeanAndCovariance : public EstimateMeanAndCovarianceSimple<fvlam::Transform3::TangentVector>
   {
-    EstimateMeanAndCovariance<Transform3::MuVector> emac_;
-    bool first_{false};
-    fvlam::Transform3 offset_{};
-    fvlam::Transform3 offset_inverse_{};
+    using Base = EstimateMeanAndCovarianceSimple<fvlam::Transform3::TangentVector>;
+    fvlam::Rotate3 r_adj_{};
+    fvlam::Rotate3 r_adj_inverse_{};
+    fvlam::Translate3 t_adj_{};
+    fvlam::Translate3 t_adj_inverse_{};
 
   public:
-    explicit EstimateTransform3MeanAndCovariance(std::uint64_t id) :
-      emac_{id}
-    {}
 
     void accumulate(const Transform3 &tr)
     {
-      if (first_) {
-        offset_ = tr;
-        offset_inverse_ = tr.inverse();
-        first_ = false;
+      if (Base::n_ == 0) {
+        r_adj_ = tr.r();
+        t_adj_ = tr.t();
+        r_adj_inverse_ = r_adj_.inverse();
+        t_adj_inverse_ = t_adj_ * -1;
       }
-      auto tr_adj = tr * offset_inverse_;
-      auto log_tr = Transform3::Logmap(tr_adj);
-      emac_.accumulate(log_tr, Transform3::CovarianceMatrix::Zero());
-//        emac_.accumulate(tr.mu(), Transform3::CovarianceMatrix::Zero());
+      auto tr_adj = Transform3{tr.r() * r_adj_inverse_, tr.t() + t_adj_inverse_};
+      Base::accumulate(fvlam::Transform3::ChartAtOrigin::local(tr_adj));
     }
 
     Transform3 mean() const
     {
-      return Transform3::Expmap(emac_.mean()) * offset_;
-//      return Transform3{emac_.mean()};
-    }
-
-    Transform3::CovarianceMatrix cov() const
-    {
-      return emac_.cov();
+      auto tr_adj = fvlam::Transform3::ChartAtOrigin::retract(Base::mean());
+      auto tr = Transform3{tr_adj.r() * r_adj_, tr_adj.t() + t_adj_};
+      return tr;
     }
   };
+
+
+  template<class MUVECTOR>
+  class EstimateMeanAndCovariance : public EstimateMeanAndCovarianceSimple<MUVECTOR>
+  {
+    using Base = EstimateMeanAndCovarianceSimple<MUVECTOR>;
+    MUVECTOR first_sample_{MUVECTOR::Zero()};
+
+  public:
+
+    void accumulate(const MUVECTOR &mu)
+    {
+      if (Base::n_ == 0) {
+        first_sample_ = mu;
+      }
+      MUVECTOR mu_adj = mu - first_sample_;
+      Base::accumulate(mu_adj);
+    }
+
+    MUVECTOR mean() const
+    {
+      return Base::mean() + first_sample_;
+    }
+  };
+
+  template<class MUVECTOR>
+  class EstimateMeanAndCovariance2PSimple
+  {
+  public:
+    using MuVector = MUVECTOR;
+    using CovarianceMatrix = Eigen::Matrix<double, MUVECTOR::MaxSizeAtCompileTime, MUVECTOR::MaxSizeAtCompileTime>;
+    std::vector<MUVECTOR> mus_{};
+
+  public:
+
+    void accumulate(const MUVECTOR &mu)
+    {
+      mus_.template emplace_back(mu);
+    }
+
+    MUVECTOR mean() const
+    {
+      MUVECTOR mu_sum{MUVECTOR::Zero()};
+      for (auto &mu : mus_) {
+        mu_sum = mu_sum + mu;
+      }
+      auto mu_mean = mu_sum / mus_.size();
+      return mu_mean;
+    }
+
+    CovarianceMatrix cov() const
+    {
+      CovarianceMatrix mu_mu_sum{CovarianceMatrix::Zero()};
+      auto m = mean();
+      for (auto &mu : mus_) {
+        auto mu_deviate = mu - m;
+        mu_mu_sum = mu_mu_sum + mu_deviate * mu_deviate.transpose();
+      }
+      CovarianceMatrix cov = mu_mu_sum / mus_.size();
+      return cov;
+    }
+  };
+
+#if 0
+
+  class EstimateTransform3MeanAndCovarianceEade : public EstimateMeanAndCovariance2PSimple<fvlam::Transform3::MuVector>
+  {
+    using Base = EstimateMeanAndCovariance2PSimple<fvlam::Transform3::MuVector>;
+
+    fvlam::Transform3 iterate() const
+    {
+      auto mean_k = Transform3{Base::mus_[0]};
+      auto mean_k_inverse = mean_k.inverse();
+
+      for (int k = 0; k < 4; k += 1) {
+        Base::MuVector deviation_ln_sum{Base::MuVector::Zero()};
+
+        for (int i = 0; i < Base::mus_.size(); i += 1) {
+          auto deviation = Transform3{Base::mus_[i]} * mean_k_inverse;
+          auto deviation_ln = Transform3::Logmap(deviation);
+          deviation_ln_sum += deviation_ln;
+        }
+
+        mean_k = Transform3::Expmap(deviation_ln_sum / Base::mus_.size()) * mean_k;
+        mean_k_inverse = mean_k.inverse();
+      }
+      return mean_k;
+    }
+
+  public:
+
+    void accumulate(const Transform3 &tr)
+    {
+      Base::accumulate(tr.mu());
+    }
+
+    fvlam::Transform3 mean() const
+    {
+      return iterate();
+    }
+
+    CovarianceMatrix cov() const
+    {
+      return CovarianceMatrix::Zero();
+    }
+  };
+
+#endif
+
 }
 #endif //FVLAM_BUILD_MARKER_MAP_INTERFACE_HPP

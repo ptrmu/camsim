@@ -266,6 +266,24 @@ namespace fvlam
     /// Log map at identity - return the canonical coordinates \f$ [R_x,R_y,R_z] \f$ of this rotation
     static TangentVector Logmap(const Rotate3 &rotate3);
 
+    struct ChartAtOrigin
+    {
+      static Rotate3 retract(const TangentVector &v)
+      { return Expmap(v); } //
+      static TangentVector local(const Rotate3 &r)
+      { return Logmap(r); } //
+    };
+
+    Rotate3 compose(const Rotate3 &other) const
+    { return *this * other; } //
+    Rotate3 between(const Rotate3 &other) const
+    { return (*this).inverse() * other; } //
+
+    Rotate3 retract(const TangentVector &v)
+    { return compose(ChartAtOrigin::retract(v)); } //
+    TangentVector local_coordinates(const Rotate3 &other)
+    { return ChartAtOrigin::local(between(other)); } //
+
     Rotate3 operator*(const Rotate3 &other) const
     {
       return Rotate3(q_ * other.q_);
@@ -369,8 +387,21 @@ namespace fvlam
     /// Log map at identity - return the canonical coordinates \f$ [R_x,R_y,R_z,T_x,T_y,T_z] \f$ of this transform
     static TangentVector Logmap(const Transform3 &transform3);
 
-    Transform3 retract(const TangentVector &v)
-    { return *this * Expmap(v); }
+    struct ChartAtOrigin
+    {
+      static Transform3 retract(const TangentVector &v); //
+      static TangentVector local(const Transform3 &pose); //
+    };
+
+    Transform3 compose(const Transform3 &other) const
+    { return *this * other; } //
+    Transform3 between(const Transform3 &other) const
+    { return (*this).inverse() * other; } //
+
+    Transform3 retract(const TangentVector &v) const
+    { return compose(ChartAtOrigin::retract(v)); } //
+    TangentVector local_coordinates(const Transform3 &other) const
+    { return ChartAtOrigin::local(between(other)); } //
 
     Translate3 operator*(const Translate3 &other) const
     {
@@ -379,7 +410,7 @@ namespace fvlam
 
     Transform3 operator*(const Transform3 &other) const
     {
-      return Transform3(r_ * other.r_, t_ + r_ * other.t_);
+      return Transform3{r_ * other.r_, t_ + r_ * other.t_};
     }
   };
 

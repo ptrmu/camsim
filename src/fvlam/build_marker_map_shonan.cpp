@@ -15,11 +15,11 @@ namespace fvlam
   class BuildMarkerMapShonan : public BuildMarkerMapInterface
   {
     const BuildMarkerMapShonanContext context_;
-    const fvlam::Marker fixed_marker_;
+    SolveTMarker0Marker1Factory solve_tmm_factory_;
     const double marker_length_;
+    const fvlam::Marker fixed_marker_;
 
-    std::map<std::uint64_t, EstimateMeanAndCovariance < Transform3::MuVector>> t_marker0_marker1_map_;
-
+    std::map<std::uint64_t, std::unique_ptr<SolveTMarker0Marker1Interface>> solve_tmm_map_;
 
     static fvlam::Marker find_fixed_marker(const MarkerMap &map)
     {
@@ -28,26 +28,24 @@ namespace fvlam
           return marker.second;
         }
       }
-
       return fvlam::Marker{0, Transform3WithCovariance{}};
     }
 
     gtsam::ShonanAveraging3::Measurements load_shonan_measurements()
     {
       gtsam::ShonanAveraging3::Measurements measurements{};
-      auto noiseModel = gtsam::noiseModel::Diagonal::Sigmas(Rotate3::MuVector::Ones() * 0.1);
 
-      for (auto it = t_marker0_marker1_map_.begin(); it != t_marker0_marker1_map_.end(); ++it) {
+      for (auto it = solve_tmm_map_.begin(); it != solve_tmm_map_.end(); ++it) {
         std::uint64_t id0 = it->first / 1000000L;
         std::uint64_t id1 = it->first % 1000000L;
 
-        auto mean = Transform3{it->first, it->second.mean()};
+        auto mean = it->second->t_marker0_marker1();
+
 //        std::cout << "id0:" << id0 << " id1:" << id1
-//                  << " mean " << mean.to_string(true) << std::endl
-//                  << fvlam::Transform3::to_cov_string(it->second.cov()) << std::endl;
+//                  << " mean " << mean.to_string(true) << std::endl;
 
         // shonan noise models must be isotropic?? So take the largest of the diagonal elements.
-        auto cov = it->second.cov();
+        auto cov = mean.cov();
         auto var = cov(0, 0);
         if (var < cov(1, 1)) {
           var = cov(1, 1);
@@ -60,7 +58,7 @@ namespace fvlam
         }
 
         auto measurement = gtsam::BinaryMeasurement<gtsam::Rot3>{
-          id0, id1, mean.r().to<gtsam::Rot3>(),
+          id0, id1, mean.tf().r().to<gtsam::Rot3>(),
           gtsam::noiseModel::Diagonal::Variances(fvlam::Rotate3::MuVector::Ones() * var)};
         measurements.emplace_back(measurement);
       }
@@ -73,21 +71,20 @@ namespace fvlam
       gtsam::NonlinearFactorGraph pose_graph{};
       auto noiseModel = gtsam::noiseModel::Diagonal::Sigmas(Transform3::MuVector::Ones() * 0.1);
 
-      for (auto it = t_marker0_marker1_map_.begin(); it != t_marker0_marker1_map_.end(); ++it) {
+      for (auto it = solve_tmm_map_.begin(); it != solve_tmm_map_.end(); ++it) {
         std::uint64_t id0 = it->first / 1000000L;
         std::uint64_t id1 = it->first % 1000000L;
 
-        auto mean = Transform3{it->second.mean()};
-        auto cov = it->second.cov();
+        auto t_marker0_marker1 = it->second->t_marker0_marker1();
         pose_graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-          id0, id1, mean.to<gtsam::Pose3>(),
-            gtsam::noiseModel::Gaussian::Covariance(cov));
+          id0, id1, t_marker0_marker1.tf().to<gtsam::Pose3>(),
+          gtsam::noiseModel::Gaussian::Covariance(t_marker0_marker1.cov()));
       }
 
       // Add the prior for the fixed node.
       pose_graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(
         fixed_marker_.id(), fixed_marker_.t_world_marker().tf().to<gtsam::Pose3>(),
-          gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Pose3::TangentVector::Zero()));
+        gtsam::noiseModel::Constrained::MixedSigmas(gtsam::Pose3::TangentVector::Zero()));
 
       return pose_graph;
     }
@@ -148,10 +145,13 @@ namespace fvlam
     BuildMarkerMapShonan() = delete;
 
     BuildMarkerMapShonan(BuildMarkerMapShonanContext context,
+                         SolveTMarker0Marker1Factory solve_tmm_factory,
                          const MarkerMap &map) :
       context_{std::move(context)},
+      solve_tmm_factory_{std::move(solve_tmm_factory)},
+      marker_length_{map.marker_length()},
       fixed_marker_{find_fixed_marker(map)},
-      marker_length_{map.marker_length()}
+      solve_tmm_map_{}
     {}
 
     void process(const MarkerObservations &marker_observations,
@@ -173,18 +173,15 @@ namespace fvlam
             m1r = m0;
           }
 
-          // calculate the relative transform between the two markers
-          auto t_marker0_marker1 = solve_t_marker0_marker1(obs[m0r], obs[m1r]);
-
-          // Accumulate this in the map
-          auto it = t_marker0_marker1_map_.find(t_marker0_marker1.id());
-          if (it == t_marker0_marker1_map_.end()) {
-            EstimateMeanAndCovariance <Transform3::MuVector> new_mean{t_marker0_marker1.id()};
-            auto pair = t_marker0_marker1_map_.emplace(t_marker0_marker1.id(), new_mean);
-            assert(pair.second);
-            it = pair.first;
+          // Find the appropriate SolveTmmInterface
+          std::uint64_t joint_id = obs[m0r].id() * 1000000 + obs[m1r].id();
+          auto it = solve_tmm_map_.find(joint_id);
+          if (it == solve_tmm_map_.end()) {
+            auto res = solve_tmm_map_.emplace(joint_id, solve_tmm_factory_());
+            assert(res.second);
+            it = res.first;
           }
-          it->second.accumulate(t_marker0_marker1.tf().mu(), t_marker0_marker1.cov());
+          it->second->accumulate(obs[m0r], obs[m1r]);
         }
     }
 
@@ -222,9 +219,70 @@ namespace fvlam
 
   template<>
   std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map<BuildMarkerMapShonanContext>(
-    const BuildMarkerMapShonanContext &context,
+    const BuildMarkerMapShonanContext &bmm_context,
+    SolveTMarker0Marker1Factory solve_tmm_factory,
     const MarkerMap &map_initial)
   {
-    return std::make_unique<BuildMarkerMapShonan>(context, map_initial);
+    return std::make_unique<BuildMarkerMapShonan>(bmm_context, std::move(solve_tmm_factory), map_initial);
+  }
+
+// ==============================================================================
+// SolveTmmCvSolvePnp class
+// ==============================================================================
+
+  class SolveTmmCvSolvePnp : public SolveTMarker0Marker1Interface
+  {
+    const SolveTmmContextCvSolvePnp solve_tmm_context_;
+    fvlam::Marker::SolveFunction solve_t_camera_marker_function_;
+    EstimateTransform3MeanAndCovariance emac_algebra_; // Averaging in the vector space
+    EstimateMeanAndCovariance<Transform3::MuVector> emac_group_; // Averaging on the manifold
+
+  public:
+    SolveTmmCvSolvePnp(const SolveTmmContextCvSolvePnp &solve_tmm_context,
+                       const CameraInfo &camera_info,
+                       double marker_length) :
+      solve_tmm_context_{solve_tmm_context},
+      solve_t_camera_marker_function_{fvlam::Marker::solve_t_camera_marker<CvCameraCalibration>
+                                        (camera_info.to<CvCameraCalibration>(), marker_length)},
+      emac_algebra_{}, emac_group_{}
+    {}
+
+    void accumulate(const MarkerObservation &observation0,
+                    const MarkerObservation &observation1) override
+    {
+      auto t_camera_marker0 = solve_t_camera_marker_function_(observation0).t_world_marker().tf();
+      auto t_camera_marker1 = solve_t_camera_marker_function_(observation1).t_world_marker().tf();
+      auto t_marker0_marker1 = t_camera_marker0.inverse() * t_camera_marker1;
+      if (solve_tmm_context_.average_on_space_not_manifold) {
+        emac_algebra_.accumulate(t_marker0_marker1);
+      } else {
+        emac_group_.accumulate(t_marker0_marker1.mu());
+      }
+    }
+
+    // Given the observations that have been added so far, create and return a marker_map.
+    Transform3WithCovariance t_marker0_marker1() override
+    {
+      return Transform3WithCovariance{
+        solve_tmm_context_.average_on_space_not_manifold ? emac_algebra_.mean() : Transform3(emac_group_.mean()),
+        solve_tmm_context_.average_on_space_not_manifold ? emac_algebra_.cov() : emac_group_.cov()};
+    }
+  };
+
+  template<>
+  SolveTMarker0Marker1Factory make_solve_tmm_factory<SolveTmmContextCvSolvePnp>
+    (const SolveTmmContextCvSolvePnp &solve_tmm_context,
+     const CameraInfo &camera_info,
+     double marker_length)
+  {
+
+    return [
+      &solve_tmm_context,
+      &camera_info,
+      marker_length
+    ]() -> std::unique_ptr<SolveTMarker0Marker1Interface>
+    {
+      return std::make_unique<SolveTmmCvSolvePnp>(solve_tmm_context, camera_info, marker_length);
+    };
   }
 }
