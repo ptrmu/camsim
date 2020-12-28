@@ -3,8 +3,8 @@
 
 #include "fvlam/build_marker_map_interface.hpp"
 #include "fvlam/camera_info.hpp"
-#include "fvlam/marker_map.hpp"
-#include "fvlam/marker_observation.hpp"
+#include "fvlam/marker.hpp"
+#include "fvlam/observation.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 
@@ -104,11 +104,11 @@ namespace fvlam
   }
 
 // ==============================================================================
-// from fvlam/marker_observation.cpp
+// from fvlam/observation.cpp
 // ==============================================================================
 
   template<>
-  std::vector<cv::Point2d> MarkerObservation::to<std::vector<cv::Point2d>>() const
+  std::vector<cv::Point2d> Observation::to<std::vector<cv::Point2d>>() const
   {
     return std::vector<cv::Point2d>{
       cv::Point2d{corners_f_image_[0].x(), corners_f_image_[0].y()},
@@ -119,19 +119,19 @@ namespace fvlam
   }
 
   template<>
-  MarkerObservation MarkerObservation::from<std::vector<cv::Point2d>>(
+  Observation Observation::from<std::vector<cv::Point2d>>(
     std::uint64_t id, const std::vector<cv::Point2d> &cfi)
   {
-    return MarkerObservation(id, MarkerObservation::Array{
-      MarkerObservation::Element{cfi[0].x, cfi[0].y},
-      MarkerObservation::Element{cfi[1].x, cfi[1].y},
-      MarkerObservation::Element{cfi[2].x, cfi[2].y},
-      MarkerObservation::Element{cfi[3].x, cfi[3].y}
+    return Observation(id, Observation::Array{
+      Observation::Element{cfi[0].x, cfi[0].y},
+      Observation::Element{cfi[1].x, cfi[1].y},
+      Observation::Element{cfi[2].x, cfi[2].y},
+      Observation::Element{cfi[3].x, cfi[3].y}
     });
   }
 
 // ==============================================================================
-// fvlam::Marker conversions that require MarkerObservation conversions so
+// fvlam::Marker conversions that require Observation conversions so
 // have to be after those conversions in the file.
 // ==============================================================================
 
@@ -149,7 +149,7 @@ namespace fvlam
       camera_calibration,
       t_world_camera,
       marker_length]
-      (const Marker &marker) -> MarkerObservation
+      (const Marker &marker) -> Observation
     {
       auto camera_matrix = camera_calibration.first;
       auto dist_coeffs = camera_calibration.second;
@@ -159,7 +159,7 @@ namespace fvlam
       std::vector<cv::Point2d> image_points;
       auto corners_f_world = marker.to_corners_f_world<std::vector<cv::Point3d>>(marker_length);
       cv::projectPoints(corners_f_world, rvec, tvec, camera_matrix, dist_coeffs, image_points);
-      return MarkerObservation::from<std::vector<cv::Point2d>>(marker.id(), image_points);
+      return Observation::from<std::vector<cv::Point2d>>(marker.id(), image_points);
     };
   }
 
@@ -168,26 +168,24 @@ namespace fvlam
     const CvCameraCalibration &camera_calibration, double marker_length)
   {
     return [
-      camera_matrix = camera_calibration.first,
-      dist_coeffs = camera_calibration.second,
+      camera_calibration,
       marker_length]
-      (const MarkerObservation &marker_observation) -> Marker
+      (const Observation &observation) -> Marker
     {
       // Build up two lists of corner points: 2D in the image frame, 3D in the marker frame.
       auto corners_f_marker{Marker::to_corners_f_marker<std::vector<cv::Point3d>>(marker_length)};
-      auto corners_f_image{marker_observation.to<std::vector<cv::Point2d>>()};
+      auto corners_f_image{observation.to<std::vector<cv::Point2d>>()};
 
       // Figure out marker pose.
       cv::Vec3d rvec, tvec;
       cv::solvePnP(corners_f_marker, corners_f_image,
-                   camera_matrix, dist_coeffs,
-                   rvec, tvec,
-                   false, cv::SolvePnPMethod::SOLVEPNP_IPPE_SQUARE);
+                   camera_calibration.first, camera_calibration.second,
+                   rvec, tvec);
 
       // rvec, tvec output from solvePnp "brings points from the model coordinate system to the
       // camera coordinate system". In this case the marker frame is the model coordinate system.
       // So rvec, tvec are the transformation t_camera_marker.
-      return Marker{marker_observation.id(),
+      return Marker{observation.id(),
                     Transform3WithCovariance(Transform3(Rotate3::from(rvec), Translate3::from(tvec)))};
     };
   }
@@ -203,10 +201,10 @@ namespace fvlam
     return [
       solve_t_camera_marker_function,
       t_world_camera]
-      (const MarkerObservation &marker_observation) -> Marker
+      (const Observation &observation) -> Marker
     {
-      auto t_camera_marker = solve_t_camera_marker_function(marker_observation);
-      return Marker{marker_observation.id(),
+      auto t_camera_marker = solve_t_camera_marker_function(observation);
+      return Marker{observation.id(),
                     Transform3WithCovariance{t_world_camera * t_camera_marker.t_world_marker().tf()}};
     };
   }
@@ -221,17 +219,17 @@ namespace fvlam
     return [
       solve_t_camera_marker_function,
       marker_length]
-      (const MarkerObservation &marker_observation0,
-       const MarkerObservation &marker_observation1) -> Transform3WithCovariance
+      (const Observation &observation0,
+       const Observation &observation1) -> Transform3WithCovariance
     {
-      auto t_camera_marker0 = solve_t_camera_marker_function(marker_observation0).t_world_marker().tf();
-      auto t_camera_marker1 = solve_t_camera_marker_function(marker_observation1).t_world_marker().tf();
+      auto t_camera_marker0 = solve_t_camera_marker_function(observation0).t_world_marker().tf();
+      auto t_camera_marker1 = solve_t_camera_marker_function(observation1).t_world_marker().tf();
       auto t_marker0_marker1 = t_camera_marker0.inverse() * t_camera_marker1;
 
       // NOTE: using an arbitrary uncertainty. Someday do this better - combine uncertainties from measurements.
       return Transform3WithCovariance{
         Transform3{
-          marker_observation0.id() * 1000000L + marker_observation1.id(), t_marker0_marker1},
+          observation0.id() * 1000000L + observation1.id(), t_marker0_marker1},
         (Transform3::MuVector::Ones() * std::pow(0.1, 2)).asDiagonal()};
     };
   }

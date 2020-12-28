@@ -10,8 +10,8 @@
 #include "../sho/sho_run.hpp"
 #include "../../include/fvlam/build_marker_map_interface.hpp"
 #include "../../include/fvlam/camera_info.hpp"
-#include "../../include/fvlam/marker_map.hpp"
-#include "../../include/fvlam/marker_observation.hpp"
+#include "../../include/fvlam/marker.hpp"
+#include "../../include/fvlam/observation.hpp"
 #include "../../include/fvlam/transform3_with_covariance.hpp"
 #include "../../src/build_marker_map_runner.hpp"
 #include "../../src/model.hpp"
@@ -77,7 +77,7 @@ namespace camsim
     fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
   };
 
-#if 0
+#if 1
 
   TEST_CASE("sho_test - shonan_rotation_averaging")
   {
@@ -157,8 +157,12 @@ namespace camsim
 
                 auto SE3_fvlam_inverse = SE3_fvlam.inverse();
                 auto SE3_gtsam_inverse = SE3_gtsam.inverse();
-                REQUIRE(gtsam::assert_equal(SE3_gtsam_inverse.rotation().matrix(), SE3_fvlam_inverse.r().rotation_matrix(), 1.0e-6));
-                REQUIRE(gtsam::assert_equal(SE3_gtsam_inverse.translation(), SE3_fvlam_inverse.t().t(), 1.0e-6));
+                REQUIRE(gtsam::assert_equal(SE3_gtsam_inverse.rotation().matrix(),
+                                            SE3_fvlam_inverse.r().rotation_matrix(),
+                                            1.0e-6));
+                REQUIRE(gtsam::assert_equal(SE3_gtsam_inverse.translation(),
+                                            SE3_fvlam_inverse.t().t(),
+                                            1.0e-6));
               }
         }
   }
@@ -200,7 +204,7 @@ namespace camsim
     auto marker_length = model.markers_.cfg_.marker_length_;
 
     auto camera_calibration = fvlam::CameraInfo::from<gtsam::Cal3DS2>(model.cameras_.calibration_);
-    auto cv_camera_calibration = camera_calibration.to<CvCameraCalibration>();
+    auto cv_camera_calibration = camera_calibration.to<fvlam::CvCameraCalibration>();
     auto gtsam_camera_calibration = camera_calibration.to<gtsam::Cal3DS2>();
 
 //    // Run some manual tests
@@ -239,7 +243,7 @@ namespace camsim
           // Test the OpenCV project_t_world_marker function
           auto cv_observation = cv_project_t_world_marker_function(f_marker);
           std::cout << "  cv     " << cv_observation.to_string() << std::endl;
-          for (int i = 0; i < fvlam::MarkerObservation::ArraySize; i += 1) {
+          for (int i = 0; i < fvlam::Observation::ArraySize; i += 1) {
             gtsam::Vector2 v0 = corners_f_image.corners_f_image_[i];
             gtsam::Vector2 v1 = cv_observation.corners_f_image()[i].to<gtsam::Vector2>();
 //            std::cout << "cv  " << fvlam::Translate2{v0}.to_string()
@@ -250,7 +254,7 @@ namespace camsim
           // Test the gtsam project_t_world_marker function
           auto gtsam_observation = gtsam_project_t_world_marker_function(f_marker);
           std::cout << "  gtsam  " << gtsam_observation.to_string() << std::endl;
-          for (int i = 0; i < fvlam::MarkerObservation::ArraySize; i += 1) {
+          for (int i = 0; i < fvlam::Observation::ArraySize; i += 1) {
             gtsam::Vector2 v0 = corners_f_image.corners_f_image_[i];
             gtsam::Vector2 v1 = gtsam_observation.corners_f_image()[i].to<gtsam::Vector2>();
 //            std::cout << "gt  " << fvlam::Translate2{v0}.to_string()
@@ -283,7 +287,7 @@ namespace camsim
     auto marker_length = 0.1775;
     gtsam::Cal3DS2 cal3DS2{475, 475, 0, 400, 300, 0., 0.};
     auto camera_calibration = fvlam::CameraInfo::from<gtsam::Cal3DS2>(cal3DS2);
-    auto cv_camera_calibration = camera_calibration.to<CvCameraCalibration>();
+    auto cv_camera_calibration = camera_calibration.to<fvlam::CvCameraCalibration>();
     auto gtsam_camera_calibration = camera_calibration.to<gtsam::Cal3DS2>();
 
     // Run some manual tests
@@ -332,7 +336,7 @@ namespace camsim
        const fvlam::Transform3 &marker_pose)
     {
       auto camera_calibration = fvlam::CameraInfo::from<gtsam::Cal3DS2>(cal3ds2);
-      auto cv_camera_calibration = camera_calibration.to<CvCameraCalibration>();
+      auto cv_camera_calibration = camera_calibration.to<fvlam::CvCameraCalibration>();
       auto gtsam_camera_calibration = camera_calibration.to<gtsam::Cal3DS2>();
 
       auto cv_solve_t_world_marker_function = fvlam::Marker::solve_t_world_marker(
@@ -386,7 +390,7 @@ namespace camsim
 //                << "    marker1 pose  " << marker1_f_world.to_string() << std::endl;
 
       auto camera_calibration = fvlam::CameraInfo::from<gtsam::Cal3DS2>(cal3ds2);
-      auto cv_camera_calibration = camera_calibration.to<CvCameraCalibration>();
+      auto cv_camera_calibration = camera_calibration.to<fvlam::CvCameraCalibration>();
       auto gtsam_camera_calibration = camera_calibration.to<gtsam::Cal3DS2>();
 
       auto project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
@@ -431,9 +435,9 @@ namespace camsim
     auto c0{gtsam::Vector2{0.01, 0.01}.asDiagonal()};
     auto c1{gtsam::Vector2{0.01, 0.01}.asDiagonal()};
 
-    fvlam::EstimateMeanAndCovariance<gtsam::Vector2> emac{1};
-    emac.accumulate(v0, c0);
-    emac.accumulate(v1, c1);
+    fvlam::EstimateMeanAndCovariance<gtsam::Vector2> emac{};
+    emac.accumulate(v0);
+    emac.accumulate(v1);
 
     auto mean = emac.mean();
     auto cov = emac.cov();
@@ -459,12 +463,12 @@ namespace camsim
 
     for (auto &sigma : sigmas) {
       gtsam::Sampler sampler{sigma};
-      fvlam::EstimateMeanAndCovarianceSimple<fvlam::Translate3::MuVector> emac{0};
-      fvlam::EstimateMeanAndCovariance2PSimple<fvlam::Translate3::MuVector> emac_2p{0};
+      fvlam::EstimateMeanAndCovarianceSimple<fvlam::Translate3::MuVector> emac{};
+      fvlam::EstimateMeanAndCovariance2PSimple<fvlam::Translate3::MuVector> emac_2p{};
 
       for (int i = 0; i < 10000; i += 1) {
         fvlam::Translate3::MuVector sample{sampler.sample()};
-        emac.accumulate(sample, fvlam::Translate3::CovarianceMatrix::Zero());
+        emac.accumulate(sample);
         emac_2p.accumulate(sample);
       }
 
@@ -517,7 +521,7 @@ namespace camsim
     for (auto pose : poses)
       for (auto &sigma : sigmas) {
         gtsam::Sampler sampler{sigma};
-        fvlam::EstimateTransform3MeanAndCovariance emac{0};
+        fvlam::EstimateTransform3MeanAndCovariance emac{};
 
         for (int i = 0; i < 10000; i += 1) {
           PoseMu offset = sampler.sample();
@@ -543,7 +547,6 @@ namespace camsim
         REQUIRE(gtsam::assert_equal<double>(sigma[5] * sigma[5], cov(5, 5), 5.0e-2));
       }
   }
-#endif
 
   TEST_CASE("sho_test - shonan build from model")
   {
@@ -551,7 +554,7 @@ namespace camsim
     {
       double r_sampler_sigma = 0.0;
       double t_sampler_sigma = 0.0;
-      double u_sampler_sigma = 0.25;
+      double u_sampler_sigma = 0.00001;
       double r_noise_sigma = 0.1;
       double t_noise_sigma = 0.1;
       double u_noise_sigma = 0.5;
@@ -573,15 +576,13 @@ namespace camsim
 
 //    std::cout << "initial map\n" << map_initial->to_string() << std::endl;
 
-    auto camera_info{fvlam::CameraInfo::from(model.cameras_.calibration_)};
     auto solve_tmm_context = fvlam::SolveTmmContextCvSolvePnp{};
     solve_tmm_context.average_on_space_not_manifold = false;
     auto solve_tmm_factory = fvlam::make_solve_tmm_factory(solve_tmm_context,
-                                                           camera_info,
                                                            model.cfg_.marker_length_);
 
 
-    auto bmm_cxt = fvlam::BuildMarkerMapShonanContext(5);
+    auto bmm_cxt = fvlam::BuildMarkerMapTmmContext(5);
     auto bmm_shonan = make_build_marker_map(bmm_cxt, solve_tmm_factory, *map_initial);
 
     auto runner_config = BuildMarkerMapRunnerConfig{
@@ -599,6 +600,8 @@ namespace camsim
 
     std::cout << "solved map\n" << map_solved->to_string() << std::endl;
   }
+
+#endif
 
 }
 

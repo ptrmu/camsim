@@ -14,7 +14,7 @@ namespace camsim
   // The image coordinate frame has two dimensions, u,v. u aligns with camera x, v aligns with camera y
   //  the center of the image is aligned with the origin of the camera.
 
-  using PoseGenerator = std::function<std::vector<gtsam::Pose3>()>;
+  using PoseGenerator = std::function<std::vector<gtsam::Pose3>(void)>;
 
   struct PoseGens
   {
@@ -82,9 +82,7 @@ namespace camsim
     };
 
 
-    using PoseGeneratorFunc = std::function<std::vector<gtsam::Pose3>(void)>;
-
-    static PoseGeneratorFunc gen_poses_func(std::vector<gtsam::Pose3> poses)
+    static PoseGenerator gen_poses_func(std::vector<gtsam::Pose3> poses)
     {
       return [poses]()
       {
@@ -92,13 +90,13 @@ namespace camsim
       };
     }
 
-    static PoseGeneratorFunc gen_poses_func_origin_looking_up()
+    static PoseGenerator gen_poses_func_origin_looking_up()
     {
       return gen_poses_func({gtsam::Pose3{gtsam::Rot3::RzRyRx(0., 0., 0.),
                                           gtsam::Point3{0., 0., 0.}}});
     }
 
-    static PoseGeneratorFunc gen_poses_func_heiko_calibration_poses()
+    static PoseGenerator gen_poses_func_heiko_calibration_poses()
     {
       return gen_poses_func({gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., M_PI),
                                           gtsam::Point3{0., 0., 0.18}},
@@ -112,7 +110,7 @@ namespace camsim
                                           gtsam::Point3{0.195, 0., 0.195}}});
     }
 
-    static PoseGeneratorFunc gen_poses_func_homography_calibration_poses()
+    static PoseGenerator gen_poses_func_homography_calibration_poses()
     {
       return gen_poses_func({gtsam::Pose3{gtsam::Rot3::RzRyRx(M_PI, 0., M_PI),
                                           gtsam::Point3{0., 0., 1.}},

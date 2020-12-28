@@ -171,12 +171,11 @@ target_link_libraries(cal_run
 
 
 add_executable(sho_run
-  src/fvlam/build_marker_map_shonan.cpp
+  src/fvlam/build_marker_map_tmm.cpp
   src/fvlam/conversions_cv.cpp
   src/fvlam/conversions_gtsam.cpp
   src/fvlam/to_string.cpp
   src/fvlam/transform3_with_covariance.cpp
-  src/fvlam/transform_from_observation_cv.cpp
   src/sho/sho_inter_marker_rotation.cpp
   src/sho/sho_run.cpp
   src/sho/sho_run_main.cpp
@@ -256,13 +255,13 @@ add_executable(camsim_test
   src/test/sho_test.cpp
   src/sho/sho_run.cpp
   src/sho/sho_inter_marker_rotation.cpp
-  src/fvlam/build_marker_map_shonan.cpp
+  src/fvlam/build_marker_map_tmm.cpp
   src/fvlam/transform3_with_covariance.cpp
-  src/fvlam/transform_from_observation_cv.cpp
   src/fvlam/conversions_cv.cpp
   src/fvlam/conversions_gtsam.cpp 
   src/fvlam/to_string.cpp
   src/build_marker_map_runner.cpp
+  src/test/tmm_test.cpp
   )
 
 

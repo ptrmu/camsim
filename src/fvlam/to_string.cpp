@@ -1,7 +1,7 @@
 
 #include <string>
 
-#include "fvlam/marker_map.hpp"
+#include "fvlam/marker.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 
 namespace fvlam
@@ -146,17 +146,17 @@ namespace fvlam
   }
 
 // ==============================================================================
-// from fvlam/marker_observations.hpp
+// from fvlam/observation.hpp
 // ==============================================================================
 
-  std::string MarkerObservation::to_string() const
+  std::string Observation::to_string() const
   {
     std::stringstream ss{};
     NumFmt nf(9, 3);
 
     ss << to_id_str(id_) << "  ";
 
-    for (int c = 0; c < MarkerObservation::ArraySize; c += 1) {
+    for (int c = 0; c < Observation::ArraySize; c += 1) {
       if (c != 0) {
         ss << " ";
       }

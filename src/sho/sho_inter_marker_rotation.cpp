@@ -9,8 +9,8 @@
 
 #include "fvlam/build_marker_map_interface.hpp"
 #include "fvlam/camera_info.hpp"
-#include "fvlam/marker_map.hpp"
-#include "fvlam/marker_observation.hpp"
+#include "fvlam/marker.hpp"
+#include "fvlam/observation.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 #include "gtsam/geometry/Pose3.h"
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
@@ -25,21 +25,21 @@ namespace camsim
   class MarkerMeasurement
   {
     std::uint64_t id_;
-    fvlam::MarkerObservation marker_observation_;
+    fvlam::Observation observation_;
     fvlam::Transform3 marker_f_camera_;
 
   public:
     MarkerMeasurement(std::uint64_t id,
-                      fvlam::MarkerObservation marker_observation,
+                      fvlam::Observation observation,
                       fvlam::Transform3 marker_r_camera) :
-      id_{id}, marker_observation_{std::move(marker_observation)}, marker_f_camera_{std::move(marker_r_camera)}
+      id_{id}, observation_{std::move(observation)}, marker_f_camera_{std::move(marker_r_camera)}
     {}
 
     const auto &id() const
     { return id_; }
 
-    const auto &marker_observation() const
-    { return marker_observation_; }
+    const auto &observation() const
+    { return observation_; }
 
     const auto &marker_f_camera() const
     { return marker_f_camera_; }
@@ -72,24 +72,24 @@ namespace camsim
 namespace fvlam
 {
   template<>
-  MarkerObservation MarkerObservation::from<camsim::MarkerMeasurement>(
+  Observation Observation::from<camsim::MarkerMeasurement>(
     const camsim::MarkerMeasurement &other)
   {
-    return other.marker_observation();
+    return other.observation();
   }
 
   template<>
-  MarkerObservations MarkerObservations::from<std::vector<camsim::MarkerMeasurement>>(
+  Observations Observations::from<std::vector<camsim::MarkerMeasurement>>(
     const std::vector<camsim::MarkerMeasurement> &other)
   {
-    MarkerObservations marker_observations{};
+    Observations observations{};
 
     for (auto &measurement : other) {
-      auto mo{MarkerObservation::from(measurement)};
-      marker_observations.add(mo);
+      auto mo{Observation::from(measurement)};
+      observations.add(mo);
     }
 
-    return marker_observations;
+    return observations;
   }
 }
 
@@ -201,13 +201,13 @@ namespace camsim
     return fvlam::CameraInfo{width, height, camera_matrix, dist_coeffs};
   }
 
-  fvlam::MarkerObservation marker_observation_from(std::uint64_t id, const cv::FileNode &camera_f_images_node)
+  fvlam::Observation observation_from(std::uint64_t id, const cv::FileNode &camera_f_images_node)
   {
-    fvlam::MarkerObservation::Array cfi;
-    for (int c = 0; c < fvlam::MarkerObservation::ArraySize; c += 1) {
+    fvlam::Observation::Array cfi;
+    for (int c = 0; c < fvlam::Observation::ArraySize; c += 1) {
       cfi[c] = fvlam::Translate2{camera_f_images_node[c][0], camera_f_images_node[c][1]};
     }
-    return fvlam::MarkerObservation{id, cfi};
+    return fvlam::Observation{id, cfi};
   }
 
   fvlam::Transform3 transform3_from(const cv::FileNode &marker_f_image_node)
@@ -259,12 +259,12 @@ namespace camsim
         for (auto observation_node = observations_node.begin();
              observation_node != observations_node.end(); ++observation_node) {
 
-          // Get id, marker_observations, and t_camera_marker
+          // Get id, observations, and t_camera_marker
           std::uint64_t id = int((*observation_node)["id"]);
-          auto marker_observation = marker_observation_from(id, (*observation_node)["corners_f_image"]);
+          auto observation = observation_from(id, (*observation_node)["corners_f_image"]);
           auto t_camera_marker = transform3_from((*observation_node)["marker_f_camera"]);
 
-          MarkerMeasurement marker_measurement{id, marker_observation, t_camera_marker};
+          MarkerMeasurement marker_measurement{id, observation, t_camera_marker};
           marker_measurements.emplace_back(marker_measurement);
         }
 
@@ -333,7 +333,7 @@ namespace camsim
 //
 //    for (auto &image_measurement : image_measurements) {
 //      auto &measurements = image_measurement.measurements();
-//      auto observations{fvlam::MarkerObservations::from(measurements)};
+//      auto observations{fvlam::Observations::from(measurements)};
 //      build_marker_map->process(observations, image_measurement.camera_info());
 //    }
 //

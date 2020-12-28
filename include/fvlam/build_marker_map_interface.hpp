@@ -10,8 +10,8 @@ namespace fvlam
 
   class CameraInfo; //
   class MarkerMap; //
-  class MarkerObservation; //
-  class MarkerObservations; //
+  class Observation; //
+  class Observations; //
 
 // ==============================================================================
 // SolveTMarker0Marker1Interface class
@@ -29,8 +29,9 @@ namespace fvlam
 
     // Take the location of markers in one image and add them to the marker map
     // building algorithm.
-    virtual void accumulate(const MarkerObservation &observation0,
-                            const MarkerObservation &observation1) = 0;
+    virtual void accumulate(const Observation &observation0,
+                            const Observation &observation1,
+                            const CameraInfo &camera_info) = 0;
 
     // Given the observations that have been added so far, create and return a marker_map.
     virtual Transform3WithCovariance t_marker0_marker1() = 0;
@@ -40,7 +41,6 @@ namespace fvlam
 
   template<class TSolveTmmContext>
   SolveTMarker0Marker1Factory make_solve_tmm_factory(const TSolveTmmContext &solve_tmm_context,
-                                                     const CameraInfo &camera_info,
                                                      double marker_length);
 
   // Solve t_marker0_marker1 using OpenCV's SolvePnp and then average the results
@@ -63,7 +63,7 @@ namespace fvlam
 
     // Take the location of markers in one image and add them to the marker map
     // building algorithm.
-    virtual void process(const MarkerObservations &marker_observations,
+    virtual void process(const Observations &observations,
                          const CameraInfo &camera_info) = 0;
 
     // Given the observations that have been added so far, create and return a marker_map.
@@ -74,21 +74,21 @@ namespace fvlam
   };
 
   template<class TBmmContext>
-  std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map(const TBmmContext &bmm_context,
+  std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map(const TBmmContext &tmm_context,
                                                                  SolveTMarker0Marker1Factory solve_tmm_factory,
                                                                  const MarkerMap &map_initial);
 
 // ==============================================================================
-// BuildMarkerMapShonanContext class
+// BuildMarkerMapTmmContext class
 // ==============================================================================
 
-  class BuildMarkerMapShonanContext
+  class BuildMarkerMapTmmContext
   {
   public:
-    const int flags_;
+    const bool use_shonan_initial_;
 
-    explicit BuildMarkerMapShonanContext(int flags) :
-      flags_{flags}
+    explicit BuildMarkerMapTmmContext(bool use_shonan_initial) :
+      use_shonan_initial_{use_shonan_initial}
     {}
 
     template<class T>

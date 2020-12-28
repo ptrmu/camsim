@@ -3,7 +3,7 @@
 #include <fvlam/camera_info.hpp>
 
 #include "fvlam/build_marker_map_interface.hpp"
-#include "fvlam/marker_map.hpp"
+#include "fvlam/marker.hpp"
 #include <gtsam/nonlinear/GaussNewtonOptimizer.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -14,7 +14,7 @@ namespace fvlam
 {
   class BuildMarkerMapShonan : public BuildMarkerMapInterface
   {
-    const BuildMarkerMapShonanContext context_;
+    const BuildMarkerMapTmmContext tmm_context_;
     SolveTMarker0Marker1Factory solve_tmm_factory_;
     const double marker_length_;
     const fvlam::Marker fixed_marker_;
@@ -144,26 +144,24 @@ namespace fvlam
   public:
     BuildMarkerMapShonan() = delete;
 
-    BuildMarkerMapShonan(BuildMarkerMapShonanContext context,
+    BuildMarkerMapShonan(BuildMarkerMapTmmContext tmm_context_,
                          SolveTMarker0Marker1Factory solve_tmm_factory,
                          const MarkerMap &map) :
-      context_{std::move(context)},
+      tmm_context_{std::move(tmm_context_)},
       solve_tmm_factory_{std::move(solve_tmm_factory)},
       marker_length_{map.marker_length()},
       fixed_marker_{find_fixed_marker(map)},
       solve_tmm_map_{}
     {}
 
-    void process(const MarkerObservations &marker_observations,
+    void process(const Observations &observations,
                  const CameraInfo &camera_info) override
     {
-      auto cv_camera_info = camera_info.to<CvCameraCalibration>();
-      auto solve_t_marker0_marker1 = fvlam::Marker::solve_t_marker0_marker1(cv_camera_info, marker_length_);
-      auto &obs = marker_observations.observations();
+      auto &obs = observations.observations();
 
       // Walk through all pairs of observations
-      for (std::size_t m0 = 0; m0 < marker_observations.size(); m0 += 1)
-        for (std::size_t m1 = m0 + 1; m1 < marker_observations.size(); m1 += 1) {
+      for (std::size_t m0 = 0; m0 < observations.size(); m0 += 1)
+        for (std::size_t m1 = m0 + 1; m1 < observations.size(); m1 += 1) {
           std::size_t m0r{m0};
           std::size_t m1r{m1};
 
@@ -181,7 +179,7 @@ namespace fvlam
             assert(res.second);
             it = res.first;
           }
-          it->second->accumulate(obs[m0r], obs[m1r]);
+          it->second->accumulate(obs[m0r], obs[m1r], camera_info);
         }
     }
 
@@ -218,12 +216,12 @@ namespace fvlam
   };
 
   template<>
-  std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map<BuildMarkerMapShonanContext>(
-    const BuildMarkerMapShonanContext &bmm_context,
+  std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map<BuildMarkerMapTmmContext>(
+    const BuildMarkerMapTmmContext &tmm_context,
     SolveTMarker0Marker1Factory solve_tmm_factory,
     const MarkerMap &map_initial)
   {
-    return std::make_unique<BuildMarkerMapShonan>(bmm_context, std::move(solve_tmm_factory), map_initial);
+    return std::make_unique<BuildMarkerMapShonan>(tmm_context, std::move(solve_tmm_factory), map_initial);
   }
 
 // ==============================================================================
@@ -233,25 +231,26 @@ namespace fvlam
   class SolveTmmCvSolvePnp : public SolveTMarker0Marker1Interface
   {
     const SolveTmmContextCvSolvePnp solve_tmm_context_;
-    fvlam::Marker::SolveFunction solve_t_camera_marker_function_;
+    double marker_length_;
     EstimateTransform3MeanAndCovariance emac_algebra_; // Averaging in the vector space
     EstimateMeanAndCovariance<Transform3::MuVector> emac_group_; // Averaging on the manifold
 
   public:
     SolveTmmCvSolvePnp(const SolveTmmContextCvSolvePnp &solve_tmm_context,
-                       const CameraInfo &camera_info,
                        double marker_length) :
       solve_tmm_context_{solve_tmm_context},
-      solve_t_camera_marker_function_{fvlam::Marker::solve_t_camera_marker<CvCameraCalibration>
-                                        (camera_info.to<CvCameraCalibration>(), marker_length)},
+      marker_length_{marker_length},
       emac_algebra_{}, emac_group_{}
     {}
 
-    void accumulate(const MarkerObservation &observation0,
-                    const MarkerObservation &observation1) override
+    void accumulate(const Observation &observation0,
+                    const Observation &observation1,
+                    const CameraInfo &camera_info) override
     {
-      auto t_camera_marker0 = solve_t_camera_marker_function_(observation0).t_world_marker().tf();
-      auto t_camera_marker1 = solve_t_camera_marker_function_(observation1).t_world_marker().tf();
+      auto solve_t_camera_marker_function = fvlam::Marker::solve_t_camera_marker<CvCameraCalibration>
+        (camera_info.to<CvCameraCalibration>(), marker_length_);
+      auto t_camera_marker0 = solve_t_camera_marker_function(observation0).t_world_marker().tf();
+      auto t_camera_marker1 = solve_t_camera_marker_function(observation1).t_world_marker().tf();
       auto t_marker0_marker1 = t_camera_marker0.inverse() * t_camera_marker1;
       if (solve_tmm_context_.average_on_space_not_manifold) {
         emac_algebra_.accumulate(t_marker0_marker1);
@@ -272,17 +271,15 @@ namespace fvlam
   template<>
   SolveTMarker0Marker1Factory make_solve_tmm_factory<SolveTmmContextCvSolvePnp>
     (const SolveTmmContextCvSolvePnp &solve_tmm_context,
-     const CameraInfo &camera_info,
      double marker_length)
   {
 
     return [
-      &solve_tmm_context,
-      &camera_info,
+      solve_tmm_context{solve_tmm_context},
       marker_length
     ]() -> std::unique_ptr<SolveTMarker0Marker1Interface>
     {
-      return std::make_unique<SolveTmmCvSolvePnp>(solve_tmm_context, camera_info, marker_length);
+      return std::make_unique<SolveTmmCvSolvePnp>(solve_tmm_context, marker_length);
     };
   }
 }

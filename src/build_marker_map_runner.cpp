@@ -51,7 +51,7 @@ namespace camsim
                                                                     fvlam::Transform3::from(m_camera),
                                                                     model_.cfg_.marker_length_);
 
-      fvlam::MarkerObservations observations{};
+      fvlam::Observations observations{};
       for (auto &m_marker : model_.markers_.markers_) {
         // Create the perturbed marker
         auto t_world_marker_perturbed = fvlam::Marker{
@@ -65,18 +65,20 @@ namespace camsim
 
         // Create the perturbed Observation
         auto observation = project_function(fvlam::Marker::from(m_marker));
-        auto cfi = observation.corners_f_image();
-        auto corners_f_image_perturbed = fvlam::MarkerObservation::Array{
-          fvlam::Translate2{cfi[0].t() + point2_sampler.sample()},
-          fvlam::Translate2{cfi[1].t() + point2_sampler.sample()},
-          fvlam::Translate2{cfi[2].t() + point2_sampler.sample()},
-          fvlam::Translate2{cfi[3].t() + point2_sampler.sample()},
-        };
-        auto observation_perturbed = fvlam::MarkerObservation{
-          observation.id(),
-          corners_f_image_perturbed,
-          cfg.point2_noise_sigmas_.asDiagonal()};
-        observations.add(observation_perturbed);
+        if (observation.is_valid()) {
+          auto cfi = observation.corners_f_image();
+          auto corners_f_image_perturbed = fvlam::Observation::Array{
+            fvlam::Translate2{cfi[0].t() + point2_sampler.sample()},
+            fvlam::Translate2{cfi[1].t() + point2_sampler.sample()},
+            fvlam::Translate2{cfi[2].t() + point2_sampler.sample()},
+            fvlam::Translate2{cfi[3].t() + point2_sampler.sample()},
+          };
+          auto observation_perturbed = fvlam::Observation{observation.id(),
+                                                          corners_f_image_perturbed,
+                                                          cfg.point2_noise_sigmas_.asDiagonal()};
+
+          observations.add(observation_perturbed);
+        }
       }
       observations_perturbed_.emplace_back(observations);
     }

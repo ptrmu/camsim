@@ -9,7 +9,7 @@
 #include <map>
 #include <vector>
 
-#include "fvlam/marker_observation.hpp"
+#include "fvlam/observation.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 #include <Eigen/Geometry>
 
@@ -94,7 +94,7 @@ namespace fvlam
 
     auto is_valid() const
     { return t_world_marker_.is_valid(); }
-    
+
     auto id() const
     { return id_; }
 
@@ -120,10 +120,10 @@ namespace fvlam
     template<class T>
     static T to_corners_f_marker(double marker_length);
 
-    using ProjectFunction = std::function<MarkerObservation(const Marker &marker)>;
-    using SolveFunction = std::function<Marker(const MarkerObservation &observation)>;
-    using SolveMarkerMarkerFunction = std::function<Transform3WithCovariance(const MarkerObservation &observation0,
-                                                                             const MarkerObservation &observation1)>;
+    using ProjectFunction = std::function<Observation(const Marker &marker)>;
+    using SolveFunction = std::function<Marker(const Observation &observation)>;
+    using SolveMarkerMarkerFunction = std::function<Transform3WithCovariance(const Observation &observation0,
+                                                                             const Observation &observation1)>;
 
     template<class TCameraCalibration>
     static ProjectFunction project_t_world_marker(const TCameraCalibration &camera_calibration,
@@ -181,9 +181,17 @@ namespace fvlam
 
     std::string to_string(bool also_cov = false) const;
 
-    Marker *find_marker(int id);
+    Marker *find_marker(int id)
+    {
+      auto marker_pair = markers_.find(id);
+      return marker_pair == markers_.end() ? nullptr : &marker_pair->second;
+    }
 
-    const Marker *find_marker_const(std::uint64_t id) const;
+    const Marker *find_marker_const(std::uint64_t id) const
+    {
+      auto marker_pair = markers_.find(id);
+      return marker_pair == markers_.end() ? nullptr : &marker_pair->second;
+    }
 
     void add_marker(Marker marker)
     {

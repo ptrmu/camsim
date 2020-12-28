@@ -15,7 +15,7 @@ namespace fvlam
 // Observation class
 // ==============================================================================
 
-  class MarkerObservation
+  class Observation
   {
   public:
     static constexpr size_t ArraySize = 4;
@@ -35,29 +35,35 @@ namespace fvlam
     Element::CovarianceMatrix cov_;
 
   public:
-    MarkerObservation() :
+    Observation() :
       is_valid_{false}, id_{0},
       corners_f_image_{Translate2(), Translate2(), Translate2(), Translate2()},
       cov_{Element::CovarianceMatrix::Zero()}
     {}
 
-    MarkerObservation(std::uint64_t id, Array corners_f_image) :
+    Observation(std::uint64_t id) :
+      is_valid_{false}, id_{id},
+      corners_f_image_{Translate2(), Translate2(), Translate2(), Translate2()},
+      cov_{Element::CovarianceMatrix::Zero()}
+    {}
+
+    Observation(std::uint64_t id, Array corners_f_image) :
       is_valid_{true}, id_(id),
       corners_f_image_(std::move(corners_f_image)),
       cov_{Element::CovarianceMatrix::Zero()}
     {}
 
-    MarkerObservation(std::uint64_t id, Array corners_f_image, Element::CovarianceMatrix cov) :
+    Observation(std::uint64_t id, Array corners_f_image, Element::CovarianceMatrix cov) :
       is_valid_{true}, id_(id),
       corners_f_image_(std::move(corners_f_image)),
       cov_{std::move(cov)}
     {}
 
-    MarkerObservation(std::uint64_t id,
-                      double x0, double y0,
-                      double x1, double y1,
-                      double x2, double y2,
-                      double x3, double y3) :
+    Observation(std::uint64_t id,
+                double x0, double y0,
+                double x1, double y1,
+                double x2, double y2,
+                double x3, double y3) :
       is_valid_{true}, id_(id),
       corners_f_image_{Element{x0, y0}, Element{x1, y1}, Element{x2, y2}, Element{x3, y3}},
       cov_{Element::CovarianceMatrix::Zero()}
@@ -73,10 +79,10 @@ namespace fvlam
     { return corners_f_image_; }
 
     template<class T>
-    static MarkerObservation from(const T &other);
+    static Observation from(const T &other);
 
     template<class T>
-    static MarkerObservation from(std::uint64_t id, const T &other);
+    static Observation from(std::uint64_t id, const T &other);
 
     template<class T>
     T to() const;
@@ -88,15 +94,15 @@ namespace fvlam
 // Observations class
 // ==============================================================================
 
-  class MarkerObservations
+  class Observations
   {
     std::uint64_t stamp_;
 
     // The list of observations
-    std::vector<MarkerObservation> observations_{};
+    std::vector<Observation> observations_{};
 
   public:
-    explicit MarkerObservations(std::uint64_t stamp = 0) :
+    explicit Observations(std::uint64_t stamp = 0) :
       stamp_(stamp)
     {}
 
@@ -107,12 +113,12 @@ namespace fvlam
     { return observations_.size(); }
 
     template<typename T>
-    static MarkerObservations from(const T &other);
+    static Observations from(const T &other);
 
     template<typename T>
     T to() const;
 
-    void add(const MarkerObservation &observation)
+    void add(const Observation &observation)
     {
       observations_.emplace_back(observation);
     }

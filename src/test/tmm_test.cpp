@@ -1,0 +1,213 @@
+
+#include <iostream>
+#include "catch2/catch.hpp"
+
+#include "../../include/fvlam/build_marker_map_interface.hpp"
+#include "../../include/fvlam/camera_info.hpp"
+#include "../../include/fvlam/marker.hpp"
+#include "../../include/fvlam/observation.hpp"
+#include "../../include/fvlam/transform3_with_covariance.hpp"
+#include "../../src/build_marker_map_runner.hpp"
+#include "../../src/model.hpp"
+
+namespace camsim
+{
+  constexpr double degree = M_PI / 180.;
+
+  struct TestParams
+  {
+    int n_markers = 8;
+    int n_cameras = 64;
+
+    double r_sampler_sigma = 0.0;
+    double t_sampler_sigma = 0.0;
+    double u_sampler_sigma = 0.00003;
+    double r_noise_sigma = 0.1;
+    double t_noise_sigma = 0.1;
+    double u_noise_sigma = 0.5;
+  };
+
+  static auto create_pose_generator(const std::vector<fvlam::Transform3> &poses)
+  {
+    std::vector<gtsam::Pose3> ps;
+    for (auto &pose : poses)
+      ps.emplace_back(pose.to<gtsam::Pose3>());
+    return [ps]()
+    { return ps; };
+  }
+
+  static std::vector<std::unique_ptr<fvlam::MarkerMap>> run_solvers(Model &model, TestParams &tp)
+  {
+    std::vector<std::unique_ptr<fvlam::MarkerMap>> solved_maps{};
+
+    auto map_initial = std::make_unique<fvlam::MarkerMap>(model.cfg_.marker_length_);
+    map_initial->add_marker(fvlam::Marker{
+      0,
+      fvlam::Transform3WithCovariance{fvlam::Transform3::from(model.markers_.markers_[0].marker_f_world_)},
+      true});
+
+    auto runner_config = BuildMarkerMapRunnerConfig{
+      (fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(tp.r_sampler_sigma),
+        fvlam::Translate3::MuVector::Constant(tp.t_sampler_sigma)).finished(),
+      (fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(tp.r_noise_sigma),
+        fvlam::Translate3::MuVector::Constant(tp.t_noise_sigma)).finished(),
+      fvlam::Translate2::MuVector::Constant(tp.u_sampler_sigma),
+      fvlam::Translate2::MuVector::Constant(tp.u_noise_sigma),
+      false
+    };
+
+    BuildMarkerMapRunner bmm_runner{model, runner_config};
+
+    auto make_bmm_tmm = [
+      &model,
+      &map_initial](
+      bool average_on_space_not_manifold,
+      bool use_shonan_initial) -> std::unique_ptr<fvlam::BuildMarkerMapInterface>
+    {
+      auto solve_tmm_context = fvlam::SolveTmmContextCvSolvePnp{};
+      solve_tmm_context.average_on_space_not_manifold = average_on_space_not_manifold;
+      auto solve_tmm_factory = fvlam::make_solve_tmm_factory(solve_tmm_context,
+                                                             model.cfg_.marker_length_);
+
+
+      auto tmm_context = fvlam::BuildMarkerMapTmmContext(use_shonan_initial);
+      return make_build_marker_map(tmm_context, solve_tmm_factory, *map_initial);
+    };
+
+    solved_maps.emplace_back(bmm_runner(*make_bmm_tmm(false, true)));
+    solved_maps.emplace_back(bmm_runner(*make_bmm_tmm(true, true)));
+
+    return solved_maps;
+  };
+
+  static std::pair<double, double> calc_error(const Model &model, const fvlam::MarkerMap &solved_map)
+  {
+    int n{0};
+    double r_error_sq_accum{0};
+    double t_error_sq_accum{0};
+    for (auto &m_marker : model.markers_.markers_) {
+      auto it = solved_map.find_marker_const(m_marker.index());
+      if (it != nullptr) {
+        n += 1;
+        auto model_mu = fvlam::Transform3::from(m_marker.marker_f_world_).mu();
+        auto solve_mu = it->t_world_marker().tf().mu();
+        r_error_sq_accum += (model_mu.head<3>() - solve_mu.head<3>()).cwiseAbs().sum() / 3.;
+        t_error_sq_accum += (model_mu.tail<3>() - solve_mu.tail<3>()).cwiseAbs().sum() / 3.;
+      }
+    }
+    return std::pair<double, double>{std::sqrt(r_error_sq_accum / n), std::sqrt(t_error_sq_accum / n)};
+  }
+
+#if 0
+
+  TEST_CASE("Tmm_test - build_marker_map_tmm from model")
+  {
+    TestParams tp;
+
+    // Assuming world coordinate system is ENU
+    // Marker coordinate system is also ENU
+    static auto marker_pose_list_0 = std::vector<fvlam::Transform3>{
+      fvlam::Transform3{0, 0, 0, 0, 0, 0},
+      fvlam::Transform3{0, 0, 0, 1, 0, 0},
+      fvlam::Transform3{5 * degree, 5 * degree, 0, 1, 1, 0},
+      fvlam::Transform3{0, 0, 5 * degree, 0, 1, 0},
+
+      fvlam::Transform3{5 * degree, 0, 0, 0, 0, 0.25},
+      fvlam::Transform3{-5 * degree, 0, 0, 1, 1, 0},
+    };
+
+    // Assuming world coordinate system is ENU
+    // Camera coordinate system is right,down,forward (along camera axis)
+    static auto camera_pose_list_0 = std::vector<fvlam::Transform3>{
+      fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+
+      fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
+      fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
+      fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
+      fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
+
+      fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
+      fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+      fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+      fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+    };
+
+    ModelConfig model_config{create_pose_generator(marker_pose_list_0),
+                             create_pose_generator(camera_pose_list_0),
+                             camsim::CameraTypes::simulation,
+                             0.1775,
+                             true};
+
+    Model model{model_config};
+
+    auto solved_maps = run_solvers(model, tp);
+
+    std::cout << "solved maps" << std::endl;
+
+    for (auto &solved_map : solved_maps) {
+      for (auto &m_marker : model.markers_.markers_) {
+        auto it = solved_map->find_marker_const(m_marker.index());
+        if (it != nullptr) {
+          std::cout << "  " << it->to_string() << std::endl;
+
+          REQUIRE(gtsam::assert_equal(fvlam::Transform3::from(m_marker.marker_f_world_).mu(),
+                                      it->t_world_marker().tf().mu(), 3.0e-2));
+        }
+      }
+
+      auto pair = calc_error(model, *solved_map);
+      std::cout << "error - r:" << pair.first << " t:" << pair.second << std::endl;
+    }
+  }
+#endif
+
+  TEST_CASE("map_test - Build_marker_map_tmm ring of markers, rotating camera")
+  {
+    TestParams tp;
+    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{tp.n_markers, 2.},
+                             PoseGens::SpinAboutZAtOriginFacingOut{tp.n_cameras},
+                             camsim::CameraTypes::simulation,
+                             0.1775};
+
+    Model model{model_config};
+
+    auto solved_maps = run_solvers(model, tp);
+
+
+    for (auto &solved_map : solved_maps) {
+      for (auto &m_marker : model.markers_.markers_) {
+        auto it = solved_map->find_marker_const(m_marker.index());
+        if (it != nullptr) {
+          std::cout << "  " << it->to_string() << std::endl;
+
+//          REQUIRE(gtsam::assert_equal(fvlam::Transform3::from(m_marker.marker_f_world_).mu(),
+//                                      it->t_world_marker().tf().mu(), 3.0e-2));
+        }
+      }
+
+      auto pair = calc_error(model, *solved_map);
+      std::cout << "error - r:" << pair.first << " t:" << pair.second << std::endl;
+    }
+  }
+
+#if 0
+  TEST_CASE("map-test - build_marker_map_tmm circle of markers, camera in circle")
+  {
+    TestParams tp;
+    ModelConfig model_config{PoseGens::CircleInXYPlaneFacingAlongZ{tp.n_markers, 2., 2., false},
+                             PoseGens::CircleInXYPlaneFacingAlongZ{tp.n_cameras, 2., 0., true},
+                             camsim::CameraTypes::simulation,
+                             0.1775};
+
+    Model model{model_config};
+
+    auto solved_maps = run_solvers(model, tp);
+//    REQUIRE(run_solvers(model_config, test_params) == 0);
+  }
+
+#endif
+}

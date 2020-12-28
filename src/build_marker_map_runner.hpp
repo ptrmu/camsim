@@ -7,8 +7,8 @@
 #include "model.hpp"
 #include "fvlam/build_marker_map_interface.hpp"
 #include "fvlam/camera_info.hpp"
-#include "fvlam/marker_map.hpp"
-#include "fvlam/marker_observation.hpp"
+#include "fvlam/marker.hpp"
+#include "fvlam/observation.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 #include <gtsam/base/timing.h>
 #include <gtsam/linear/NoiseModel.h>
@@ -53,7 +53,7 @@ namespace camsim
 
     std::vector<fvlam::Transform3WithCovariance> t_world_cameras_perturbed_{};
     std::vector<fvlam::Marker> markers_perturbed_{};
-    std::vector<fvlam::MarkerObservations> observations_perturbed_{};
+    std::vector<fvlam::Observations> observations_perturbed_{};
     int frames_processed_{0};
 
   public:

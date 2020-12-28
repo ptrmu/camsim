@@ -1,8 +1,8 @@
 
 #include "fvlam/build_marker_map_interface.hpp"
 #include "fvlam/camera_info.hpp"
-#include "fvlam/marker_map.hpp"
-#include "fvlam/marker_observation.hpp"
+#include "fvlam/marker.hpp"
+#include "fvlam/observation.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/Cal3_S2.h>
@@ -112,12 +112,12 @@ namespace fvlam
   }
 
 // ==============================================================================
-// from fvlam/marker_observations.hpp
+// from fvlam/observation.hpp
 // ==============================================================================
 
 
 // ==============================================================================
-// fvlam::Marker conversions that require MarkerObservation conversions so
+// fvlam::Marker conversions that require Observation conversions so
 // have to be after those conversions in the file.
 // ==============================================================================
 
@@ -133,20 +133,39 @@ namespace fvlam
       camera_calibration,
       t_world_camera,
       marker_length]
-      (const Marker &marker) -> MarkerObservation
+      (const Marker &marker) -> Observation
     {
       auto gtsam_t_world_camera = t_world_camera.to<gtsam::Pose3>();
       auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{gtsam_t_world_camera,
                                                          camera_calibration};
 
-      MarkerObservation::Array corners_f_image;
+      Observation::Array corners_f_image;
       auto corners_f_world = marker.to_corners_f_world<std::vector<gtsam::Point3>>(marker_length);
-      for (int i = 0; i < MarkerObservation::ArraySize; i += 1) {
+      for (int i = 0; i < Observation::ArraySize; i += 1) {
         auto &corner_f_world = corners_f_world[i];
-        auto corner_f_image = camera.project(corner_f_world);
-        corners_f_image[i]= Translate2::from(corner_f_image);
+
+        try {
+          auto corner_f_image = camera.project(corner_f_world);
+
+          // If the point is outside of the image boundary, then don't save any of the points. This
+          // simulates when a marker can't be seen by a camera.
+          if (corner_f_image.x() < 0 || corner_f_image.x() >= 2 * camera_calibration.px() ||
+              corner_f_image.y() < 0 || corner_f_image.y() >= 2 * camera_calibration.py()) {
+            return Observation{marker.id()};
+          }
+
+
+          corners_f_image[i]= Translate2::from(corner_f_image);
+        }
+
+          // If the point can't be projected, then don't save any of the points. This
+          // simulates when a marker can't be seen by a camera.
+        catch (gtsam::CheiralityException &e) {
+          return Observation{marker.id()};
+        }
       }
-      return MarkerObservation{marker.id(), corners_f_image};
+
+      return Observation{marker.id(), corners_f_image};
     };
   }
 //
@@ -158,11 +177,11 @@ namespace fvlam
 //      camera_matrix = camera_calibration.first,
 //      dist_coeffs = camera_calibration.second,
 //      marker_length]
-//      (const MarkerObservation &marker_observation) -> Marker
+//      (const Observation &observation) -> Marker
 //    {
 //      // Build up two lists of corner points: 2D in the image frame, 3D in the marker frame.
 //      auto corners_f_marker{Marker::to_corners_f_marker<std::vector<cv::Point3d>>(marker_length)};
-//      auto corners_f_image{marker_observation.to<std::vector<cv::Point2d>>()};
+//      auto corners_f_image{observation.to<std::vector<cv::Point2d>>()};
 //
 //      // Figure out marker pose.
 //      cv::Vec3d rvec, tvec;
@@ -173,7 +192,7 @@ namespace fvlam
 //      // rvec, tvec output from solvePnp "brings points from the model coordinate system to the
 //      // camera coordinate system". In this case the marker frame is the model coordinate system.
 //      // So rvec, tvec are the transformation t_camera_marker.
-//      return Marker{marker_observation.id(),
+//      return Marker{bservation.id(),
 //                    Transform3WithCovariance(Transform3(Rotate3::from(rvec), Translate3::from(tvec)))};
 //    };
 //  }
