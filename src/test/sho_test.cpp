@@ -77,7 +77,7 @@ namespace camsim
     fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
   };
 
-#if 1
+#if 0
 
   TEST_CASE("sho_test - shonan_rotation_averaging")
   {

@@ -21,10 +21,12 @@ namespace camsim
 
     double r_sampler_sigma = 0.0;
     double t_sampler_sigma = 0.0;
-    double u_sampler_sigma = 0.00003;
+    double u_sampler_sigma = 0.25;
     double r_noise_sigma = 0.1;
-    double t_noise_sigma = 0.1;
+    double t_noise_sigma = 0.3;
     double u_noise_sigma = 0.5;
+
+    double tolerance = 4.0e-1;
   };
 
   static auto create_pose_generator(const std::vector<fvlam::Transform3> &poses)
@@ -36,9 +38,20 @@ namespace camsim
     { return ps; };
   }
 
-  static std::vector<std::unique_ptr<fvlam::MarkerMap>> run_solvers(Model &model, TestParams &tp)
+  struct MapAndError
   {
-    std::vector<std::unique_ptr<fvlam::MarkerMap>> solved_maps{};
+    std::unique_ptr<fvlam::MarkerMap> map_;
+    double r_error_;
+    double t_error_;
+
+    MapAndError(std::unique_ptr<fvlam::MarkerMap> map, double r_error, double t_error) :
+      map_{std::move(map)}, r_error_{r_error}, t_error_{t_error}
+    {}
+  };
+
+  static std::vector<MapAndError> run_solvers(Model &model, TestParams &tp)
+  {
+    std::vector<MapAndError> solved_maps{};
 
     auto map_initial = std::make_unique<fvlam::MarkerMap>(model.cfg_.marker_length_);
     map_initial->add_marker(fvlam::Marker{
@@ -60,9 +73,12 @@ namespace camsim
 
     auto make_bmm_tmm = [
       &model,
-      &map_initial](
+      &bmm_runner,
+      &map_initial,//    REQUIRE(run_solvers(model_config, test_params) == 0);
+
+      &tp](
       bool average_on_space_not_manifold,
-      bool use_shonan_initial) -> std::unique_ptr<fvlam::BuildMarkerMapInterface>
+      bool use_shonan_initial) -> MapAndError
     {
       auto solve_tmm_context = fvlam::SolveTmmContextCvSolvePnp{};
       solve_tmm_context.average_on_space_not_manifold = average_on_space_not_manifold;
@@ -70,12 +86,20 @@ namespace camsim
                                                              model.cfg_.marker_length_);
 
 
-      auto tmm_context = fvlam::BuildMarkerMapTmmContext(use_shonan_initial);
-      return make_build_marker_map(tmm_context, solve_tmm_factory, *map_initial);
+      auto tmm_context = fvlam::BuildMarkerMapTmmContext(use_shonan_initial,
+                                                         fvlam::BuildMarkerMapTmmContext::NoiseStrategy::minimum,
+                                                         tp.r_noise_sigma, tp.t_noise_sigma);
+      auto map_builder = make_build_marker_map(tmm_context, solve_tmm_factory, *map_initial);
+
+      auto built_map = bmm_runner(*map_builder);
+      auto error = map_builder->error(*built_map);
+      return MapAndError{std::move(built_map), error.first, error.second};
     };
 
-    solved_maps.emplace_back(bmm_runner(*make_bmm_tmm(false, true)));
-    solved_maps.emplace_back(bmm_runner(*make_bmm_tmm(true, true)));
+    solved_maps.emplace_back(make_bmm_tmm(false, true));
+    solved_maps.emplace_back(make_bmm_tmm(true, true));
+    solved_maps.emplace_back(make_bmm_tmm(false, false));
+    solved_maps.emplace_back(make_bmm_tmm(true, false));
 
     return solved_maps;
   };
@@ -98,7 +122,30 @@ namespace camsim
     return std::pair<double, double>{std::sqrt(r_error_sq_accum / n), std::sqrt(t_error_sq_accum / n)};
   }
 
-#if 0
+  static void check_maps(const Model &model,
+                         const std::vector<MapAndError> &map_and_errors,
+                         double tolerance)
+  {
+    for (auto &map_and_error : map_and_errors) {
+      for (auto &m_marker : model.markers_.markers_) {
+        auto it = map_and_error.map_->find_marker_const(m_marker.index());
+        if (it != nullptr) {
+          std::cout << "  " << it->to_string() << std::endl;
+
+          REQUIRE(gtsam::assert_equal(fvlam::Transform3::from(m_marker.marker_f_world_).r().rotation_matrix(),
+                                      it->t_world_marker().tf().r().rotation_matrix(), tolerance));
+          REQUIRE(gtsam::assert_equal(fvlam::Transform3::from(m_marker.marker_f_world_).t().mu(),
+                                      it->t_world_marker().tf().t().mu(), tolerance));
+        }
+      }
+
+      std::cout << "remeasure error - r:" << map_and_error.r_error_ << " t:" << map_and_error.t_error_;
+      auto pair = calc_error(model, *map_and_error.map_);
+      std::cout << "  true map error - r:" << pair.first << " t:" << pair.second << std::endl;
+    }
+  }
+
+#if 1
 
   TEST_CASE("Tmm_test - build_marker_map_tmm from model")
   {
@@ -145,25 +192,11 @@ namespace camsim
     Model model{model_config};
 
     auto solved_maps = run_solvers(model, tp);
-
-    std::cout << "solved maps" << std::endl;
-
-    for (auto &solved_map : solved_maps) {
-      for (auto &m_marker : model.markers_.markers_) {
-        auto it = solved_map->find_marker_const(m_marker.index());
-        if (it != nullptr) {
-          std::cout << "  " << it->to_string() << std::endl;
-
-          REQUIRE(gtsam::assert_equal(fvlam::Transform3::from(m_marker.marker_f_world_).mu(),
-                                      it->t_world_marker().tf().mu(), 3.0e-2));
-        }
-      }
-
-      auto pair = calc_error(model, *solved_map);
-      std::cout << "error - r:" << pair.first << " t:" << pair.second << std::endl;
-    }
+    check_maps(model, solved_maps, tp.tolerance);
   }
+
 #endif
+#if 1
 
   TEST_CASE("map_test - Build_marker_map_tmm ring of markers, rotating camera")
   {
@@ -176,25 +209,13 @@ namespace camsim
     Model model{model_config};
 
     auto solved_maps = run_solvers(model, tp);
-
-
-    for (auto &solved_map : solved_maps) {
-      for (auto &m_marker : model.markers_.markers_) {
-        auto it = solved_map->find_marker_const(m_marker.index());
-        if (it != nullptr) {
-          std::cout << "  " << it->to_string() << std::endl;
-
-//          REQUIRE(gtsam::assert_equal(fvlam::Transform3::from(m_marker.marker_f_world_).mu(),
-//                                      it->t_world_marker().tf().mu(), 3.0e-2));
-        }
-      }
-
-      auto pair = calc_error(model, *solved_map);
-      std::cout << "error - r:" << pair.first << " t:" << pair.second << std::endl;
-    }
+    check_maps(model, solved_maps, tp.tolerance);
   }
 
-#if 0
+#endif
+
+#if 1
+
   TEST_CASE("map-test - build_marker_map_tmm circle of markers, camera in circle")
   {
     TestParams tp;
@@ -206,7 +227,7 @@ namespace camsim
     Model model{model_config};
 
     auto solved_maps = run_solvers(model, tp);
-//    REQUIRE(run_solvers(model_config, test_params) == 0);
+    check_maps(model, solved_maps, tp.tolerance);
   }
 
 #endif

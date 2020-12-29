@@ -69,8 +69,9 @@ namespace fvlam
     // Given the observations that have been added so far, create and return a marker_map.
     virtual std::unique_ptr<MarkerMap> build() = 0;
 
-    // Re-initialize the map_builder. (i.e. through out any data accumulated so far)
-    virtual std::string reset(std::string &cmd) = 0;
+    // Calculate the average angular and linear error between the measured
+    // t_marker0_marker1 and the t_marker0_marker1 for markers in the map.
+    virtual std::pair<double, double> error(const MarkerMap &map) = 0;
   };
 
   template<class TBmmContext>
@@ -82,13 +83,28 @@ namespace fvlam
 // BuildMarkerMapTmmContext class
 // ==============================================================================
 
-  class BuildMarkerMapTmmContext
+  struct BuildMarkerMapTmmContext
   {
-  public:
-    const bool use_shonan_initial_;
+    enum struct NoiseStrategy {
+      estimation, // Use estimate from samples
+      minimum, // Use fixed value if estimate is below fixed
+      fixed, // Use fixed value
+    };
 
-    explicit BuildMarkerMapTmmContext(bool use_shonan_initial) :
-      use_shonan_initial_{use_shonan_initial}
+    bool try_shonan_initialization_{true};
+    NoiseStrategy mm_between_factor_noise_strategy_{NoiseStrategy::minimum};
+    double mm_between_factor_noise_fixed_sigma_r_{0.1};
+    double mm_between_factor_noise_fixed_sigma_t_{0.3};
+
+
+    explicit BuildMarkerMapTmmContext(bool try_shonan_initialization,
+                                      NoiseStrategy mm_between_factor_noise_strategy,
+                                      double mm_between_factor_noise_fixed_sigma_r = 0.1,
+                                      double mm_between_factor_noise_fixed_sigma_t = 0.3) :
+      try_shonan_initialization_{try_shonan_initialization},
+      mm_between_factor_noise_strategy_{mm_between_factor_noise_strategy},
+      mm_between_factor_noise_fixed_sigma_r_{mm_between_factor_noise_fixed_sigma_r},
+      mm_between_factor_noise_fixed_sigma_t_{mm_between_factor_noise_fixed_sigma_t}
     {}
 
     template<class T>

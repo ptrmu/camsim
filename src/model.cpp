@@ -351,14 +351,16 @@ namespace camsim
                       gtsam::Point3{-cfg_.marker_length_ / 2, -cfg_.marker_length_ / 2, 0}},
     markers_{gen_markers(cfg_, corners_f_marker_)}
   {
-    std::cout << "Markers" << std::endl;
+    std::cout << "Model Markers:" << std::endl;
     for (auto &marker : markers_) {
       auto &corners = marker.corners_;
-      std::cout << PoseWithCovariance::to_str(marker.marker_f_world_) << " (";
-      std::cout << corners.corners_[0].point_f_world_.transpose() << ") ("
-                << corners.corners_[1].point_f_world_.transpose() << ") ( "
-                << corners.corners_[2].point_f_world_.transpose() << ") ("
-                << corners.corners_[3].point_f_world_.transpose() << ")" << std::endl;
+      std::cout << PoseWithCovariance::to_str(marker.marker_f_world_);
+//      std::cout << " ("
+//                << corners.corners_[0].point_f_world_.transpose() << ") ("
+//                << corners.corners_[1].point_f_world_.transpose() << ") ( "
+//                << corners.corners_[2].point_f_world_.transpose() << ") ("
+//                << corners.corners_[3].point_f_world_.transpose() << ")";
+      std::cout << std::endl;
     }
   }
 
@@ -491,10 +493,10 @@ namespace camsim
     project_func_{gen_project_func(cfg_, calibration_)},
     cameras_{gen_cameras(cfg, calibration_)}
   {
-    std::cout << "Cameras" << std::endl;
-    for (auto &camera : cameras_) {
-      std::cout << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
-    }
+//    std::cout << "Model Cameras" << std::endl;
+//    for (auto &camera : cameras_) {
+//      std::cout << PoseWithCovariance::to_str(camera.camera_f_world_) << std::endl;
+//    }
   }
 
   gtsam::Cal3_S2 CamerasModel::get_Cal3_S2() const
