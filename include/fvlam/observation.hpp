@@ -1,5 +1,4 @@
-#ifndef FVLAM_OBSERVATIONS_HPP
-#define FVLAM_OBSERVATIONS_HPP
+#pragma once
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 #pragma ide diagnostic ignored "NotImplementedFunctions"
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
@@ -41,7 +40,7 @@ namespace fvlam
       cov_{Element::CovarianceMatrix::Zero()}
     {}
 
-    Observation(std::uint64_t id) :
+    explicit Observation(std::uint64_t id) :
       is_valid_{false}, id_{id},
       corners_f_image_{Translate2(), Translate2(), Translate2(), Translate2()},
       cov_{Element::CovarianceMatrix::Zero()}
@@ -126,4 +125,3 @@ namespace fvlam
 
 
 }
-#endif // FVLAM_OBSERVATIONS_HPP

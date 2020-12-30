@@ -103,7 +103,9 @@ namespace camsim
     auto result = build_map.build();
 
     gttoc(solver);
+#ifdef ENABLE_TIMING
     gtsam::tictoc_print();
+#endif
     gtsam::tictoc_reset_();
 
     return result;

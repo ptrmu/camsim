@@ -1,6 +1,4 @@
-
-#ifndef FVLAM_MARKER_MAP_HPP
-#define FVLAM_MARKER_MAP_HPP
+#pragma once
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 #pragma ide diagnostic ignored "NotImplementedFunctions"
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
@@ -27,8 +25,6 @@ namespace fvlam
     using Element3 = Translate3;
     using Array2 = std::array<Element2, ArraySize>;
     using Array3 = std::array<Element3, ArraySize>;
-    using Mu2Vector = Eigen::Matrix<double, Element2::MuVector::MaxRowsAtCompileTime * ArraySize, 1>;
-    using Mu3Vector = Eigen::Matrix<double, Element3::MuVector::MaxRowsAtCompileTime * ArraySize, 1>;
 
   private:
     // The id of the marker
@@ -86,7 +82,9 @@ namespace fvlam
     }
 
   public:
-    Marker() = default;
+    Marker() :
+      id_(0), t_world_marker_(), is_fixed_(false)
+    {}
 
     Marker(std::uint64_t id, Transform3WithCovariance t_world_marker, bool is_fixed = false) :
       id_(id), t_world_marker_(std::move(t_world_marker)), is_fixed_(is_fixed)
@@ -199,4 +197,3 @@ namespace fvlam
     }
   };
 }
-#endif //FVLAM_MARKER_MAP_HPP

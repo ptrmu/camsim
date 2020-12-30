@@ -1,3 +1,4 @@
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
 
 #include <memory>
 #include <fvlam/camera_info.hpp>
@@ -15,19 +16,20 @@ namespace fvlam
 {
   class BuildMarkerMapShonan : public BuildMarkerMapInterface
   {
-    constexpr std::uint64_t JointID_id0(std::uint64_t id)
+    constexpr static std::uint64_t JointID_id0(std::uint64_t id)
     { return id / 1000000L; }; //
-    constexpr std::uint64_t JointID_id1(std::uint64_t id)
+    constexpr static std::uint64_t JointID_id1(std::uint64_t id)
     { return id % 1000000L; }; //
-    constexpr std::uint64_t JointID(std::uint64_t id0, std::uint64_t id1)
+    constexpr static std::uint64_t JointID(std::uint64_t id0, std::uint64_t id1)
     { return id0 * 1000000L + id1; }; //
 
     const BuildMarkerMapTmmContext tmm_context_;
-    SolveTMarker0Marker1Factory solve_tmm_factory_;
+    Logger logger_;
     const double marker_length_;
     const fvlam::Marker fixed_marker_;
 
     std::map<std::uint64_t, std::unique_ptr<SolveTMarker0Marker1Interface>> solve_tmm_map_;
+    BuildMarkerMapTmmContext::Error error_;
 
     static fvlam::Marker find_fixed_marker(const MarkerMap &map)
     {
@@ -39,7 +41,7 @@ namespace fvlam
       return fvlam::Marker{0, Transform3WithCovariance{}};
     }
 
-    Eigen::Vector3d minimum_sigma(Eigen::Vector3d sigmas,
+    static Eigen::Vector3d minimum_sigma(Eigen::Vector3d sigmas,
                                   double minimum,
                                   bool isotropic)
     {
@@ -87,11 +89,11 @@ namespace fvlam
     {
       gtsam::NonlinearFactorGraph pose_graph{};
 
-      for (auto it = solve_tmm_map_.begin(); it != solve_tmm_map_.end(); ++it) {
-        std::uint64_t id0 = JointID_id0(it->first);
-        std::uint64_t id1 = JointID_id1(it->first);
+      for (auto &solve_tmm : solve_tmm_map_) {
+        std::uint64_t id0 = JointID_id0(solve_tmm.first);
+        std::uint64_t id1 = JointID_id1(solve_tmm.first);
 
-        auto t_marker0_marker1 = it->second->t_marker0_marker1();
+        auto t_marker0_marker1 = solve_tmm.second->t_marker0_marker1();
         auto noise_model = determine_between_factor_noise_model(t_marker0_marker1,
                                                                 tmm_context_.try_shonan_initialization_);
 
@@ -108,7 +110,7 @@ namespace fvlam
       return pose_graph;
     }
 
-    gtsam::ShonanAveraging3::Measurements load_shonan_measurements(const gtsam::NonlinearFactorGraph &pose_graph)
+    static gtsam::ShonanAveraging3::Measurements load_shonan_measurements(const gtsam::NonlinearFactorGraph &pose_graph)
     {
       gtsam::ShonanAveraging3::Measurements measurements{};
 
@@ -137,7 +139,9 @@ namespace fvlam
       gtsam::ShonanAveraging3 shonan(shonan_measurements);
       auto shonan_initial = shonan.initializeRandomly();
       auto shonan_result = shonan.run(shonan_initial);
-//      std::cout << "error of Shonan Averaging " << shonan_result.second << std::endl;
+
+      error_.shonan_error = shonan_result.second;
+      logger_.info() << "error of Shonan Averaging " << shonan_result.second << std::endl;
 
       // Find the rotation that the shonan algorithm returned for the fixed
       // marker. Then figure out the delta rotation to rotate that shonan
@@ -158,7 +162,7 @@ namespace fvlam
         gtsam::Key key = key_value.key;
         const auto &rot = shonan_result.first.at<gtsam::Rot3>(key);
         auto rot_f_world = r_world_shonan * rot;
-//        std::cout << key << " " << fvlam::Rotate3::from(rot_f_world).to_string() << std::endl;
+        logger_.debug() << key << " " << fvlam::Rotate3::from(rot_f_world).to_string() << std::endl;
         auto initializedPose = gtsam::Pose3{rot_f_world, initial_poses.at<gtsam::Pose3>(key).translation()};
         initial_poses.update(key, initializedPose);
       }
@@ -197,23 +201,47 @@ namespace fvlam
       return map;
     }
 
+    void calc_remeasure_error(const MarkerMap &map)
+    {
+      double r_sum{0.0};
+      double t_sum{0.0};
+      uint64_t n{0};
+
+      for (auto it0 = map.markers().begin(); it0 != map.markers().end(); ++it0)
+        for (auto it1 = map.markers().upper_bound(it0->first); it1 != map.markers().end(); ++it1) {
+          auto it_tmm = solve_tmm_map_.find(JointID(it0->first, it1->first));
+          if (it_tmm != solve_tmm_map_.end()) {
+            auto tmm_meas = it_tmm->second->t_marker0_marker1().tf();
+            auto tmm_calc = it0->second.t_world_marker().tf().inverse() *
+                            it1->second.t_world_marker().tf();
+            r_sum += tmm_calc.r().q().angularDistance(tmm_meas.r().q());
+            t_sum += (tmm_calc.t().t() - tmm_meas.t().t()).norm();
+            n += 1;
+          }
+        }
+
+      if (n > 1) {
+        r_sum /= n;
+        t_sum /= n;
+      }
+
+      error_.r_remeasure_error = r_sum;
+      error_.t_remeasure_error = t_sum;
+    }
+
   public:
     BuildMarkerMapShonan() = delete;
 
-    BuildMarkerMapShonan(BuildMarkerMapTmmContext tmm_context_,
-                         SolveTMarker0Marker1Factory solve_tmm_factory,
-                         const MarkerMap &map) :
-      tmm_context_{std::move(tmm_context_)},
-      solve_tmm_factory_{std::move(solve_tmm_factory)},
-      marker_length_{map.marker_length()},
-      fixed_marker_{find_fixed_marker(map)},
-      solve_tmm_map_{}
-    {
-      Logger logger{std::cout, Logger::level_debug};
-      logger.debug() << "debug" << std::endl;
-      logger.info() << "info" << std::endl;
-      logger.error() << "error" << std::endl;
-    }
+    BuildMarkerMapShonan(BuildMarkerMapTmmContext tmm_context,
+                         Logger logger,
+                         const MarkerMap &map_initial) :
+      tmm_context_{std::move(tmm_context)},
+      logger_{std::move(logger)},
+      marker_length_{map_initial.marker_length()},
+      fixed_marker_{find_fixed_marker(map_initial)},
+      solve_tmm_map_{},
+      error_{}
+    {}
 
     void process(const Observations &observations,
                  const CameraInfo &camera_info) override
@@ -236,7 +264,7 @@ namespace fvlam
           std::uint64_t joint_id = JointID(obs[m0r].id(), obs[m1r].id());
           auto it = solve_tmm_map_.find(joint_id);
           if (it == solve_tmm_map_.end()) {
-            auto res = solve_tmm_map_.emplace(joint_id, solve_tmm_factory_());
+            auto res = solve_tmm_map_.emplace(joint_id, tmm_context_.solve_tmm_factory_());
             assert(res.second);
             it = res.first;
           }
@@ -248,54 +276,49 @@ namespace fvlam
     {
       // Prepare for full Pose optimization
       auto pose_graph = load_pose_graph();
-//      pose_graph.print("pose_graph\n");
+      if (logger_.output_debug()) {
+        pose_graph.print("pose_graph\n");
+      }
 
       auto pose_initial = load_pose_initial(pose_graph);
-//      pose_initial.print("pose_initial");
-
+      if (logger_.output_debug()) {
+        pose_initial.print("pose_initial");
+      }
       // Do the pose optimization
       gtsam::GaussNewtonParams params;
-//      params.setVerbosity("TERMINATION");
+      if (logger_.output_debug()) {
+        params.setVerbosity("TERMINATION");
+      }
+
       gtsam::GaussNewtonOptimizer optimizer(pose_graph, pose_initial, params);
       auto pose_result = optimizer.optimize();
+      error_.nonlinear_optimization_error = pose_graph.error(pose_result);
+      logger_.info() << "Non-linear optimization error = " << error_.nonlinear_optimization_error << std::endl;
 
-      return load_map(pose_graph, pose_result);
+      auto built_map = load_map(pose_graph, pose_result);
+      calc_remeasure_error(*built_map);
+      return built_map;
     }
 
-    std::pair<double, double> error(const MarkerMap &map) override
-    {
-      double r_sum{0.0};
-      double t_sum{0.0};
-      uint64_t n{0};
-
-      for (auto it0 = map.markers().begin(); it0 != map.markers().end(); ++it0)
-        for (auto it1 = map.markers().upper_bound(it0->first); it1 != map.markers().end(); ++it1) {
-          auto it_tmm = solve_tmm_map_.find(JointID(it0->first, it1->first));
-          if (it_tmm != solve_tmm_map_.end()) {
-            auto tmm_meas = it_tmm->second->t_marker0_marker1().tf();
-            auto tmm_calc = it0->second.t_world_marker().tf().inverse() *
-                          it1->second.t_world_marker().tf();
-            r_sum += tmm_calc.r().q().angularDistance(tmm_meas.r().q());
-            t_sum += (tmm_calc.t().t() - tmm_meas.t().t()).norm();
-            n += 1;
-          }
-        }
-
-      if (n > 1) {
-        r_sum /= n;
-        t_sum /= n;
-      }
-      return std::pair<double, double>{r_sum, t_sum};
-    }
+    auto error() const
+    { return error_; }
   };
 
   template<>
   std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map<BuildMarkerMapTmmContext>(
     const BuildMarkerMapTmmContext &tmm_context,
-    SolveTMarker0Marker1Factory solve_tmm_factory,
+    Logger logger,
     const MarkerMap &map_initial)
   {
-    return std::make_unique<BuildMarkerMapShonan>(tmm_context, std::move(solve_tmm_factory), map_initial);
+    return std::make_unique<BuildMarkerMapShonan>(tmm_context, std::move(logger), map_initial);
+  }
+
+  BuildMarkerMapTmmContext::Error BuildMarkerMapTmmContext::get_error(
+    const BuildMarkerMapInterface &Bmm,
+    const MarkerMap &built_map)
+  {
+    auto bmm_tmm = dynamic_cast<const BuildMarkerMapShonan *>(&Bmm);
+    return bmm_tmm != nullptr ? bmm_tmm->error() : BuildMarkerMapTmmContext::Error{};
   }
 
 // ==============================================================================

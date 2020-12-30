@@ -1,4 +1,3 @@
-#pragma ide diagnostic ignored "modernize-loop-convert"
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 #pragma ide diagnostic ignored "NotImplementedFunctions"
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
@@ -326,18 +325,36 @@ namespace camsim
 
   int build_marker_map_from_file()
   {
-//    auto image_measurements = load_image_measurements_from_file("../src/data/observations_sequence.json");
-//    fvlam::BuildMarkerMapShonanContext cxt{5};
-//    auto map_initial = std::make_unique<fvlam::MarkerMap>(0.21);
-//    auto build_marker_map = fvlam::make_build_marker_map(cxt, *map_initial);
-//
-//    for (auto &image_measurement : image_measurements) {
-//      auto &measurements = image_measurement.measurements();
-//      auto observations{fvlam::Observations::from(measurements)};
-//      build_marker_map->process(observations, image_measurement.camera_info());
-//    }
-//
-//    auto map = build_marker_map->build();
+    auto image_measurements = load_image_measurements_from_file("../src/data/observations_sequence.json");
+
+    auto map_initial = std::make_unique<fvlam::MarkerMap>(0.21);
+    map_initial->add_marker(fvlam::Marker{
+      0, fvlam::Transform3WithCovariance{}, true});
+
+    auto solve_tmm_context = fvlam::SolveTmmContextCvSolvePnp{};
+    solve_tmm_context.average_on_space_not_manifold = true;
+    auto solve_tmm_factory = fvlam::make_solve_tmm_factory(solve_tmm_context,
+                                                           map_initial->marker_length());
+
+    auto logger = fvlam::Logger{std::make_shared<fvlam::LoggerCallbackCout>(fvlam::Logger::Levels::level_info)};
+    auto tmm_context = fvlam::BuildMarkerMapTmmContext(solve_tmm_factory,
+                                                       true,
+                                                       fvlam::BuildMarkerMapTmmContext::NoiseStrategy::minimum,
+                                                       0.1, 0.3);
+    auto map_builder = make_build_marker_map(tmm_context, logger, *map_initial);
+
+    for (auto &image_measurement : image_measurements) {
+      auto &measurements = image_measurement.measurements();
+      auto observations{fvlam::Observations::from(measurements)};
+      map_builder->process(observations, image_measurement.camera_info());
+    }
+
+    auto built_map = map_builder->build();
+    logger.info() << "built map:" << std::endl
+                  << built_map->to_string() << std::endl;
+    auto error = fvlam::BuildMarkerMapTmmContext::get_error(*map_builder, *built_map);
+    logger.info() << "remeasure error - r:" << error.r_remeasure_error << " t:" << error.t_remeasure_error;
+
     return 0;
   }
 }

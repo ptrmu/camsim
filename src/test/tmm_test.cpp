@@ -27,6 +27,8 @@ namespace camsim
     double u_noise_sigma = 0.5;
 
     double tolerance = 4.0e-1;
+
+    fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_info;
   };
 
   static auto create_pose_generator(const std::vector<fvlam::Transform3> &poses)
@@ -74,8 +76,7 @@ namespace camsim
     auto make_bmm_tmm = [
       &model,
       &bmm_runner,
-      &map_initial,//    REQUIRE(run_solvers(model_config, test_params) == 0);
-
+      &map_initial,
       &tp](
       bool average_on_space_not_manifold,
       bool use_shonan_initial) -> MapAndError
@@ -85,15 +86,16 @@ namespace camsim
       auto solve_tmm_factory = fvlam::make_solve_tmm_factory(solve_tmm_context,
                                                              model.cfg_.marker_length_);
 
-
-      auto tmm_context = fvlam::BuildMarkerMapTmmContext(use_shonan_initial,
+      auto logger = fvlam::Logger{std::make_shared<fvlam::LoggerCallbackCout>(tp.logger_level)};
+      auto tmm_context = fvlam::BuildMarkerMapTmmContext(solve_tmm_factory,
+                                                         use_shonan_initial,
                                                          fvlam::BuildMarkerMapTmmContext::NoiseStrategy::minimum,
                                                          tp.r_noise_sigma, tp.t_noise_sigma);
-      auto map_builder = make_build_marker_map(tmm_context, solve_tmm_factory, *map_initial);
+      auto map_builder = make_build_marker_map(tmm_context, logger, *map_initial);
 
       auto built_map = bmm_runner(*map_builder);
-      auto error = map_builder->error(*built_map);
-      return MapAndError{std::move(built_map), error.first, error.second};
+      auto error = fvlam::BuildMarkerMapTmmContext::get_error(*map_builder, *built_map);
+      return MapAndError{std::move(built_map), error.r_remeasure_error, error.t_remeasure_error};
     };
 
     solved_maps.emplace_back(make_bmm_tmm(false, true));
@@ -194,8 +196,8 @@ namespace camsim
     auto solved_maps = run_solvers(model, tp);
     check_maps(model, solved_maps, tp.tolerance);
   }
-
 #endif
+
 #if 1
 
   TEST_CASE("map_test - Build_marker_map_tmm ring of markers, rotating camera")

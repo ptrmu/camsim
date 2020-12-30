@@ -1,5 +1,4 @@
-#ifndef FVLAM_TRANSFORM3_WITH_COVARIANCE_HPP
-#define FVLAM_TRANSFORM3_WITH_COVARIANCE_HPP
+#pragma once
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 #pragma ide diagnostic ignored "NotImplementedFunctions"
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
@@ -279,9 +278,9 @@ namespace fvlam
     Rotate3 between(const Rotate3 &other) const
     { return (*this).inverse() * other; } //
 
-    Rotate3 retract(const TangentVector &v)
+    Rotate3 retract(const TangentVector &v) const
     { return compose(ChartAtOrigin::retract(v)); } //
-    TangentVector local_coordinates(const Rotate3 &other)
+    TangentVector local_coordinates(const Rotate3 &other) const
     { return ChartAtOrigin::local(between(other)); } //
 
     Rotate3 operator*(const Rotate3 &other) const
@@ -467,5 +466,3 @@ namespace fvlam
     std::string to_string() const;
   };
 }
-
-#endif // FVLAM_TRANSFORM3_WITH_COVARIANCE_HPP

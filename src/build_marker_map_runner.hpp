@@ -2,7 +2,7 @@
 #define BUILD_MARKER_MAP_RUNNER_HPP
 
 
-#define ENABLE_TIMING
+//#define ENABLE_TIMING
 
 #include "model.hpp"
 #include "fvlam/build_marker_map_interface.hpp"

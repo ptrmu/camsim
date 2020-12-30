@@ -1,7 +1,6 @@
 
 #include <memory>
 
-#include "fvlam/build_marker_map_interface.hpp"
 #include "fvlam/camera_info.hpp"
 #include "fvlam/marker.hpp"
 #include "fvlam/observation.hpp"
@@ -120,13 +119,13 @@ namespace fvlam
 
   template<>
   Observation Observation::from<std::vector<cv::Point2d>>(
-    std::uint64_t id, const std::vector<cv::Point2d> &cfi)
+    std::uint64_t id, const std::vector<cv::Point2d> &other)
   {
     return Observation(id, Observation::Array{
-      Observation::Element{cfi[0].x, cfi[0].y},
-      Observation::Element{cfi[1].x, cfi[1].y},
-      Observation::Element{cfi[2].x, cfi[2].y},
-      Observation::Element{cfi[3].x, cfi[3].y}
+      Observation::Element{other[0].x, other[0].y},
+      Observation::Element{other[1].x, other[1].y},
+      Observation::Element{other[2].x, other[2].y},
+      Observation::Element{other[3].x, other[3].y}
     });
   }
 
@@ -217,8 +216,7 @@ namespace fvlam
     auto solve_t_camera_marker_function = solve_t_camera_marker<CvCameraCalibration>(camera_calibration,
                                                                                      marker_length);
     return [
-      solve_t_camera_marker_function,
-      marker_length]
+      solve_t_camera_marker_function]
       (const Observation &observation0,
        const Observation &observation1) -> Transform3WithCovariance
     {

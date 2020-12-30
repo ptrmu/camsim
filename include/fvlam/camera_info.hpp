@@ -1,5 +1,4 @@
-#ifndef FVLAM_CAMERA_INFO_HPP
-#define FVLAM_CAMERA_INFO_HPP
+#pragma once
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 #pragma ide diagnostic ignored "NotImplementedFunctions"
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
@@ -79,4 +78,3 @@ namespace fvlam
 // Used for specializing the from/to methods on CameraInfo
   using CvCameraCalibration = std::pair<cv::Matx<double, 3, 3>, cv::Vec<double, 5>>;
 }
-#endif //FVLAM_CAMERA_INFO_HPP

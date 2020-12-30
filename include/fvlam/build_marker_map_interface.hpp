@@ -1,8 +1,13 @@
-#ifndef FVLAM_BUILD_MARKER_MAP_INTERFACE_HPP
-#define FVLAM_BUILD_MARKER_MAP_INTERFACE_HPP
+#pragma once
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
+#pragma ide diagnostic ignored "NotImplementedFunctions"
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
+#pragma ide diagnostic ignored "OCUnusedStructInspection"
+#pragma ide diagnostic ignored "OCUnusedTypeAliasInspection"
 
 #include <memory>
 
+#include "fvlam/logger.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 
 namespace fvlam
@@ -14,66 +19,76 @@ namespace fvlam
   class Observations; //
 
 // ==============================================================================
-// Logger class
+// BuildMarkerMapInterface class
 // ==============================================================================
 
-  class Logger
+// An interface used to build maps of markers. This is a common interface to
+// several modules that use different techniques to build maps.
+  class BuildMarkerMapInterface
   {
   public:
-    enum Levels
+    virtual ~BuildMarkerMapInterface() = default;
+
+    // Take the location of markers in one image and add them to the marker map
+    // building algorithm.
+    virtual void process(const Observations &observations,
+                         const CameraInfo &camera_info) = 0;
+
+    // Given the observations that have been added so far, create and return a marker_map.
+    virtual std::unique_ptr<MarkerMap> build() = 0;
+  };
+
+  template<class TBmmContext>
+  std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map(const TBmmContext &tmm_context,
+                                                                 Logger logger,
+                                                                 const MarkerMap &map_initial);
+
+// ==============================================================================
+// BuildMarkerMapTmmContext class
+// ==============================================================================
+
+  class SolveTMarker0Marker1Interface; //
+  using SolveTMarker0Marker1Factory = std::function<std::unique_ptr<SolveTMarker0Marker1Interface>()>;
+
+  struct BuildMarkerMapTmmContext
+  {
+    enum struct NoiseStrategy
     {
-      level_debug = 0,
-      level_info,
-      level_error
+      estimation, // Use estimate from samples
+      minimum, // Use fixed value if estimate is below fixed
+      fixed, // Use fixed value
     };
 
-    class StreamProxy
-    {
-      bool output_;
-      std::basic_ostream<char> &ostream_;
+    SolveTMarker0Marker1Factory solve_tmm_factory_;
+    bool try_shonan_initialization_;
+    NoiseStrategy mm_between_factor_noise_strategy_;
+    double mm_between_factor_noise_fixed_sigma_r_;
+    double mm_between_factor_noise_fixed_sigma_t_;
 
-    public:
-      StreamProxy(std::basic_ostream<char> &ostream, bool output) :
-        output_{output}, ostream_{ostream}
-      {}
-
-      template<typename V>
-      StreamProxy &operator<<(V const &value)
-      {
-        if (output_) {
-          ostream_ << value;
-        }
-        return *this;
-      }
-
-      StreamProxy &operator<<(std::basic_ostream<char> &(*func)(std::basic_ostream<char> &))
-      {
-        if (output_) {
-          func(ostream_);
-        }
-        return *this;
-      }
-    };
-
-  private:
-    std::basic_ostream<char> &ostream_;
-    Levels output_level_;
-
-  public:
-    Logger(std::basic_ostream<char> &ostream, Levels output_level) :
-      ostream_{ostream}, output_level_{output_level}
+    explicit BuildMarkerMapTmmContext(SolveTMarker0Marker1Factory solve_tmm_factory,
+                                      bool try_shonan_initialization = false,
+                                      NoiseStrategy mm_between_factor_noise_strategy = NoiseStrategy::minimum,
+                                      double mm_between_factor_noise_fixed_sigma_r = 0.1,
+                                      double mm_between_factor_noise_fixed_sigma_t = 0.3) :
+      solve_tmm_factory_{std::move(solve_tmm_factory)},
+      try_shonan_initialization_{try_shonan_initialization},
+      mm_between_factor_noise_strategy_{mm_between_factor_noise_strategy},
+      mm_between_factor_noise_fixed_sigma_r_{mm_between_factor_noise_fixed_sigma_r},
+      mm_between_factor_noise_fixed_sigma_t_{mm_between_factor_noise_fixed_sigma_t}
     {}
 
-    // These methods return a new StreamProxy object that will stream or not.
-    // This temporary StreamProxy object is held alive while the subsequent << operators
-    // pass a reference to it along. The StreamProxy object is then destroyed at the end
-    // of the statement. This is convenient compiler magic.
-    StreamProxy debug()
-    { return StreamProxy{ostream_, level_debug >= output_level_}; } //
-    StreamProxy info()
-    { return StreamProxy{ostream_, level_info >= output_level_}; } //
-    StreamProxy error()
-    { return StreamProxy{ostream_, level_error >= output_level_}; } //
+    template<class T>
+    static Transform3 from(const T &other);
+
+    struct Error
+    {
+      double r_remeasure_error{0};
+      double t_remeasure_error{0};
+      double nonlinear_optimization_error{0};
+      double shonan_error{0};
+    };
+
+    static Error get_error(const BuildMarkerMapInterface &Bmm, const MarkerMap &built_map);
   };
 
 // ==============================================================================
@@ -100,7 +115,6 @@ namespace fvlam
     virtual Transform3WithCovariance t_marker0_marker1() = 0;
   };
 
-  using SolveTMarker0Marker1Factory = std::function<std::unique_ptr<SolveTMarker0Marker1Interface>()>;
 
   template<class TSolveTmmContext>
   SolveTMarker0Marker1Factory make_solve_tmm_factory(const TSolveTmmContext &solve_tmm_context,
@@ -114,69 +128,7 @@ namespace fvlam
   };
 
 // ==============================================================================
-// BuildMarkerMapInterface class
-// ==============================================================================
-
-// An interface used to build maps of markers. This is a common interface to
-// several modules that use different techniques to build maps.
-  class BuildMarkerMapInterface
-  {
-  public:
-    virtual ~BuildMarkerMapInterface() = default;
-
-    // Take the location of markers in one image and add them to the marker map
-    // building algorithm.
-    virtual void process(const Observations &observations,
-                         const CameraInfo &camera_info) = 0;
-
-    // Given the observations that have been added so far, create and return a marker_map.
-    virtual std::unique_ptr<MarkerMap> build() = 0;
-
-    // Calculate the average angular and linear error between the measured
-    // t_marker0_marker1 and the t_marker0_marker1 for markers in the map.
-    virtual std::pair<double, double> error(const MarkerMap &map) = 0;
-  };
-
-  template<class TBmmContext>
-  std::unique_ptr<BuildMarkerMapInterface> make_build_marker_map(const TBmmContext &tmm_context,
-                                                                 SolveTMarker0Marker1Factory solve_tmm_factory,
-                                                                 const MarkerMap &map_initial);
-
-// ==============================================================================
-// BuildMarkerMapTmmContext class
-// ==============================================================================
-
-  struct BuildMarkerMapTmmContext
-  {
-    enum struct NoiseStrategy
-    {
-      estimation, // Use estimate from samples
-      minimum, // Use fixed value if estimate is below fixed
-      fixed, // Use fixed value
-    };
-
-    bool try_shonan_initialization_{true};
-    NoiseStrategy mm_between_factor_noise_strategy_{NoiseStrategy::minimum};
-    double mm_between_factor_noise_fixed_sigma_r_{0.1};
-    double mm_between_factor_noise_fixed_sigma_t_{0.3};
-
-
-    explicit BuildMarkerMapTmmContext(bool try_shonan_initialization,
-                                      NoiseStrategy mm_between_factor_noise_strategy,
-                                      double mm_between_factor_noise_fixed_sigma_r = 0.1,
-                                      double mm_between_factor_noise_fixed_sigma_t = 0.3) :
-      try_shonan_initialization_{try_shonan_initialization},
-      mm_between_factor_noise_strategy_{mm_between_factor_noise_strategy},
-      mm_between_factor_noise_fixed_sigma_r_{mm_between_factor_noise_fixed_sigma_r},
-      mm_between_factor_noise_fixed_sigma_t_{mm_between_factor_noise_fixed_sigma_t}
-    {}
-
-    template<class T>
-    static Transform3 from(const T &other);
-  };
-
-// ==============================================================================
-// EstimateTransform3MeanAndCovariance class
+// EstimateMeanAndCovariance class
 // ==============================================================================
 
   template<class MUVECTOR>
@@ -191,7 +143,6 @@ namespace fvlam
     std::uint64_t n_{0};
 
   public:
-
     void accumulate(const MUVECTOR &mu)
     {
       mu_sum_ += mu;
@@ -208,60 +159,67 @@ namespace fvlam
     {
       return (n_ == 0) ? mu_mu_sum_ : (mu_mu_sum_ - (mu_sum_ * mu_sum_.transpose()) / n_) / n_;
     }
+
+    auto n() const
+    { return n_; }
   };
 
-  class EstimateTransform3MeanAndCovariance : public EstimateMeanAndCovarianceSimple<fvlam::Transform3::TangentVector>
+  class EstimateTransform3MeanAndCovariance
   {
-    using Base = EstimateMeanAndCovarianceSimple<fvlam::Transform3::TangentVector>;
+    EstimateMeanAndCovarianceSimple<fvlam::Transform3::TangentVector> base_{};
     fvlam::Rotate3 r_adj_{};
     fvlam::Rotate3 r_adj_inverse_{};
     fvlam::Translate3 t_adj_{};
     fvlam::Translate3 t_adj_inverse_{};
 
   public:
-
     void accumulate(const Transform3 &tr)
     {
-      if (Base::n_ == 0) {
+      if (base_.n() == 0) {
         r_adj_ = tr.r();
         t_adj_ = tr.t();
         r_adj_inverse_ = r_adj_.inverse();
         t_adj_inverse_ = t_adj_ * -1;
       }
       auto tr_adj = Transform3{tr.r() * r_adj_inverse_, tr.t() + t_adj_inverse_};
-      Base::accumulate(fvlam::Transform3::ChartAtOrigin::local(tr_adj));
+      base_.accumulate(fvlam::Transform3::ChartAtOrigin::local(tr_adj));
     }
 
-    Transform3 mean() const
+    auto mean() const
     {
-      auto tr_adj = fvlam::Transform3::ChartAtOrigin::retract(Base::mean());
+      auto tr_adj = fvlam::Transform3::ChartAtOrigin::retract(base_.mean());
       auto tr = Transform3{tr_adj.r() * r_adj_, tr_adj.t() + t_adj_};
       return tr;
     }
+
+    auto cov()
+    { return base_.cov(); }
   };
 
 
   template<class MUVECTOR>
-  class EstimateMeanAndCovariance : public EstimateMeanAndCovarianceSimple<MUVECTOR>
+  class EstimateMeanAndCovariance
   {
-    using Base = EstimateMeanAndCovarianceSimple<MUVECTOR>;
+    EstimateMeanAndCovarianceSimple<MUVECTOR> base_{};
     MUVECTOR first_sample_{MUVECTOR::Zero()};
 
   public:
-
     void accumulate(const MUVECTOR &mu)
     {
-      if (Base::n_ == 0) {
+      if (base_.n() == 0) {
         first_sample_ = mu;
       }
       MUVECTOR mu_adj = mu - first_sample_;
-      Base::accumulate(mu_adj);
+      base_.accumulate(mu_adj);
     }
 
     MUVECTOR mean() const
     {
-      return Base::mean() + first_sample_;
+      return base_.mean() + first_sample_;
     }
+
+    auto cov()
+    { return base_.cov(); }
   };
 
   template<class MUVECTOR>
@@ -273,7 +231,6 @@ namespace fvlam
     std::vector<MUVECTOR> mus_{};
 
   public:
-
     void accumulate(const MUVECTOR &mu)
     {
       mus_.template emplace_back(mu);
@@ -303,7 +260,6 @@ namespace fvlam
   };
 
 #if 0
-
   class EstimateTransform3MeanAndCovarianceEade : public EstimateMeanAndCovariance2PSimple<fvlam::Transform3::MuVector>
   {
     using Base = EstimateMeanAndCovariance2PSimple<fvlam::Transform3::MuVector>;
@@ -345,8 +301,6 @@ namespace fvlam
       return CovarianceMatrix::Zero();
     }
   };
-
 #endif
 
 }
-#endif //FVLAM_BUILD_MARKER_MAP_INTERFACE_HPP

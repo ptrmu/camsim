@@ -1,5 +1,4 @@
 
-#include "fvlam/build_marker_map_interface.hpp"
 #include "fvlam/camera_info.hpp"
 #include "fvlam/marker.hpp"
 #include "fvlam/observation.hpp"
