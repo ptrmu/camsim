@@ -208,7 +208,12 @@ namespace fvlam
       marker_length_{map.marker_length()},
       fixed_marker_{find_fixed_marker(map)},
       solve_tmm_map_{}
-    {}
+    {
+      Logger logger{std::cout, Logger::level_debug};
+      logger.debug() << "debug" << std::endl;
+      logger.info() << "info" << std::endl;
+      logger.error() << "error" << std::endl;
+    }
 
     void process(const Observations &observations,
                  const CameraInfo &camera_info) override

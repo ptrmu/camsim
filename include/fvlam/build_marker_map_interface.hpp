@@ -14,6 +14,69 @@ namespace fvlam
   class Observations; //
 
 // ==============================================================================
+// Logger class
+// ==============================================================================
+
+  class Logger
+  {
+  public:
+    enum Levels
+    {
+      level_debug = 0,
+      level_info,
+      level_error
+    };
+
+    class StreamProxy
+    {
+      bool output_;
+      std::basic_ostream<char> &ostream_;
+
+    public:
+      StreamProxy(std::basic_ostream<char> &ostream, bool output) :
+        output_{output}, ostream_{ostream}
+      {}
+
+      template<typename V>
+      StreamProxy &operator<<(V const &value)
+      {
+        if (output_) {
+          ostream_ << value;
+        }
+        return *this;
+      }
+
+      StreamProxy &operator<<(std::basic_ostream<char> &(*func)(std::basic_ostream<char> &))
+      {
+        if (output_) {
+          func(ostream_);
+        }
+        return *this;
+      }
+    };
+
+  private:
+    std::basic_ostream<char> &ostream_;
+    Levels output_level_;
+
+  public:
+    Logger(std::basic_ostream<char> &ostream, Levels output_level) :
+      ostream_{ostream}, output_level_{output_level}
+    {}
+
+    // These methods return a new StreamProxy object that will stream or not.
+    // This temporary StreamProxy object is held alive while the subsequent << operators
+    // pass a reference to it along. The StreamProxy object is then destroyed at the end
+    // of the statement. This is convenient compiler magic.
+    StreamProxy debug()
+    { return StreamProxy{ostream_, level_debug >= output_level_}; } //
+    StreamProxy info()
+    { return StreamProxy{ostream_, level_info >= output_level_}; } //
+    StreamProxy error()
+    { return StreamProxy{ostream_, level_error >= output_level_}; } //
+  };
+
+// ==============================================================================
 // SolveTMarker0Marker1Interface class
 // ==============================================================================
 
@@ -85,7 +148,8 @@ namespace fvlam
 
   struct BuildMarkerMapTmmContext
   {
-    enum struct NoiseStrategy {
+    enum struct NoiseStrategy
+    {
       estimation, // Use estimate from samples
       minimum, // Use fixed value if estimate is below fixed
       fixed, // Use fixed value
