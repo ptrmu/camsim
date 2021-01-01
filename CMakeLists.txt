@@ -3,6 +3,10 @@ project(camsim)
 
 set(CMAKE_CXX_STANDARD 17)
 
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wno-unknown-pragmas)
+endif()
+
 find_package(GTSAM REQUIRED)
 find_package(OpenCV 4 REQUIRED)
 #find_package(VTK REQUIRED)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <memory>
 
 // ==============================================================================
 // Logger class
@@ -117,7 +118,9 @@ namespace fvlam
 
     // Return a stream at the specified debugging level.
     std::basic_ostream<char> &stream(Logger::Levels level) override
-    { return std::cout; }
+    {
+      (void) level;
+      return std::cout;
+    }
   };
-
 }

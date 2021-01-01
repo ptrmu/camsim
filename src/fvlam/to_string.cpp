@@ -116,7 +116,7 @@ namespace fvlam
     NumFmt nf(9, 3);
 
     auto corners_f_world = calc_corners3_f_world(marker_length);
-    for (int c = 0; c < ArraySize; c += 1) {
+    for (std::size_t c = 0; c < ArraySize; c += 1) {
       if (c != 0) {
         ss << " ";
       }
@@ -156,7 +156,7 @@ namespace fvlam
 
     ss << to_id_str(id_) << "  ";
 
-    for (int c = 0; c < Observation::ArraySize; c += 1) {
+    for (std::size_t c = 0; c < Observation::ArraySize; c += 1) {
       if (c != 0) {
         ss << " ";
       }

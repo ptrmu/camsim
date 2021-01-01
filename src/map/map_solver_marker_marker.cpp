@@ -249,7 +249,7 @@ namespace camsim
     }
 
   public:
-    explicit SolverMarkerMarker(SolverRunner &sr, bool auto_initial) :
+    explicit SolverMarkerMarker(SolverRunner &sr) :
       sr_{sr}, shared_calibration_{boost::make_shared<gtsam::Cal3DS2>(
       sr_.model_.cameras_.calibration_.fx(),
       sr_.model_.cameras_.calibration_.fy(),
@@ -271,8 +271,6 @@ namespace camsim
 
     void operator()(const FrameData &fd)
     {
-      auto camera_key{fd.camera_.key_};
-
       for (std::size_t i = 0; i < fd.marker_datas_.size(); i += 1) {
         for (std::size_t j = i + 1; j < fd.marker_datas_.size(); j += 1) {
           auto &marker_data0{fd.marker_datas_[i]};
@@ -306,6 +304,6 @@ namespace camsim
   std::function<void(const FrameData &)>
   solver_marker_marker_factory(SolverRunner &sr)
   {
-    return SolverMarkerMarker(sr, false);
+    return SolverMarkerMarker(sr);
   }
 }

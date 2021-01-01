@@ -140,7 +140,7 @@ namespace fvlam
 
       Observation::Array corners_f_image;
       auto corners_f_world = marker.to_corners_f_world<std::vector<gtsam::Point3>>(marker_length);
-      for (int i = 0; i < Observation::ArraySize; i += 1) {
+      for (std::size_t i = 0; i < Observation::ArraySize; i += 1) {
         auto &corner_f_world = corners_f_world[i];
 
         try {

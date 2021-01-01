@@ -317,6 +317,7 @@ namespace fvlam
     const BuildMarkerMapInterface &Bmm,
     const MarkerMap &built_map)
   {
+    (void) built_map;
     auto bmm_tmm = dynamic_cast<const BuildMarkerMapShonan *>(&Bmm);
     return bmm_tmm != nullptr ? bmm_tmm->error() : BuildMarkerMapTmmContext::Error{};
   }

@@ -43,6 +43,8 @@ namespace camsim
 
     void add_measurements(int camera_id, const PoseWithCovariance::StdVector &camera_f_markers)
     {
+      (void) camera_id;
+      (void) camera_f_markers;
 //      graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(1, 2, poseOdometry, noiseOdometery);
     }
 

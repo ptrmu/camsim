@@ -53,7 +53,7 @@ namespace camsim
     gtsam::NonlinearFactorGraph graph;
 
     /* 2. add measurement factors to the graph */
-    for (int i = 0; i < corners_f_world.size(); i += 1) {
+    for (std::size_t i = 0; i < corners_f_world.size(); i += 1) {
       graph.emplace_shared<ResectioningFactor_abc>(measurement_noise, X(1),
                                                    camera_calibration,
                                                    corners_f_image[i],

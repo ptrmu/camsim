@@ -165,7 +165,6 @@ namespace camsim
                                                 const gtsam::Pose3 &marker_f_world,
                                                 const std::vector<gtsam::Point3> &corners_f_marker)
   {
-    auto marker_index{gtsam::Symbol{marker_key}.index()};
     return std::array<CornerModel, 4>{
       CornerModel(CornerModel::corner_key(marker_key, 0), marker_f_world * corners_f_marker[0]),
       CornerModel(CornerModel::corner_key(marker_key, 1), marker_f_world * corners_f_marker[1]),
@@ -334,7 +333,6 @@ namespace camsim
         corners_f_world.emplace_back(marker_f_world * corner_f_marker);
       }
 
-      auto marker_key{MarkerModel::marker_key(idx)};
       markers.emplace_back(MarkerModel{MarkerModel::marker_key(idx), marker_f_world,
                                        CornersModel(idx, marker_f_world, corners_f_marker),
                                        std::move(corners_f_world)});
@@ -353,8 +351,8 @@ namespace camsim
   {
     std::cout << "Model Markers:" << std::endl;
     for (auto &marker : markers_) {
-      auto &corners = marker.corners_;
       std::cout << PoseWithCovariance::to_str(marker.marker_f_world_);
+//      auto &corners = marker.corners_;
 //      std::cout << " ("
 //                << corners.corners_[0].point_f_world_.transpose() << ") ("
 //                << corners.corners_[1].point_f_world_.transpose() << ") ( "
@@ -394,6 +392,8 @@ namespace camsim
   static std::vector<CameraModel> gen_cameras(const ModelConfig &cfg,
                                               const gtsam::Cal3DS2 &calibration)
   {
+    (void)calibration;
+
     std::vector<gtsam::Pose3> camera_f_worlds{};
 
     if (cfg.cameras_configuration_ == CamerasConfigurations::generator) {

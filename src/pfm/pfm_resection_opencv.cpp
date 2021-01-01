@@ -54,7 +54,7 @@ namespace camsim
     cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, cv::DataType<double>::type); // Assuming no lens distortion
 
     std::vector<cv::Point3d> world_points;
-    for (int i = 0; i < corners_f_world.size(); i += 1) {
+    for (std::size_t i = 0; i < corners_f_world.size(); i += 1) {
       world_points.emplace_back(cv::Point3d(corners_f_world[i].x(),
                                             corners_f_world[i].y(),
                                             corners_f_world[i].z()));
@@ -157,6 +157,7 @@ namespace camsim
                             const gtsam::SharedNoiseModel &measurement_noise,
                             gtsam::Pose3 &camera_f_world, gtsam::Matrix6 &camera_f_world_covariance)
   {
+    (void) camera_f_world_initial;
     auto corners_f_images = generate_normal_corners_f_images(corners_f_image, measurement_noise);
 //    std::cout.precision(3);
 //    std::cout.setf(std::ios::fixed);

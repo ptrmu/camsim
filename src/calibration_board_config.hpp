@@ -41,9 +41,9 @@ namespace camsim
     const std::uint64_t squares_y_m_1_;
 
   public:
+    const std::uint64_t max_junction_id_;
     const double board_width_half_;
     const double board_height_half_;
-    const std::uint64_t max_junction_id_;
 
     CheckerboardConfig(std::uint64_t squares_x, std::uint64_t squares_y, double square_length) :
       squares_x_{squares_x},

@@ -69,6 +69,8 @@ namespace camsim
   {
     int n_markers = 8;
     int n_cameras = 8;
+    (void) n_markers;
+    (void) n_cameras;
 
     ModelConfig model_config{[]() -> std::vector<gtsam::Pose3>
                              {
