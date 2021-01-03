@@ -15,7 +15,7 @@ namespace fvlam
 // ==============================================================================
 
   template<>
-  Translate3 Translate3::from<cv::Vec3d>(const cv::Vec3d &other)
+  Translate3 Translate3::from<cv::Vec3d>(cv::Vec3d &other)
   {
     return Translate3{(Translate3::MuVector() << other[0], other[1], other[2]).finished()};
   }
@@ -27,7 +27,7 @@ namespace fvlam
   }
 
   template<>
-  Rotate3 Rotate3::from<cv::Vec3d>(const cv::Vec3d &other)
+  Rotate3 Rotate3::from<cv::Vec3d>(cv::Vec3d &other)
   {
     cv::Mat rmat;
     cv::Rodrigues(other, rmat);
@@ -119,7 +119,7 @@ namespace fvlam
 
   template<>
   Observation Observation::from<std::vector<cv::Point2d>>(
-    std::uint64_t id, const std::vector<cv::Point2d> &other)
+    std::uint64_t id, std::vector<cv::Point2d> &other)
   {
     return Observation(id, Observation::Array{
       Observation::Element{other[0].x, other[0].y},

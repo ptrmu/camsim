@@ -24,7 +24,7 @@ namespace camsim
         std::vector<cv::Vec2f> cv_junctions_f_board;
         std::vector<cv::Vec2f> cv_junctions_f_image;
 
-        for (int i = 0; i < sr_.model_.boards_.junctions_f_board_.size(); i += 1) {
+        for (std::size_t i = 0; i < sr_.model_.boards_.junctions_f_board_.size(); i += 1) {
 
           auto &junction_f_board = sr_.model_.boards_.junctions_f_board_[i];
           cv_junctions_f_board.emplace_back(cv::Vec2f(junction_f_board(0),

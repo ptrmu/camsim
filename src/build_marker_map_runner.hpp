@@ -28,15 +28,15 @@ namespace camsim
     const fvlam::Translate2::MuVector point2_noise_sigmas_;
     const bool print_covariance_;
 
-    BuildMarkerMapRunnerConfig(fvlam::Transform3::MuVector pose3_sampler_sigmas,
-                               fvlam::Transform3::MuVector pose3_noise_sigmas,
-                               fvlam::Translate2::MuVector point2_sampler_sigmas,
-                               fvlam::Translate2::MuVector point2_noise_sigmas,
+    BuildMarkerMapRunnerConfig(const fvlam::Transform3::MuVector &pose3_sampler_sigmas,
+                               const fvlam::Transform3::MuVector &pose3_noise_sigmas,
+                               const fvlam::Translate2::MuVector &point2_sampler_sigmas,
+                               const fvlam::Translate2::MuVector &point2_noise_sigmas,
                                bool print_covariance) :
-      pose3_sampler_sigmas_{std::move(pose3_sampler_sigmas)},
-      pose3_noise_sigmas_{std::move(pose3_noise_sigmas)},
-      point2_sampler_sigmas_{std::move(point2_sampler_sigmas)},
-      point2_noise_sigmas_{std::move(point2_noise_sigmas_)},
+      pose3_sampler_sigmas_{pose3_sampler_sigmas},
+      pose3_noise_sigmas_{pose3_noise_sigmas},
+      point2_sampler_sigmas_{point2_sampler_sigmas},
+      point2_noise_sigmas_{point2_noise_sigmas},
       print_covariance_{print_covariance}
     {}
   };

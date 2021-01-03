@@ -222,7 +222,6 @@ target_link_libraries(kal_run
 add_executable(camsim_test
   src/test/camsim_test.cpp
   src/pose_with_covariance.cpp
-  src/fvlam/transform3_with_covariance.cpp
   src/model.cpp
   src/gtsam_resection.cpp
   src/opencv_resection.cpp
@@ -260,12 +259,14 @@ add_executable(camsim_test
   src/sho/sho_run.cpp
   src/sho/sho_inter_marker_rotation.cpp
   src/fvlam/build_marker_map_tmm.cpp
-  src/fvlam/transform3_with_covariance.cpp
   src/fvlam/conversions_cv.cpp
-  src/fvlam/conversions_gtsam.cpp 
+  src/fvlam/conversions_gtsam.cpp
+  src/fvlam/file_storage.cpp
   src/fvlam/to_string.cpp
+  src/fvlam/transform3_with_covariance.cpp
   src/build_marker_map_runner.cpp
   src/test/tmm_test.cpp
+  src/test/file_storage_test.cpp
   )
 
 

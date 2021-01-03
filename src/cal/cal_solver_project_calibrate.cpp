@@ -141,6 +141,7 @@ namespace camsim
                                  cameraMatrix, distCoeffs,
                                  rvecs, tvecs,
                                  0);
+      (void) err;
 
       gtsam::Cal3DS2{
         cameraMatrix.at<double>(0, 0),  // fx
@@ -152,7 +153,7 @@ namespace camsim
         distCoeffs.at<double>(1), // k2
         distCoeffs.at<double>(2), // p1
         distCoeffs.at<double>(3)}// p2
-      .print("opencv");
+        .print("opencv");
     }
 
     void set_initial_model()

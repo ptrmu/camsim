@@ -63,6 +63,8 @@ namespace camsim
   static void test_one_camera(const CameraModel &camera,
                               const std::vector<MarkerModelRef> &marker_refs)
   {
+    (void) camera;
+    (void) marker_refs;
   }
 
   int pfp_gspnp()

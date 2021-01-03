@@ -71,14 +71,14 @@ namespace camsim
 namespace fvlam
 {
   template<>
-  Observation Observation::from<camsim::MarkerMeasurement>(
+  Observation Observation::from<const camsim::MarkerMeasurement>(
     const camsim::MarkerMeasurement &other)
   {
     return other.observation();
   }
 
   template<>
-  Observations Observations::from<std::vector<camsim::MarkerMeasurement>>(
+  Observations Observations::from<const std::vector<camsim::MarkerMeasurement>>(
     const std::vector<camsim::MarkerMeasurement> &other)
   {
     Observations observations{};
@@ -203,7 +203,7 @@ namespace camsim
   fvlam::Observation observation_from(std::uint64_t id, const cv::FileNode &camera_f_images_node)
   {
     fvlam::Observation::Array cfi;
-    for (int c = 0; c < fvlam::Observation::ArraySize; c += 1) {
+    for (std::size_t c = 0; c < fvlam::Observation::ArraySize; c += 1) {
       cfi[c] = fvlam::Translate2{camera_f_images_node[c][0], camera_f_images_node[c][1]};
     }
     return fvlam::Observation{id, cfi};
@@ -225,7 +225,7 @@ namespace camsim
   {
     std::vector<ImageMeasurement> image_measurements{};
 
-    cv::FileStorage fs("../src/data/observations_sequence.json", cv::FileStorage::READ | cv::FileStorage::FORMAT_JSON);
+    cv::FileStorage fs(file_name, cv::FileStorage::READ | cv::FileStorage::FORMAT_JSON);
     do {
       if (!fs.isOpened()) {
         std::cout << "Not opened." << std::endl;
@@ -331,12 +331,11 @@ namespace camsim
     map_initial->add_marker(fvlam::Marker{
       0, fvlam::Transform3WithCovariance{}, true});
 
-    auto solve_tmm_context = fvlam::SolveTmmContextCvSolvePnp{};
-    solve_tmm_context.average_on_space_not_manifold = true;
+    auto solve_tmm_context = fvlam::SolveTmmContextCvSolvePnp{true};
     auto solve_tmm_factory = fvlam::make_solve_tmm_factory(solve_tmm_context,
                                                            map_initial->marker_length());
 
-    auto logger = fvlam::Logger{std::make_shared<fvlam::LoggerCallbackCout>(fvlam::Logger::Levels::level_info)};
+    fvlam::LoggerCout logger{fvlam::Logger::Levels::level_info};
     auto tmm_context = fvlam::BuildMarkerMapTmmContext(solve_tmm_factory,
                                                        true,
                                                        fvlam::BuildMarkerMapTmmContext::NoiseStrategy::minimum,
@@ -352,8 +351,8 @@ namespace camsim
     auto built_map = map_builder->build();
     logger.info() << "built map:" << std::endl
                   << built_map->to_string() << std::endl;
-    auto error = fvlam::BuildMarkerMapTmmContext::get_error(*map_builder, *built_map);
-    logger.info() << "remeasure error - r:" << error.r_remeasure_error << " t:" << error.t_remeasure_error;
+    auto error = fvlam::BuildMarkerMapTmmContext::BuildError::from(*map_builder, *built_map);
+    logger.info() << "remeasure error - r:" << error.r_remeasure_error_ << " t:" << error.t_remeasure_error_;
 
     return 0;
   }

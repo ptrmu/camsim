@@ -4,19 +4,19 @@
 namespace fvlam
 {
   template<>
-  Transform3 Transform3::from<camsim::CameraModel>(const camsim::CameraModel &other)
+  Transform3 Transform3::from<const camsim::CameraModel>(const camsim::CameraModel &other)
   {
-    return Transform3::from<gtsam::Pose3>(other.camera_f_world_);
+    return Transform3::from(other.camera_f_world_);
   }
 
   template<>
-  Transform3 Transform3::from<camsim::MarkerModel>(const camsim::MarkerModel &other)
+  Transform3 Transform3::from<const camsim::MarkerModel>(const camsim::MarkerModel &other)
   {
-    return Transform3::from<gtsam::Pose3>(other.marker_f_world_);
+    return Transform3::from(other.marker_f_world_);
   }
 
   template<>
-  Marker Marker::from<camsim::MarkerModel>(const camsim::MarkerModel &other)
+  Marker Marker::from<const camsim::MarkerModel>(const camsim::MarkerModel &other)
   {
     return Marker{other.index(), fvlam::Transform3WithCovariance{Transform3::from(other)}};
   }
@@ -42,7 +42,7 @@ namespace camsim
       auto t_world_camera_perturbed = fvlam::Transform3WithCovariance{
         fvlam::Transform3{
           m_camera.index(),
-          fvlam::Transform3::from(m_camera.camera_f_world_.retract(pose3_sampler.sample()))},
+          fvlam::Transform3::from<const gtsam::Pose3>(m_camera.camera_f_world_.retract(pose3_sampler.sample()))},
         cfg.pose3_noise_sigmas_.asDiagonal()};
       t_world_cameras_perturbed_.emplace_back(t_world_camera_perturbed);
 
@@ -59,7 +59,7 @@ namespace camsim
           fvlam::Transform3WithCovariance{
             fvlam::Transform3{
               m_marker.index(),
-              fvlam::Transform3::from(m_marker.marker_f_world_.retract(pose3_sampler.sample()))},
+              fvlam::Transform3::from<const gtsam::Pose3>(m_marker.marker_f_world_.retract(pose3_sampler.sample()))},
             cfg.pose3_noise_sigmas_.asDiagonal()}};
         markers_perturbed_.emplace_back(t_world_marker_perturbed);
 
