@@ -7,9 +7,9 @@
 #include <map>
 #include <vector>
 
+#include <Eigen/Geometry>
 #include "fvlam/observation.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
-#include <Eigen/Geometry>
 
 namespace fvlam
 {

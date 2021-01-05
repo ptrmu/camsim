@@ -15,7 +15,7 @@ namespace fvlam
 // MarkerMap save methods
 // ==============================================================================
 
- template<>
+  template<>
   void fvlam::Translate3::to<cv::FileStorage>(cv::FileStorage &other) const
   {
     other << t_(0);
@@ -110,10 +110,10 @@ namespace fvlam
   template<>
   Rotate3 fvlam::Rotate3::from<FileStorageContext>(FileStorageContext &other)
   {
-    double r = other()[0];
-    double p = other()[1];
-    double y = other()[2];
-    return Rotate3::RzRyRx(y, p, r);
+    double rx = other()[0];
+    double ry = other()[1];
+    double rz = other()[2];
+    return Rotate3::RzRyRx(rx, ry, rz);
   }
 
   template<>

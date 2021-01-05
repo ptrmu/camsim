@@ -9,6 +9,7 @@
 
 namespace camsim
 {
+#if 0
   TEST_CASE("file storage test - Load MarkerMap")
   {
     fvlam::LoggerCout logger{fvlam::Logger::level_debug};
@@ -28,4 +29,5 @@ namespace camsim
     auto loaded_map = fvlam::MarkerMap::load("marker_map", logger);
     logger.debug() << loaded_map.to_string();
   }
+#endif
 }
