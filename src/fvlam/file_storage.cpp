@@ -16,7 +16,7 @@ namespace fvlam
 // ==============================================================================
 
   template<>
-  void fvlam::Translate3::to<cv::FileStorage>(cv::FileStorage &other) const
+  void Translate3::to<cv::FileStorage>(cv::FileStorage &other) const
   {
     other << t_(0);
     other << t_(1);
@@ -24,7 +24,7 @@ namespace fvlam
   }
 
   template<>
-  void fvlam::Rotate3::to<cv::FileStorage>(cv::FileStorage &other) const
+  void Rotate3::to<cv::FileStorage>(cv::FileStorage &other) const
   {
     auto r = xyz();
     other << r(2);
@@ -33,7 +33,7 @@ namespace fvlam
   }
 
   template<>
-  void fvlam::Marker::to<cv::FileStorage>(cv::FileStorage &other) const
+  void Marker::to<cv::FileStorage>(cv::FileStorage &other) const
   {
     other << "{";
 
@@ -50,7 +50,7 @@ namespace fvlam
   }
 
   template<>
-  void fvlam::MarkerMap::to<cv::FileStorage>(cv::FileStorage &other) const
+  void MarkerMap::to<cv::FileStorage>(cv::FileStorage &other) const
   {
     other << "marker_length" << marker_length();
     other << "markers" << "[";
@@ -69,11 +69,11 @@ namespace fvlam
 
   struct FileStorageContext
   {
-    fvlam::Logger &logger_;
+    Logger &logger_;
     cv::FileNode node_;
     bool &success_;
 
-    FileStorageContext(fvlam::Logger &logger, cv::FileNode node, bool &success) :
+    FileStorageContext(Logger &logger, cv::FileNode node, bool &success) :
       logger_{logger}, node_{node}, success_{success}
     {}
 
@@ -99,7 +99,7 @@ namespace fvlam
   };
 
   template<>
-  Translate3 fvlam::Translate3::from<FileStorageContext>(FileStorageContext &other)
+  Translate3 Translate3::from<FileStorageContext>(FileStorageContext &other)
   {
     double x = other()[0];
     double y = other()[1];
@@ -108,7 +108,7 @@ namespace fvlam
   }
 
   template<>
-  Rotate3 fvlam::Rotate3::from<FileStorageContext>(FileStorageContext &other)
+  Rotate3 Rotate3::from<FileStorageContext>(FileStorageContext &other)
   {
     double rx = other()[0];
     double ry = other()[1];
@@ -117,7 +117,7 @@ namespace fvlam
   }
 
   template<>
-  Marker fvlam::Marker::from<FileStorageContext>(FileStorageContext &other)
+  Marker Marker::from<FileStorageContext>(FileStorageContext &other)
   {
     int id = other()["id"];
     int fixed = other()["f"];
@@ -130,11 +130,11 @@ namespace fvlam
     auto r_context = other.make(r_node);
     auto r = Rotate3::from(r_context);
 
-    return fvlam::Marker{std::uint64_t(id), Transform3WithCovariance{Transform3{r, t}}, fixed != 0};
+    return Marker{std::uint64_t(id), Transform3WithCovariance{Transform3{r, t}}, fixed != 0};
   }
 
   template<>
-  MarkerMap fvlam::MarkerMap::from<FileStorageContext>(FileStorageContext &other)
+  MarkerMap MarkerMap::from<FileStorageContext>(FileStorageContext &other)
   {
     double marker_length = other()["marker_length"];
     MarkerMap map{marker_length};
@@ -164,7 +164,7 @@ namespace fvlam
     to(fs);
   }
 
-  fvlam::MarkerMap MarkerMap::load(const std::string filename, Logger &logger)
+  MarkerMap MarkerMap::load(const std::string filename, Logger &logger)
   {
     cv::FileStorage fs(filename, cv::FileStorage::READ | cv::FileStorage::FORMAT_YAML);
     if (!fs.isOpened()) {
@@ -173,10 +173,40 @@ namespace fvlam
     }
 
     bool success{true};
-    FileStorageContext marker_map_context{logger, fs.root(), success};
+    FileStorageContext context{logger, fs.root(), success};
 
-    auto map = MarkerMap::from(marker_map_context);
+    auto map = MarkerMap::from(context);
     return success ? map : MarkerMap{0.0};
   }
 
+
+// ==============================================================================
+// ObservationsBundles class
+// ==============================================================================
+
+  void ObservationsBundles::save(const std::string filename, Logger &logger) const
+  {
+    cv::FileStorage fs(filename, cv::FileStorage::WRITE | cv::FileStorage::FORMAT_YAML);
+    if (!fs.isOpened()) {
+      logger.error() << "Could not create MarkerMap file :" << filename;
+      return;
+    }
+
+    to(fs);
+  }
+
+  ObservationsBundles ObservationsBundles::load(const std::string filename, Logger &logger)
+  {
+    cv::FileStorage fs(filename, cv::FileStorage::READ | cv::FileStorage::FORMAT_YAML);
+    if (!fs.isOpened()) {
+      logger.error() << "Could not open ObservationsBundles file :" << filename;
+      return MarkerMap{0.0};
+    }
+
+    bool success{true};
+    FileStorageContext context{logger, fs.root(), success};
+
+    auto map = ObservationsBundles::from(context);
+    return success ? map : MarkerMap{0.0};
+  }
 }

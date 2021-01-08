@@ -12,7 +12,7 @@
 
 namespace camsim
 {
-#if 1
+#if 0
 
   constexpr double degree = M_PI / 180.;
 
@@ -23,14 +23,14 @@ namespace camsim
 
     double r_sampler_sigma = 0.0;
     double t_sampler_sigma = 0.0;
-    double u_sampler_sigma = 0.0000025;
+    double u_sampler_sigma = 0.25;
     double r_noise_sigma = 0.1;
     double t_noise_sigma = 0.3;
     double u_noise_sigma = 0.5;
 
     double tolerance = 4.0e-1;
 
-    fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_debug;
+    fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_info;
   };
 
   static auto create_pose_generator(const std::vector<fvlam::Transform3> &poses)
@@ -199,7 +199,7 @@ namespace camsim
 #endif
 #endif
 
-#if 1
+#if 0
 
   TEST_CASE("map_test - Build_marker_map_tmm ring of markers, rotating camera")
   {

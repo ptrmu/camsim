@@ -45,7 +45,8 @@ namespace camsim
   {
     auto poses_in_circle = rotate_around_z(n_, gtsam::Pose3{gtsam::Rot3::identity(),
                                                             gtsam::Point3{radius_, 0., 0.}});
-    auto rot = facing_z_plus_not_z_negative_ ? gtsam::Rot3::identity() : gtsam::Rot3::RzRyRx(M_PI, 0., M_PI_2);
+//    auto rot = facing_z_plus_not_z_negative_ ? gtsam::Rot3::identity() : gtsam::Rot3::RzRyRx(M_PI, 0., M_PI_2);
+    auto rot = facing_z_plus_not_z_negative_ ? gtsam::Rot3::identity() : gtsam::Rot3::RzRyRx(M_PI, 0., 0.);
     for (auto &pose : poses_in_circle) {
       pose = gtsam::Pose3{rot, gtsam::Point3{pose.translation().x(), pose.translation().y(), z_offset_}};
     }
