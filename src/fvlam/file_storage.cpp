@@ -18,18 +18,37 @@ namespace fvlam
   template<>
   void Translate3::to<cv::FileStorage>(cv::FileStorage &other) const
   {
+    other << "[";
     other << t_(0);
     other << t_(1);
     other << t_(2);
+    other << "]";
   }
 
   template<>
   void Rotate3::to<cv::FileStorage>(cv::FileStorage &other) const
   {
     auto r = xyz();
+    other << "[";
     other << r(2);
     other << r(1);
     other << r(0);
+    other << "]";
+  }
+
+  template<>
+  void CameraInfo::to<cv::FileStorage>(cv::FileStorage &other) const
+  {
+    other << "{";
+//
+//    other << "id" << int(id_);
+//    other << "f" << (is_fixed_ ? 1 : 0);
+//    other << "xyz";
+//    t_world_marker_.tf().t().to(other);
+//    other << "rpy";
+//    t_world_marker_.tf().r().to(other);
+//
+    other << "}";
   }
 
   template<>
@@ -39,12 +58,10 @@ namespace fvlam
 
     other << "id" << int(id_);
     other << "f" << (is_fixed_ ? 1 : 0);
-    other << "xyz" << "[";
+    other << "xyz";
     t_world_marker_.tf().t().to(other);
-    other << "]";
-    other << "rpy" << "[";
+    other << "rpy";
     t_world_marker_.tf().r().to(other);
-    other << "]";
 
     other << "}";
   }
@@ -52,6 +69,7 @@ namespace fvlam
   template<>
   void MarkerMap::to<cv::FileStorage>(cv::FileStorage &other) const
   {
+    other << "{";
     other << "marker_length" << marker_length();
     other << "markers" << "[";
 
@@ -60,6 +78,64 @@ namespace fvlam
     }
 
     other << "]";
+    other << "}";
+  }
+
+  template<>
+  void Observation::to<cv::FileStorage>(cv::FileStorage &other) const
+  {
+//    other << "{";
+//    other << "stamp" << stamp_;
+//    other << "observations"<< "[";
+//
+//    for (auto &observation : observations_) {
+//      observation.to(other);
+//    }
+//
+//    other << "]";
+//    other << "}";
+  }
+
+  template<>
+  void Observations::to<cv::FileStorage>(cv::FileStorage &other) const
+  {
+    other << "{";
+//    other << "stamp" << stamp_;
+    other << "observations" << "[";
+
+    for (auto &observation : observations_) {
+      observation.to(other);
+    }
+
+    other << "]";
+    other << "}";
+  }
+
+  template<>
+  void ObservationsBundle::to<cv::FileStorage>(cv::FileStorage &other) const
+  {
+    other << "{";
+    other << "camera_info";
+    camera_info_.to(other);
+    other << "observations";
+    observations_.to(other);
+    other << "}";
+  }
+
+  template<>
+  void ObservationsBundles::to<cv::FileStorage>(cv::FileStorage &other) const
+  {
+    other << "{";
+    other << "map";
+    map_.to(other);
+    other << "bundles" << "[";
+
+    for (auto &bundle : bundles_) {
+      bundle.to(other);
+    }
+
+    other << "]";
+    other << "}";
   }
 
 
@@ -70,21 +146,37 @@ namespace fvlam
   struct FileStorageContext
   {
     Logger &logger_;
-    cv::FileNode node_;
-    bool &success_;
+    bool success_{true};
 
-    FileStorageContext(Logger &logger, cv::FileNode node, bool &success) :
-      logger_{logger}, node_{node}, success_{success}
+    class Node
+    {
+      FileStorageContext &cxt_;
+      cv::FileNode node_;
+
+    public:
+      Node(FileStorageContext &cxt, cv::FileNode node)
+        : cxt_{cxt}, node_{node}
+      {}
+
+      Node make(cv::FileNode file_node)
+      {
+        return Node{cxt_, file_node};
+      }
+
+      cv::FileNode operator()()
+      { return node_; }
+
+      FileStorageContext &cxt()
+      { return cxt_; }
+    };
+
+    FileStorageContext(Logger &logger) :
+      logger_{logger}
     {}
 
-    cv::FileNode operator()()
+    Node make(cv::FileNode file_node)
     {
-      return node_;
-    }
-
-    FileStorageContext make(cv::FileNode file_node)
-    {
-      return FileStorageContext{logger_, file_node, success_};
+      return Node{*this, file_node};
     }
 
     void set_failed()
@@ -99,7 +191,7 @@ namespace fvlam
   };
 
   template<>
-  Translate3 Translate3::from<FileStorageContext>(FileStorageContext &other)
+  Translate3 Translate3::from<FileStorageContext::Node>(FileStorageContext::Node &other)
   {
     double x = other()[0];
     double y = other()[1];
@@ -108,7 +200,7 @@ namespace fvlam
   }
 
   template<>
-  Rotate3 Rotate3::from<FileStorageContext>(FileStorageContext &other)
+  Rotate3 Rotate3::from<FileStorageContext::Node>(FileStorageContext::Node &other)
   {
     double rx = other()[0];
     double ry = other()[1];
@@ -117,7 +209,7 @@ namespace fvlam
   }
 
   template<>
-  Marker Marker::from<FileStorageContext>(FileStorageContext &other)
+  Marker Marker::from<FileStorageContext::Node>(FileStorageContext::Node &other)
   {
     int id = other()["id"];
     int fixed = other()["f"];
@@ -134,7 +226,7 @@ namespace fvlam
   }
 
   template<>
-  MarkerMap MarkerMap::from<FileStorageContext>(FileStorageContext &other)
+  MarkerMap MarkerMap::from<FileStorageContext::Node>(FileStorageContext::Node &other)
   {
     double marker_length = other()["marker_length"];
     MarkerMap map{marker_length};
@@ -147,6 +239,39 @@ namespace fvlam
     }
 
     return map;
+  }
+//
+//  template<>
+//  MarkerMap MarkerMap::from<FileStorageContext::Node>(FileStorageContext::Node &other)
+//  {
+//    double marker_length = other()["marker_length"];
+//    MarkerMap map{marker_length};
+//
+//    auto markers_node = other()["markers"];
+//    for (auto it = markers_node.begin(); it != markers_node.end(); ++it) {
+//      auto marker_context = other.make(*it);
+//      auto marker = Marker::from(marker_context);
+//      map.add_marker(marker);
+//    }
+//
+//    return map;
+//  }
+
+  template<>
+  ObservationsBundles ObservationsBundles::from<FileStorageContext::Node>(FileStorageContext::Node &other)
+  {
+//    double marker_length = other()["marker_length"];
+//    MarkerMap map{marker_length};
+//
+//    auto markers_node = other()["markers"];
+//    for (auto it = markers_node.begin(); it != markers_node.end(); ++it) {
+//      auto marker_context = other.make(*it);
+//      auto marker = Marker::from(marker_context);
+//      map.add_marker(marker);
+//    }
+//
+//    return map;
+    return ObservationsBundles{MarkerMap{0.0}};
   }
 
 // ==============================================================================
@@ -172,11 +297,11 @@ namespace fvlam
       return MarkerMap{0.0};
     }
 
-    bool success{true};
-    FileStorageContext context{logger, fs.root(), success};
+    FileStorageContext context{logger};
+    auto root_node = context.make(fs.root());
 
-    auto map = MarkerMap::from(context);
-    return success ? map : MarkerMap{0.0};
+    auto map = MarkerMap::from(root_node);
+    return context.success() ? map : MarkerMap{0.0};
   }
 
 
@@ -203,10 +328,10 @@ namespace fvlam
       return MarkerMap{0.0};
     }
 
-    bool success{true};
-    FileStorageContext context{logger, fs.root(), success};
+    FileStorageContext context{logger};
+    auto root_node = context.make(fs.root());
 
-    auto map = ObservationsBundles::from(context);
-    return success ? map : MarkerMap{0.0};
+    auto map = ObservationsBundles::from(root_node);
+    return context.success() ? map : MarkerMap{0.0};
   }
 }
