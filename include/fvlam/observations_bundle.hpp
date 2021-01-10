@@ -1,4 +1,6 @@
 #pragma once
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
+#pragma ide diagnostic ignored "NotImplementedFunctions"
 
 #include "camera_info.hpp"
 #include "marker.hpp"
@@ -28,6 +30,10 @@ namespace fvlam
 
     template<class T>
     void to(T &other) const;
+
+    std::string to_string(bool also_cov = false) const;
+
+    bool equals(const ObservationsBundle &other, double tol = 1.0e-9, bool check_relative_also = true) const;
   };
 
   class ObservationsBundles
@@ -36,7 +42,7 @@ namespace fvlam
     std::vector<ObservationsBundle> bundles_;
 
   public:
-    ObservationsBundles(MarkerMap map) :
+    explicit ObservationsBundles(MarkerMap map) :
       map_{std::move(map)}
     {}
 
@@ -54,7 +60,11 @@ namespace fvlam
     template<class T>
     void to(T &other) const;
 
-    void save(const std::string filename, Logger &logger) const; //
-    static ObservationsBundles load(const std::string filename, Logger &logger); //
+    std::string to_string(bool also_cov = false) const;
+
+    bool equals(const ObservationsBundles &other, double tol = 1.0e-9, bool check_relative_also = true) const;
+
+    void save(const std::string &filename, Logger &logger) const; //
+    static ObservationsBundles load(const std::string &filename, Logger &logger); //
   };
 }

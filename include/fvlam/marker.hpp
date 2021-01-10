@@ -2,6 +2,7 @@
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 #pragma ide diagnostic ignored "NotImplementedFunctions"
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
+#pragma ide diagnostic ignored "OCUnusedTypeAliasInspection"
 
 #include <array>
 #include <map>
@@ -117,6 +118,8 @@ namespace fvlam
     std::string to_id_string() const; //
     std::string to_corners_f_world_string(double marker_length) const; //
 
+    bool equals(const Marker &other, double tol = 1.0e-9, bool check_relative_also = true) const;
+
     template<class T>
     T to_corners_f_world(double marker_length) const;
 
@@ -148,10 +151,6 @@ namespace fvlam
     static SolveFunction solve_t_world_marker(const TCameraCalibration &camera_calibration,
                                               const Transform3 &t_world_camera,
                                               double marker_length);
-
-//    template<class TCameraCalibration>
-//    static SolveMarkerMarkerFunction solve_t_marker0_marker1(const TCameraCalibration &camera_calibration,
-//                                                             double marker_length);
   };
 
 // ==============================================================================
@@ -187,6 +186,8 @@ namespace fvlam
 
     std::string to_string(bool also_cov = false) const;
 
+    bool equals(const MarkerMap &other, double tol = 1.0e-9, bool check_relative_also = true) const;
+
     Marker *find_marker(int id)
     {
       auto marker_pair = markers_.find(id);
@@ -204,7 +205,7 @@ namespace fvlam
       markers_.emplace(marker.id(), std::move(marker));
     }
 
-    void save(const std::string filename, Logger &logger) const; //
-    static MarkerMap load(const std::string filename, Logger &logger); //
+    void save(const std::string &filename, Logger &logger) const; //
+    static MarkerMap load(const std::string &filename, Logger &logger); //
   };
 }

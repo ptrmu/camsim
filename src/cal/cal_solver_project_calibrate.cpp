@@ -101,7 +101,7 @@ namespace camsim
         std::vector<cv::Vec3f> cv_junctions_f_board;
         std::vector<cv::Vec2f> cv_junctions_f_image;
 
-        for (int i = 0; i < sr_.model_.boards_.junctions_f_board_.size(); i += 1) {
+        for (std::size_t i = 0; i < sr_.model_.boards_.junctions_f_board_.size(); i += 1) {
 
           // set up arguments for opencv calibrateCamera.
           auto &junction_f_board = sr_.model_.boards_.junctions_f_board_[i];

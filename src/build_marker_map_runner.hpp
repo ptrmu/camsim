@@ -61,6 +61,9 @@ namespace camsim
                          const BuildMarkerMapRunnerConfig &cfg);
 
     std::unique_ptr<fvlam::MarkerMap> operator()(fvlam::BuildMarkerMapInterface &build_map);
+
+    auto &observations_perturbed() const
+    { return observations_perturbed_; }
   };
 }
 #endif //BUILD_MARKER_MAP_RUNNER_HPP
