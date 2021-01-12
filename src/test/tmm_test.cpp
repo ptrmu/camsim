@@ -12,8 +12,6 @@
 
 namespace camsim
 {
-#if 0
-
   constexpr double degree = M_PI / 180.;
 
   struct TestParams
@@ -132,7 +130,7 @@ namespace camsim
       for (auto &m_marker : model.markers_.markers_) {
         auto it = map_and_error.map_->find_marker_const(m_marker.index());
         if (it != nullptr) {
-          logger.info() << "  " << it->to_string();
+          logger.debug() << "  " << it->to_string();
 
           REQUIRE(gtsam::assert_equal(fvlam::Transform3::from(m_marker.marker_f_world_).r().rotation_matrix(),
                                       it->t_world_marker().tf().r().rotation_matrix(), tolerance));
@@ -141,14 +139,13 @@ namespace camsim
         }
       }
 
-      logger.info() << map_and_error.error_.to_string();
+      logger.debug() << map_and_error.error_.to_string();
       auto pair = calc_error(model, *map_and_error.map_);
-      logger.info() << "true map error - r:" << pair.first << " t:" << pair.second;
+      logger.debug() << "true map error - r:" << pair.first << " t:" << pair.second;
     }
   }
 
-#if 0
-  TEST_CASE("Tmm_test - build_marker_map_tmm from model")
+  TEST_CASE("Tmm_test - build_marker_map_tmm from model", "[.][all]")
   {
     TestParams tp;
     fvlam::LoggerCout logger{tp.logger_level};
@@ -196,12 +193,8 @@ namespace camsim
     auto solved_maps = run_solvers(model, tp, logger);
     check_maps(model, solved_maps, tp.tolerance, logger);
   }
-#endif
-#endif
 
-#if 0
-
-  TEST_CASE("map_test - Build_marker_map_tmm ring of markers, rotating camera")
+  TEST_CASE("map_test - Build_marker_map_tmm ring of markers, rotating camera", "[.][all]")
   {
     TestParams tp;
     fvlam::LoggerCout logger{tp.logger_level};
@@ -217,11 +210,7 @@ namespace camsim
     check_maps(model, solved_maps, tp.tolerance, logger);
   }
 
-#endif
-
-#if 0
-
-  TEST_CASE("map-test - build_marker_map_tmm circle of markers, camera in circle")
+  TEST_CASE("map-test - build_marker_map_tmm circle of markers, camera in circle", "[.][all]")
   {
     TestParams tp;
     fvlam::LoggerCout logger{tp.logger_level};
@@ -236,6 +225,4 @@ namespace camsim
     auto solved_maps = run_solvers(model, tp, logger);
     check_maps(model, solved_maps, tp.tolerance, logger);
   }
-
-#endif
 }

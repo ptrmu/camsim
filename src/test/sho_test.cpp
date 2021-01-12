@@ -18,8 +18,6 @@
 
 namespace camsim
 {
-#if 1
-
   const double degree = (M_PI / 180.0);
 
   struct TestParams
@@ -31,6 +29,8 @@ namespace camsim
     double t_sigma = 0.3;
     double u_sampler_sigma = 0.0001;
     double u_noise_sigma = 0.01;
+
+    fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_info;
   };
 
   static TestParams test_params;
@@ -78,30 +78,11 @@ namespace camsim
     fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
   };
 
-#if 0
-  TEST_CASE("sho_test - shonan_rotation_averaging")
+  TEST_CASE("sho_test - Test Exp/Log", "[.][all]")
   {
-    REQUIRE(shonan_rotation_averaging() == 0);
-  }
+    TestParams tp{};
+    fvlam::LoggerCout logger(tp.logger_level);
 
-  TEST_CASE("sho_test - shonan_RA_simple")
-  {
-    REQUIRE(shonan_RA_simple() == 0);
-  }
-
-  TEST_CASE("sho_test - test_rotate3()")
-  {
-    REQUIRE(test_rotate3() == 0);
-  }
-
-  TEST_CASE("sho_test - inter_marker_rotation()")
-  {
-    REQUIRE(inter_marker_rotation() == 0);
-  }
-#endif
-#if 0
-  TEST_CASE("sho_test - Test Exp/Log")
-  {
 //    std::vector<double> test_angles = {-89.999, -60, -45, -30, 0, 30, 45, 60, 89.999};
     std::vector<double> test_angles = {-400, -200, -100, -45, 0, 45, 100, 200, 400};
     std::vector<double> test_translate = {-1.0, 0, 1.0};
@@ -119,7 +100,7 @@ namespace camsim
           REQUIRE(gtsam::assert_equal(so3_gtsam(1), so3_fvlam(1), 1.0e-6));
           REQUIRE(gtsam::assert_equal(so3_gtsam(2), so3_fvlam(2), 1.0e-6));
 
-//          std::cout << "so3 Logmap vs xyz "
+//          logger.debug() << "so3 Logmap vs xyz "
 //                    << so3_fvlam(0) / degree << "(" << x / degree << ") "
 //                    << so3_fvlam(1) / degree << "(" << y / degree << ") "
 //                    << so3_fvlam(2) / degree << "(" << z / degree << ") "
@@ -129,11 +110,11 @@ namespace camsim
           auto SO3_gtsam = gtsam::Rot3::Expmap(so3_gtsam);
           auto xyz_fvlam = SO3_fvlam.xyz();
           auto xyz_gtsam = SO3_gtsam.xyz();
-          std::cout << "SO3 fvlam, gtsam(xyz) "
-                    << xyz_fvlam(0) / degree << " " << xyz_gtsam(0) / degree << "(" << rx / degree << ") "
-                    << xyz_fvlam(1) / degree << " " << xyz_gtsam(1) / degree << "(" << ry / degree << ") "
-                    << xyz_fvlam(2) / degree << " " << xyz_gtsam(2) / degree << "(" << rz / degree << ") "
-                    << std::endl;
+          logger.debug() << "SO3 fvlam, gtsam(xyz) "
+                         << xyz_fvlam(0) / degree << " " << xyz_gtsam(0) / degree << "(" << rx / degree << ") "
+                         << xyz_fvlam(1) / degree << " " << xyz_gtsam(1) / degree << "(" << ry / degree << ") "
+                         << xyz_fvlam(2) / degree << " " << xyz_gtsam(2) / degree << "(" << rz / degree << ") "
+                         << std::endl;
           REQUIRE(gtsam::assert_equal(SO3_gtsam.matrix(), SO3_fvlam.rotation_matrix(), 1.0e-6));
 
           for (auto x : test_translate)
@@ -166,12 +147,12 @@ namespace camsim
               }
         }
   }
-#endif
 
-#if 1 // Haven't yet figured out why these tests fail - Do this someday
-
-  TEST_CASE("sho_test - Test Project function")
+  TEST_CASE("sho_test - Test Project function", "[.][all]")
   {
+    TestParams tp{};
+    fvlam::LoggerCout logger(tp.logger_level);
+
 #if 0
     ModelConfig model_config{camsim::MarkersConfigurations::tetrahedron,
                              camsim::CamerasConfigurations::z2_facing_origin,
@@ -240,28 +221,28 @@ namespace camsim
         auto &corners_f_image = model.corners_f_images_[m_camera.index()][m_marker.index()];
         if (!corners_f_image.corners_f_image_.empty()) {
           auto f_marker = fvlam::Marker::from(m_marker);
-          std::cout << "m_camera " << m_camera.key_
-                    << "  m_marker " << m_marker.key_ << std::endl;
+          logger.debug() << "m_camera " << m_camera.key_
+                         << "  m_marker " << m_marker.key_ << std::endl;
 
           // Test the OpenCV project_t_world_marker function
           auto cv_observation = cv_project_t_world_marker_function(f_marker);
-          std::cout << "  cv     " << cv_observation.to_string() << std::endl;
+          logger.debug() << "  cv     " << cv_observation.to_string() << std::endl;
           for (std::size_t i = 0; i < fvlam::Observation::ArraySize; i += 1) {
             gtsam::Vector2 v0 = corners_f_image.corners_f_image_[i];
             gtsam::Vector2 v1 = cv_observation.corners_f_image()[i].to<gtsam::Vector2>();
-//            std::cout << "cv  " << fvlam::Translate2{v0}.to_string()
-//                      << "  " << fvlam::Translate2{v1}.to_string() << std::endl;
+            logger.debug() << "cv  " << fvlam::Translate2{v0}.to_string()
+                           << "  " << fvlam::Translate2{v1}.to_string() << std::endl;
 //            REQUIRE(gtsam::assert_equal(v0, v1, 1.0e-4));
           }
 
           // Test the gtsam project_t_world_marker function
           auto gtsam_observation = gtsam_project_t_world_marker_function(f_marker);
-          std::cout << "  gtsam  " << gtsam_observation.to_string() << std::endl;
+          logger.debug() << "  gtsam  " << gtsam_observation.to_string() << std::endl;
           for (std::size_t i = 0; i < fvlam::Observation::ArraySize; i += 1) {
             gtsam::Vector2 v0 = corners_f_image.corners_f_image_[i];
             gtsam::Vector2 v1 = gtsam_observation.corners_f_image()[i].to<gtsam::Vector2>();
-//            std::cout << "gt  " << fvlam::Translate2{v0}.to_string()
-//                      << "  " << fvlam::Translate2{v1}.to_string() << std::endl;
+            logger.debug() << "gt  " << fvlam::Translate2{v0}.to_string()
+                           << "  " << fvlam::Translate2{v1}.to_string() << std::endl;
             REQUIRE(gtsam::assert_equal(v0, v1));
           }
         }
@@ -269,10 +250,11 @@ namespace camsim
     }
   }
 
-#endif
-
-  TEST_CASE("sho_test - Individual project test")
+  TEST_CASE("sho_test - Individual project test", "[.][all]")
   {
+    TestParams tp{};
+    fvlam::LoggerCout logger(tp.logger_level);
+
     // Assuming world coordinate system is ENU
     auto marker_pose_list = std::vector<fvlam::Transform3>{
       fvlam::Transform3{0, 0, 0, 0, 0, 0},
@@ -299,6 +281,7 @@ namespace camsim
     auto do_test = [
       &cv_camera_calibration,
       &gtsam_camera_calibration,
+      &logger,
       marker_length](fvlam::Transform3 &camera_pose, fvlam::Transform3 &marker_pose)
     {
       auto cv_project_t_world_marker_function_0 = fvlam::Marker::project_t_world_marker(
@@ -315,18 +298,17 @@ namespace camsim
       auto cv_corners_f_image = cv_project_t_world_marker_function_0(f_marker_0);
       auto gtsam_corners_f_image = gtsam_project_t_world_marker_function_0(f_marker_0);
 
-      std::cout << "camera pose " << camera_pose.to_string()
-                << " marker pose " << marker_pose.to_string() << std::endl;
-      std::cout << "cv    " << cv_corners_f_image.to_string() << std::endl
-                << "gtsam " << gtsam_corners_f_image.to_string() << std::endl;
+      logger.debug() << "camera pose " << camera_pose.to_string()
+                     << " marker pose " << marker_pose.to_string() << std::endl;
+      logger.debug() << "cv    " << cv_corners_f_image.to_string() << std::endl
+                     << "gtsam " << gtsam_corners_f_image.to_string() << std::endl;
     };
 
 //    do_test(camera_pose_list[0], marker_pose_list[0]);
     do_test(camera_pose_list[4], marker_pose_list[0]);
   }
 
-#if 0
-  TEST_CASE("sho_test - cv_solve_t_world_marker test")
+  TEST_CASE("sho_test - cv_solve_t_world_marker test", "[.][all]")
   {
     ModelConfig model_config{pose_generator(master_marker_pose_list),
                              pose_generator(master_camera_pose_list),
@@ -386,75 +368,11 @@ namespace camsim
         do_test(fvlam::Transform3::from(m_camera), fvlam::Transform3::from(m_marker));
   }
 
-#endif
-
-#if 0
-  //  TEST_CASE("sho_test - Solve cv_solve_t_marker0_marker1 test")
-  //  {
-  //    ModelConfig model_config{pose_generator(master_marker_pose_list),
-  //                             pose_generator(master_camera_pose_list),
-  //                             camsim::CameraTypes::simulation,
-  //                             0.1775,
-  //                             true};
-  //
-  //    Model model{model_config};
-  //
-  //    auto do_test = [
-  //      &cal3ds2 = model.cameras_.calibration_]
-  //      (const fvlam::Transform3 &camera_f_world,
-  //       const fvlam::Transform3 &marker0_f_world,
-  //       const fvlam::Transform3 &marker1_f_world)
-  //    {
-  ////      std::cout << "camera pose  " << camera_f_world.to_string()
-  ////                << "    marker0 pose  " << marker0_f_world.to_string()
-  ////                << "    marker1 pose  " << marker1_f_world.to_string() << std::endl;
-  //
-  //      auto camera_calibration = fvlam::CameraInfo::from(cal3ds2);
-  //      auto cv_camera_calibration = camera_calibration.to<fvlam::CvCameraCalibration>();
-  //      auto gtsam_camera_calibration = camera_calibration.to<gtsam::Cal3DS2>();
-  //
-  //      auto project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
-  //        gtsam_camera_calibration,
-  //        camera_f_world,
-  //        master_marker_length);
-  //
-  //      auto solve_t_marker0_marker1_function = fvlam::Marker::solve_t_marker0_marker1(
-  //        cv_camera_calibration,
-  //        master_marker_length);
-  //
-  //      fvlam::Marker marker0{0, fvlam::Transform3WithCovariance{marker0_f_world}};
-  //      fvlam::Marker marker1{0, fvlam::Transform3WithCovariance{marker1_f_world}};
-  //
-  //      auto observation0 = project_t_world_marker_function(marker0);
-  //      auto observation1 = project_t_world_marker_function(marker1);
-  //      if (!observation0.is_valid() || !observation1.is_valid()) {
-  //        return;
-  //      }
-  //
-  //      auto actual_t_marker0_marker1 = solve_t_marker0_marker1_function(observation0, observation1);
-  //
-  //      auto expected_t_marker0_marker1 = marker0_f_world.inverse() * marker1_f_world;
-  //
-  ////      std::cout << "     expected t_marker0_marker1 " << expected_t_marker0_marker1.to_string() << std::endl
-  ////                << "     actual t_marker0_marker1   " << actual_t_marker0_marker1.tf().to_string() << std::endl;
-  //
-  //      REQUIRE(gtsam::assert_equal(expected_t_marker0_marker1.mu(),
-  //                                  actual_t_marker0_marker1.tf().mu(),
-  //                                  1.0e-6));
-  //    };
-  //
-  //    for (std::size_t m0 = 0; m0 < model.markers_.markers_.size(); m0 += 1)
-  //      for (std::size_t m1 = m0 + 1; m1 < model.markers_.markers_.size(); m1 += 1)
-  //        for (auto &m_camera : model.cameras_.cameras_)
-  //          do_test(fvlam::Transform3::from(m_camera),
-  //                  fvlam::Transform3::from(model.markers_.markers_[m0]),
-  //                  fvlam::Transform3::from(model.markers_.markers_[m1]));
-  //  }
-#endif
-
-#if 0
-  TEST_CASE("sho_test - Test EstimateMeanAndCovariance")
+  TEST_CASE("sho_test - Test EstimateMeanAndCovariance", "[.][all]")
   {
+    TestParams tp{};
+    fvlam::LoggerCout logger(tp.logger_level);
+
     gtsam::Vector2 v0{1, 4};
     gtsam::Vector2 v1{3, 8};
     auto c0{gtsam::Vector2{0.01, 0.01}.asDiagonal()};
@@ -467,8 +385,8 @@ namespace camsim
     auto mean = emac.mean();
     auto cov = emac.cov();
 
-    std::cout << mean.transpose() << std::endl
-              << cov << std::endl;
+    logger.debug() << mean.transpose() << std::endl
+                   << cov << std::endl;
 
     REQUIRE(gtsam::assert_equal(2., mean(0), 1.0e-4));
     REQUIRE(gtsam::assert_equal(6., mean(1), 1.0e-4));
@@ -478,8 +396,11 @@ namespace camsim
     REQUIRE(gtsam::assert_equal(2., cov(0, 1), 1.0e-4));
   }
 
-  TEST_CASE("sho_test - Test EstimateMeanAndCovariance with sampler")
+  TEST_CASE("sho_test - Test EstimateMeanAndCovariance with sampler", "[.][all]")
   {
+    TestParams tp{};
+    fvlam::LoggerCout logger(tp.logger_level);
+
     std::vector<fvlam::Translate3::MuVector> sigmas{
       fvlam::Translate3::MuVector{0.1, 0.0, 0.0},
       fvlam::Translate3::MuVector{0.1, 0.1, 0.0},
@@ -502,11 +423,11 @@ namespace camsim
       auto mean_2p = emac_2p.mean();
       auto cov_2p = emac_2p.cov();
 
-      std::cout << "mu" << std::endl;
+      logger.debug() << "mu" << std::endl;
       fvlam::Translate3WithCovariance twc{fvlam::Translate3::from(mean), cov};
-      std::cout << twc.to_string() << std::endl;
+      logger.debug() << twc.to_string() << std::endl;
       fvlam::Translate3WithCovariance twc_2p{fvlam::Translate3::from(mean_2p), cov_2p};
-      std::cout << twc_2p.to_string() << std::endl;
+      logger.debug() << twc_2p.to_string() << std::endl;
 
       REQUIRE(gtsam::assert_equal<fvlam::Translate3::MuVector>(fvlam::Translate3::MuVector::Zero(), mean, 1.0e-2));
       REQUIRE(gtsam::assert_equal<fvlam::Translate3::MuVector>(mean, mean_2p, 1.0e-6));
@@ -518,8 +439,11 @@ namespace camsim
     }
   }
 
-  TEST_CASE("sho_test - Test EstimatePoseMeanAndCovariance with sampler")
+  TEST_CASE("sho_test - Test EstimatePoseMeanAndCovariance with sampler", "[.][all]")
   {
+    TestParams tp{};
+    fvlam::LoggerCout logger(tp.logger_level);
+
     using Pose = fvlam::Transform3;
     using PoseMu = fvlam::Transform3::MuVector;
 
@@ -559,7 +483,7 @@ namespace camsim
         auto cov = emac.cov();
 
         fvlam::Transform3WithCovariance twc{mean, cov};
-        std::cout << twc.to_string() << std::endl;
+        logger.debug() << twc.to_string() << std::endl;
 
         REQUIRE(gtsam::assert_equal<fvlam::Rotate3::CovarianceMatrix>(pose.r().rotation_matrix(),
                                                                       mean.r().rotation_matrix(), 1.0e-2));
@@ -572,9 +496,8 @@ namespace camsim
         REQUIRE(gtsam::assert_equal<double>(sigma[5] * sigma[5], cov(5, 5), 5.0e-2));
       }
   }
-#endif
-#if 0
-  TEST_CASE("sho_test - shonan build from model")
+
+  TEST_CASE("sho_test - shonan build from model", "[.][all]")
   {
     struct TestParams
     {
@@ -588,7 +511,7 @@ namespace camsim
 
     TestParams tp;
 
-    fvlam::LoggerCout logger{fvlam::Logger::level_debug};
+    fvlam::LoggerCout logger{fvlam::Logger::level_info};
 
     ModelConfig model_config{pose_generator(master_marker_pose_list),
                              pose_generator(master_camera_pose_list),
@@ -602,7 +525,7 @@ namespace camsim
     auto marker_initial = fvlam::Marker{0, fvlam::Transform3WithCovariance{}, true};
     map_initial->add_marker(marker_initial);
 
-//    std::cout << "initial map\n" << map_initial->to_string() << std::endl;
+//    logger.debug() << "initial map\n" << map_initial->to_string() << std::endl;
 
     auto solve_tmm_context = fvlam::SolveTmmContextCvSolvePnp{false};
     auto solve_tmm_factory = fvlam::make_solve_tmm_factory(solve_tmm_context,
@@ -627,9 +550,7 @@ namespace camsim
 
     auto map_solved = runner(*bmm_shonan);
 
-    std::cout << "solved map\n" << map_solved->to_string() << std::endl;
+    logger.debug() << "solved map\n" << map_solved->to_string() << std::endl;
   }
-#endif
-#endif
 }
 

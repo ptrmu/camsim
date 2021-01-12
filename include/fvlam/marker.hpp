@@ -128,8 +128,6 @@ namespace fvlam
 
     using ProjectFunction = std::function<Observation(const Marker &marker)>;
     using SolveFunction = std::function<Marker(const Observation &observation)>;
-    using SolveMarkerMarkerFunction = std::function<Transform3WithCovariance(const Observation &observation0,
-                                                                             const Observation &observation1)>;
 
     template<class TCameraCalibration>
     static ProjectFunction project_t_world_marker(const TCameraCalibration &camera_calibration,
