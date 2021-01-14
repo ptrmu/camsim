@@ -7,9 +7,7 @@
 
 namespace camsim
 {
-#if 0
-
-  TEST_CASE("aruco locations")
+  TEST_CASE("aruco locations", "[.][all]")
   {
     SECTION("3x3 black") {
       CharucoboardConfig ar_cfg(3, 3, 12, false, 6);
@@ -237,7 +235,7 @@ namespace camsim
     }
   }
 
-  TEST_CASE("Charucoboard Model generic generation")
+  TEST_CASE("Charucoboard Model generic generation", "[.][all]")
   {
     auto equals{gtsam::equals<double>{}};
 
@@ -420,7 +418,7 @@ namespace camsim
     }
   }
 
-  TEST_CASE("Calibrate using openCV")
+  TEST_CASE("Calibrate using openCV", "[.][all]")
   {
     ModelConfig model_config{PoseGens::gen_poses_func_origin_looking_up(),
                              PoseGens::gen_poses_func_heiko_calibration_poses(),
@@ -492,7 +490,7 @@ namespace camsim
     }
   }
 
-  TEST_CASE("Calibrate with distortion using openCV")
+  TEST_CASE("Calibrate with distortion using openCV", "[.][all]")
   {
     double r_sigma = 0.1;
     double t_sigma = 0.3;
@@ -610,6 +608,4 @@ namespace camsim
       REQUIRE(gtlitequal(result.calibration_.p2(), ccm.cameras_.calibration_.p2()));
     }
   }
-
-#endif
 }

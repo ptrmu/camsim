@@ -4,6 +4,7 @@
 
 #include "../../include/fvlam/build_marker_map_interface.hpp"
 #include "../../include/fvlam/camera_info.hpp"
+#include "../../include/fvlam/logger.hpp"
 #include "../../include/fvlam/marker.hpp"
 #include "../../include/fvlam/observation.hpp"
 #include "../../include/fvlam/transform3_with_covariance.hpp"

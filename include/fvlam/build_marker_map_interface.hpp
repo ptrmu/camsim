@@ -7,12 +7,11 @@
 
 #include <memory>
 
-#include "fvlam/logger.hpp"
-#include "fvlam/transform3_with_covariance.hpp"
+#include "transform3_with_covariance.hpp"
 
 namespace fvlam
 {
-
+  class Logger; //
   class CameraInfo; //
   class MarkerMap; //
   class Observation; //
@@ -92,6 +91,9 @@ namespace fvlam
       mm_between_factor_noise_fixed_sigma_r_{mm_between_factor_noise_fixed_sigma_r},
       mm_between_factor_noise_fixed_sigma_t_{mm_between_factor_noise_fixed_sigma_t}
     {}
+
+    template<class T>
+    static BuildMarkerMapTmmContext from(T &other, const MarkerMap &map_initial);
 
     struct BuildError
     {
