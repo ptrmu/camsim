@@ -559,7 +559,7 @@ namespace camsim
 
       result.calibration_.print("calibration\n");
 
-      gtsam::equals<double> gtbigequal{5.e-1};
+      gtsam::equals<double> gtbigequal{2.e0};
       gtsam::equals<double> gtlitequal{1.e-2};
       REQUIRE(gtbigequal(result.calibration_.fx(), ccm.cameras_.calibration_.fx()));
       REQUIRE(gtbigequal(result.calibration_.fy(), ccm.cameras_.calibration_.fy()));
@@ -595,7 +595,7 @@ namespace camsim
 
       result.calibration_.print("calibration\n");
 
-      gtsam::equals<double> gtbigequal{8.e-1};
+      gtsam::equals<double> gtbigequal{2.e0};
       gtsam::equals<double> gtlitequal{1.e-2};
       REQUIRE(gtbigequal(result.calibration_.fx(), ccm.cameras_.calibration_.fx()));
       REQUIRE(gtbigequal(result.calibration_.fy(), ccm.cameras_.calibration_.fy()));

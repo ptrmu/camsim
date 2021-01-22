@@ -263,6 +263,8 @@ add_executable(camsim_test
   src/fvlam/conversions_cv.cpp
   src/fvlam/conversions_gtsam.cpp
   src/fvlam/file_storage.cpp
+  src/fvlam/localize_camera_gtsam.cpp
+  src/fvlam/localize_camera_cv.cpp
   src/fvlam/to_string.cpp
   src/fvlam/transform3_with_covariance.cpp
   src/build_marker_map_runner.cpp
@@ -275,4 +277,5 @@ target_link_libraries(camsim_test
   PRIVATE gtsam
   PRIVATE opencv_core
   PRIVATE opencv_calib3d
+  PRIVATE opencv_aruco
   )

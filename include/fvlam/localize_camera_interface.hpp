@@ -59,6 +59,9 @@ namespace fvlam
 
   struct LocalizeCameraCvContext
   {
+
+    template<class T>
+    static LocalizeCameraCvContext from(T &other);
   };
 
 // ==============================================================================
@@ -67,6 +70,17 @@ namespace fvlam
 
   struct LocalizeCameraGtsamContext
   {
+    double &corner_measurement_sigma_;
+    bool &use_marker_covariance_;
+
+    explicit LocalizeCameraGtsamContext(double &corner_measurement_sigma,
+                                        bool &use_marker_covariance) :
+      corner_measurement_sigma_{corner_measurement_sigma},
+      use_marker_covariance_{use_marker_covariance}
+    {}
+
+    template<class T>
+    static LocalizeCameraGtsamContext from(T &other);
   };
 
 
@@ -90,7 +104,8 @@ namespace fvlam
     // Draw axes on a marker in an image.
     virtual void annotate_image_with_marker_axis(cv::Mat &color_image,
                                                  const Transform3 &t_camera_marker,
-                                                 const CameraInfo &camera_info) = 0;
+                                                 const CameraInfo &camera_info,
+                                                 double axis_length) = 0;
   };
 
   template<class TFmContext>
@@ -107,6 +122,13 @@ namespace fvlam
     double border_color_green_;
     double border_color_blue_;
     int aruco_dictionary_id_;
-    int cv4_corner_refinement_method_;
+    int &corner_refinement_method_;
+
+    explicit FiducialMarkerCvContext(int &corner_refinement_method) :
+      corner_refinement_method_{corner_refinement_method}
+    {}
+
+    template<class T>
+    static FiducialMarkerCvContext from(T &other);
   };
 }

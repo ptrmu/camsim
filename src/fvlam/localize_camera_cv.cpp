@@ -57,6 +57,7 @@ namespace fvlam
                      cc.first, cc.second,
                      rvec, tvec);
 
+#if 0 // Not sure if this is still needed
         // For certain cases, there is a chance that the multi marker solvePnP will
         // return the mirror of the correct solution. So try solvePn[Ransac as well.
         if (all_corners_f_image.size() > 1 * 4 && all_corners_f_image.size() < 4 * 4) {
@@ -77,6 +78,8 @@ namespace fvlam
             tvec = tvecRansac;
           }
         }
+#endif
+
       } catch (cv::Exception &ex) {
         return Transform3WithCovariance{};
       }
@@ -88,7 +91,8 @@ namespace fvlam
       // rvec, tvec output from solvePnp "brings points from the model coordinate system to the
       // camera coordinate system". In this case the map frame is the model coordinate system.
       // So rvec, tvec are the transformation t_camera_map.
-      return Transform3WithCovariance(Transform3(Rotate3::from(rvec), Translate3::from(tvec)));
+      auto t_camera_map = Transform3(Rotate3::from(rvec), Translate3::from(tvec));
+      return Transform3WithCovariance(t_camera_map.inverse());
     }
 
     // Given the corners of one marker (observation) calculate t_camera_marker.
@@ -119,12 +123,20 @@ namespace fvlam
     FiducialMarkerCvContext fm_context_;
     Logger &logger_;
     cv::Ptr<cv::aruco::Dictionary> localization_aruco_dictionary_;
+    cv::Scalar border_color_;
+    cv::Scalar text_color_;
+    cv::Scalar corner_color_;
 
   public:
     FiducialMarkerCv(const FiducialMarkerCvContext &fm_context, Logger &logger) :
       fm_context_{fm_context}, logger_{logger},
       localization_aruco_dictionary_{cv::aruco::getPredefinedDictionary(
-        cv::aruco::PREDEFINED_DICTIONARY_NAME(fm_context.aruco_dictionary_id_))}
+        cv::aruco::PREDEFINED_DICTIONARY_NAME(fm_context.aruco_dictionary_id_))},
+      border_color_{fm_context_.border_color_red_ * 255,
+                    fm_context_.border_color_green_ * 255,
+                    fm_context_.border_color_blue_ * 255},
+      text_color_{border_color_.val[1], border_color_.val[0], border_color_.val[2]},
+      corner_color_{border_color_.val[0], border_color_.val[2], border_color_.val[1]}
     {}
 
     // Look for fiducial markers in a gray image.
@@ -136,15 +148,15 @@ namespace fvlam
 //     1 = CORNER_REFINE_SUBPIX,   ///< ArUco approach and refine the corners locations using corner subpixel accuracy
 //     2 = CORNER_REFINE_CONTOUR,  ///< ArUco approach and refine the corners locations using the contour-points line fitting
 //     3 = CORNER_REFINE_APRILTAG, ///< Tag and corners detection based on the AprilTag 2 approach @cite wang2016iros
-      detectorParameters->cornerRefinementMethod = fm_context_.cv4_corner_refinement_method_;
+      detectorParameters->cornerRefinementMethod = fm_context_.corner_refinement_method_;
 
       // Detect markers
       std::vector<int> ids;
-      std::vector<std::vector<cv::Point2d>> corners;
+      std::vector<std::vector<cv::Point2f>> corners;
       cv::aruco::detectMarkers(gray_image, localization_aruco_dictionary_, corners, ids, detectorParameters);
 
       // return the corners as an observations structure.
-      std::pair<std::vector<int>, std::vector<std::vector<cv::Point2d>>> args{ids, corners};
+      std::pair<std::vector<int>, std::vector<std::vector<cv::Point2f>>> args{ids, corners};
       return fvlam::Observations::from(args);
     }
 
@@ -152,30 +164,20 @@ namespace fvlam
     void annotate_image_with_detected_markers(cv::Mat &color_image,
                                               const Observations observations) override
     {
-      // calculate colors
-      const cv::Scalar borderColor(fm_context_.border_color_red_,
-                                   fm_context_.border_color_green_,
-                                   fm_context_.border_color_blue_);
-
-      cv::Scalar textColor, cornerColor;
-      textColor = cornerColor = borderColor;
-      cv::swap(textColor.val[0], textColor.val[1]);     // text color just sawp G and R
-      cv::swap(cornerColor.val[1], cornerColor.val[2]); // corner color just sawp G and B
-
       for (auto &observation : observations.observations()) {
 
         // draw marker sides
         for (int j = 0; j < 4; j++) {
           auto p0 = observation.corners_f_image()[j];
           auto p1 = observation.corners_f_image()[(j + 1) % 4];
-          cv::line(color_image, p0.to<cv::Point2d>(), p1.to<cv::Point2d>(), borderColor, 1, cv::LINE_4);
+          cv::line(color_image, p0.to<cv::Point2d>(), p1.to<cv::Point2d>(), border_color_, 1, cv::LINE_4);
         }
 
         // draw first corner mark
         cv::rectangle(color_image,
                       observation.corners_f_image()[0].to<cv::Point2d>() - cv::Point2d(3, 3),
                       observation.corners_f_image()[0].to<cv::Point2d>() + cv::Point2d(3, 3),
-                      cornerColor, 1, cv::LINE_4);
+                      corner_color_, 1, cv::LINE_4);
 
         // draw ID
 //      if (ids.total() != 0) {
@@ -186,7 +188,7 @@ namespace fvlam
 //        cent = cent / 4.;
 //        std::stringstream s;
 //        s << "id=" << ids.getMat().ptr<int>(0)[i];
-//        putText(color_image, s.str(), cent, cv::FONT_HERSHEY_SIMPLEX, 0.5, textColor, 2);
+//        putText(color_image, s.str(), cent, cv::FONT_HERSHEY_SIMPLEX, 0.5, text_color, 2);
 //      }
       }
 
@@ -195,15 +197,24 @@ namespace fvlam
     // Draw axes on a marker in an image.
     void annotate_image_with_marker_axis(cv::Mat &color_image,
                                          const Transform3 &t_camera_marker,
-                                         const CameraInfo &camera_info) override
+                                         const CameraInfo &camera_info,
+                                         double axis_length) override
     {
       auto rvec = t_camera_marker.r().to<cv::Vec3d>();
       auto tvec = t_camera_marker.t().to<cv::Vec3d>();
       auto cc = camera_info.to<CvCameraCalibration>();
 
-      cv::aruco::drawAxis(color_image,
-                          cc.first, cc.second,
-                          rvec, tvec, 0.1);
+      std::vector <cv::Point3f> axesPoints;
+      axesPoints.emplace_back(cv::Point3f(0, 0, 0));
+      axesPoints.emplace_back(cv::Point3f(axis_length, 0, 0));
+      axesPoints.emplace_back(cv::Point3f(0, axis_length, 0));
+      axesPoints.emplace_back(cv::Point3f(0, 0, axis_length));
+      std::vector <cv::Point2f> imagePoints;
+      cv::projectPoints(axesPoints, rvec, tvec, cc.first, cc.second, imagePoints);
+
+      cv::line(color_image, imagePoints[0], imagePoints[1], cv::Scalar(255, 0, 0), 3);
+      cv::line(color_image, imagePoints[0], imagePoints[2], cv::Scalar(0, 255, 0), 3);
+      cv::line(color_image, imagePoints[0], imagePoints[3], cv::Scalar(0, 0, 255), 3);
     }
   };
 

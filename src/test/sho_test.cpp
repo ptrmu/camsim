@@ -10,6 +10,7 @@
 #include "../sho/sho_run.hpp"
 #include "../../include/fvlam/build_marker_map_interface.hpp"
 #include "../../include/fvlam/camera_info.hpp"
+#include "../../include/fvlam/localize_camera_interface.hpp"
 #include "../../include/fvlam/logger.hpp"
 #include "../../include/fvlam/marker.hpp"
 #include "../../include/fvlam/observation.hpp"
@@ -266,10 +267,15 @@ namespace camsim
 
     auto camera_pose_list = std::vector<fvlam::Transform3>{
       fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 0.02, 0, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 0, 0.01, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 0, 0.02, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2.2},
+      fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2.4},
       fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
       fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
       fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
-      fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
     };
 
     auto marker_length = 0.1775;
@@ -300,17 +306,26 @@ namespace camsim
       auto gtsam_corners_f_image = gtsam_project_t_world_marker_function_0(f_marker_0);
 
       logger.debug() << "camera pose " << camera_pose.to_string()
-                     << " marker pose " << marker_pose.to_string() << std::endl;
-      logger.debug() << "cv    " << cv_corners_f_image.to_string() << std::endl
-                     << "gtsam " << gtsam_corners_f_image.to_string() << std::endl;
+                     << " marker pose " << marker_pose.to_string();
+      logger.debug() << "cv    " << cv_corners_f_image.to_string();
+      logger.debug() << "gtsam " << gtsam_corners_f_image.to_string();
+
+
+      REQUIRE(cv_corners_f_image.equals(gtsam_corners_f_image, 1.0e-6));
     };
 
-//    do_test(camera_pose_list[0], marker_pose_list[0]);
-    do_test(camera_pose_list[4], marker_pose_list[0]);
+    //    do_test(camera_pose_list[0], marker_pose_list[0]);
+
+    for (auto &camera_pose : camera_pose_list)
+      for (auto &marker_pose : marker_pose_list)
+        do_test(camera_pose, marker_pose);
   }
 
   TEST_CASE("sho_test - cv_solve_t_world_marker test", "[.][all]")
   {
+    TestParams tp{};
+    fvlam::LoggerCout logger(tp.logger_level);
+
     ModelConfig model_config{pose_generator(master_marker_pose_list),
                              pose_generator(master_camera_pose_list),
                              camsim::CameraTypes::simulation,
@@ -320,7 +335,9 @@ namespace camsim
     Model model{model_config};
 
     auto do_test = [
-      cal3ds2 = model.cameras_.calibration_]
+      &logger,
+      cal3ds2 = model.cameras_.calibration_,
+      marker_length = model.cfg_.marker_length_]
       (const fvlam::Transform3 &camera_pose,
        const fvlam::Transform3 &marker_pose)
     {
@@ -338,8 +355,11 @@ namespace camsim
         camera_pose,
         master_marker_length);
 
-//      std::cout << "camera pose  " << camera_pose.to_string()
-//                << "    marker pose  " << marker_pose.to_string() << std::endl;
+      auto localize_camera_cv = make_localize_camera(fvlam::LocalizeCameraCvContext{}, logger);
+      auto localize_camera_gtsam = make_localize_camera(fvlam::LocalizeCameraGtsamContext{}, logger);
+
+      logger.debug() << "camera pose  " << camera_pose.to_string()
+                     << "    marker pose  " << marker_pose.to_string();
 
       // Generate observations from the marker and camera. If the projection results in invalid observations,
       // don't check.
@@ -348,21 +368,35 @@ namespace camsim
       if (!gtsam_corners_f_image.is_valid()) {
         return;
       }
+      logger.debug() << "     corners_f_image " << gtsam_corners_f_image.to_string();
 
-      // Given observations, solve to find the camera pose.
+      // Given observations and camera pose, solve to find the marker pose.
       auto cv_t_world_marker = cv_solve_t_world_marker_function(gtsam_corners_f_image);
-
-//      std::cout << "     marker pose " << marker_pose.to_string() << std::endl
-//                << "     calc pose   " << cv_t_world_marker.t_world_marker().tf().to_string() << std::endl;
-//      std::cout << "     corners_f_image " << gtsam_corners_f_image.to_string() << std::endl;
+      logger.debug() << "     calc marker pose   " << cv_t_world_marker.t_world_marker().tf().to_string();
 
       REQUIRE(gtsam::assert_equal(f_marker.t_world_marker().tf().mu(),
                                   cv_t_world_marker.t_world_marker().tf().mu(),
                                   1.0e-6));
+
+      // Given observations and marker pose, solve to find the camera pose.
+      fvlam::Observations observations{};
+      observations.add(gtsam_corners_f_image);
+      fvlam::MarkerMap map{marker_length};
+      map.add_marker(f_marker);
+
+      auto t_map_camera_cv = localize_camera_cv->solve_t_map_camera(observations, camera_calibration, map);
+      logger.debug() << "       cv camera pose   " << t_map_camera_cv.tf().to_string();
+
+      REQUIRE(camera_pose.equals(t_map_camera_cv.tf(), 1.0e-6));
+
+      auto t_map_camera_gtsam = localize_camera_gtsam->solve_t_map_camera(observations, camera_calibration, map);
+      logger.debug() << "    gtsam camera pose   " << t_map_camera_gtsam.tf().to_string();
+
+      REQUIRE(camera_pose.equals(t_map_camera_gtsam.tf(), 1.0e-6));
     };
 
-    do_test(fvlam::Transform3::from(model.cameras_.cameras_[6]),
-            fvlam::Transform3::from(model.markers_.markers_[4]));
+    do_test(fvlam::Transform3::from(model.cameras_.cameras_[0]),
+            fvlam::Transform3::from(model.markers_.markers_[1]));
 
     for (auto &m_camera : model.cameras_.cameras_)
       for (auto &m_marker : model.markers_.markers_)
