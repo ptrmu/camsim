@@ -4,12 +4,14 @@
 
 #include "opencv2/core.hpp"
 
+#include <gtsam/base/numericalDerivative.h>
 #include <gtsam/geometry/Cal3DS2.h>
 #include "gtsam/geometry/Pose3.h"
 #include "gtsam/geometry/Rot3.h"
 #include "../sho/sho_run.hpp"
 #include "../../include/fvlam/build_marker_map_interface.hpp"
 #include "../../include/fvlam/camera_info.hpp"
+#include "../../include/fvlam/factors_gtsam.hpp"
 #include "../../include/fvlam/localize_camera_interface.hpp"
 #include "../../include/fvlam/logger.hpp"
 #include "../../include/fvlam/marker.hpp"
@@ -355,8 +357,13 @@ namespace camsim
         camera_pose,
         master_marker_length);
 
+      double corner_measurement_sigma{1.0};
+      bool use_marker_covariance{true};
       auto localize_camera_cv = make_localize_camera(fvlam::LocalizeCameraCvContext{}, logger);
-      auto localize_camera_gtsam = make_localize_camera(fvlam::LocalizeCameraGtsamContext{}, logger);
+      auto localize_camera_project_between = make_localize_camera(
+        fvlam::LocalizeCameraProjectBetweenContext{corner_measurement_sigma, use_marker_covariance}, logger);
+      auto localize_camera_resectioning = make_localize_camera(
+        fvlam::LocalizeCameraResectioningContext{corner_measurement_sigma}, logger);
 
       logger.debug() << "camera pose  " << camera_pose.to_string()
                      << "    marker pose  " << marker_pose.to_string();
@@ -368,11 +375,11 @@ namespace camsim
       if (!gtsam_corners_f_image.is_valid()) {
         return;
       }
-      logger.debug() << "     corners_f_image " << gtsam_corners_f_image.to_string();
+      logger.debug() << "             corners_f_image " << gtsam_corners_f_image.to_string();
 
       // Given observations and camera pose, solve to find the marker pose.
       auto cv_t_world_marker = cv_solve_t_world_marker_function(gtsam_corners_f_image);
-      logger.debug() << "     calc marker pose   " << cv_t_world_marker.t_world_marker().tf().to_string();
+      logger.debug() << "              cv marker pose   " << cv_t_world_marker.t_world_marker().tf().to_string();
 
       REQUIRE(gtsam::assert_equal(f_marker.t_world_marker().tf().mu(),
                                   cv_t_world_marker.t_world_marker().tf().mu(),
@@ -385,18 +392,157 @@ namespace camsim
       map.add_marker(f_marker);
 
       auto t_map_camera_cv = localize_camera_cv->solve_t_map_camera(observations, camera_calibration, map);
-      logger.debug() << "       cv camera pose   " << t_map_camera_cv.tf().to_string();
-
+      logger.debug() << "              cv camera pose   " << t_map_camera_cv.tf().to_string();
       REQUIRE(camera_pose.equals(t_map_camera_cv.tf(), 1.0e-6));
 
-      auto t_map_camera_gtsam = localize_camera_gtsam->solve_t_map_camera(observations, camera_calibration, map);
-      logger.debug() << "    gtsam camera pose   " << t_map_camera_gtsam.tf().to_string();
+      auto t_map_camera_project_between = localize_camera_project_between->solve_t_map_camera(observations,
+                                                                                              camera_calibration, map);
+      logger.debug() << "  camera_project camera pose   " << t_map_camera_project_between.tf().to_string();
+      REQUIRE(camera_pose.equals(t_map_camera_project_between.tf(), 1.0e-6));
 
-      REQUIRE(camera_pose.equals(t_map_camera_gtsam.tf(), 1.0e-6));
+      auto t_map_camera_resectioning = localize_camera_resectioning->solve_t_map_camera(observations,
+                                                                                        camera_calibration, map);
+      logger.debug() << "    resectioning camera pose   " << t_map_camera_resectioning.tf().to_string();
+      REQUIRE(camera_pose.equals(t_map_camera_resectioning.tf(), 1.0e-6));
     };
 
     do_test(fvlam::Transform3::from(model.cameras_.cameras_[0]),
             fvlam::Transform3::from(model.markers_.markers_[1]));
+
+    for (auto &m_camera : model.cameras_.cameras_)
+      for (auto &m_marker : model.markers_.markers_)
+        do_test(fvlam::Transform3::from(m_camera), fvlam::Transform3::from(m_marker));
+  }
+
+  TEST_CASE("sho_test - ResectioningFactor test", "[.][all]")
+  {
+    TestParams tp{};
+    fvlam::LoggerCout logger(tp.logger_level);
+
+    ModelConfig model_config{pose_generator(master_marker_pose_list),
+                             pose_generator(master_camera_pose_list),
+                             camsim::CameraTypes::simulation,
+                             0.1775,
+                             true};
+
+    Model model{model_config};
+
+    auto do_test = [
+      &logger,
+      cal3ds2 = model.cameras_.calibration_,
+      marker_length = model.cfg_.marker_length_]
+      (const fvlam::Transform3 &camera_pose,
+       const fvlam::Transform3 &marker_pose)
+    {
+      // Get corners_f_image
+      auto project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
+        cal3ds2, camera_pose, master_marker_length);
+      auto f_marker = fvlam::Marker{0, fvlam::Transform3WithCovariance{marker_pose}};
+      auto observation = project_t_world_marker_function(f_marker);
+      if (!observation.is_valid()) {
+        return;
+      }
+
+      gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(1.0, 1.0));
+      auto corners_f_image = observation.to<std::vector<gtsam::Point2>>();
+      auto corners_f_world = f_marker.to_corners_f_world<std::vector<gtsam::Point3>>(marker_length);
+      auto corners_f_marker = fvlam::Marker::to_corners_f_marker<std::vector<gtsam::Point3>>(marker_length);
+
+      auto factor = fvlam::ResectioningFactor(measurement_noise, 0, cal3ds2,
+                                              corners_f_world[0], corners_f_image[0]);
+
+      gtsam::Matrix d_point2_wrt_camera;
+      factor.evaluateError(camera_pose.to<gtsam::Pose3>(),
+                           d_point2_wrt_camera);
+
+      auto numericalH = gtsam::numericalDerivative11<gtsam::Point2, gtsam::Pose3>(
+        [&factor](gtsam::Pose3 pose) -> gtsam::Point2
+        {
+          return factor.evaluateError(pose);
+        }, camera_pose.to<gtsam::Pose3>());
+
+      logger.debug() << "camera pose  " << camera_pose.to_string()
+                     << "    marker pose  " << marker_pose.to_string();
+      logger.debug() << "d_point2_wrt_camera\n" << d_point2_wrt_camera;
+      logger.debug() << numericalH;
+
+      REQUIRE(gtsam::assert_equal(numericalH, d_point2_wrt_camera, 1.0e-6));
+    };
+
+    for (auto &m_camera : model.cameras_.cameras_)
+      for (auto &m_marker : model.markers_.markers_)
+        do_test(fvlam::Transform3::from(m_camera), fvlam::Transform3::from(m_marker));
+  }
+
+  TEST_CASE("sho_test - ProjectBetweenFactor test", "[.][all]")
+  {
+    TestParams tp{};
+    fvlam::LoggerCout logger(tp.logger_level);
+
+    ModelConfig model_config{pose_generator(master_marker_pose_list),
+                             pose_generator(master_camera_pose_list),
+                             camsim::CameraTypes::simulation,
+                             0.1775,
+                             true};
+
+    Model model{model_config};
+
+    auto do_test = [
+      &logger,
+      cal3ds2 = model.cameras_.calibration_,
+      marker_length = model.cfg_.marker_length_]
+      (const fvlam::Transform3 &camera_pose,
+       const fvlam::Transform3 &marker_pose)
+    {
+      // Get corners_f_image
+      auto project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
+        cal3ds2, camera_pose, master_marker_length);
+      auto f_marker = fvlam::Marker{0, fvlam::Transform3WithCovariance{marker_pose}};
+      auto observation = project_t_world_marker_function(f_marker);
+      if (!observation.is_valid()) {
+        return;
+      }
+      auto corners_f_image = observation.corners_f_image();
+      gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(1.0, 1.0));
+
+      auto corners_f_marker = fvlam::Marker::to_corners_f_marker<std::vector<gtsam::Point3>>(marker_length);
+
+      auto factor = fvlam::ProjectBetweenFactor(corners_f_image[0].to<gtsam::Point2>(), measurement_noise, 0,
+                                                corners_f_marker[0], 1, cal3ds2);
+
+      gtsam::Matrix d_point2_wrt_marker;
+      gtsam::Matrix d_point2_wrt_camera;
+
+      factor.evaluateError(marker_pose.to<gtsam::Pose3>(),
+                           camera_pose.to<gtsam::Pose3>(),
+                           d_point2_wrt_marker,
+                           d_point2_wrt_camera);
+
+
+      auto numericalH1 = gtsam::numericalDerivative21<gtsam::Point2, gtsam::Pose3, gtsam::Pose3>(
+        [&factor](gtsam::Pose3 marker_pose, gtsam::Pose3 camera_pose) -> gtsam::Point2
+        {
+          return factor.evaluateError(marker_pose, camera_pose);
+        }, marker_pose.to<gtsam::Pose3>(), camera_pose.to<gtsam::Pose3>());
+      auto numericalH2 = gtsam::numericalDerivative22<gtsam::Point2, gtsam::Pose3, gtsam::Pose3>(
+        [&factor](gtsam::Pose3 marker_pose, gtsam::Pose3 camera_pose) -> gtsam::Point2
+        {
+          return factor.evaluateError(marker_pose, camera_pose);
+        }, marker_pose.to<gtsam::Pose3>(), camera_pose.to<gtsam::Pose3>());
+
+      logger.debug() << "camera pose  " << camera_pose.to_string()
+                     << "    marker pose  " << marker_pose.to_string();
+      logger.debug() << "d_point2_wrt_marker\n" << d_point2_wrt_marker;
+      logger.debug() << numericalH1;
+      logger.debug() << "d_point2_wrt_camera\n" << d_point2_wrt_camera;
+      logger.debug() << numericalH2;
+
+      REQUIRE(gtsam::assert_equal(numericalH1, d_point2_wrt_marker, 1.0e-6));
+      REQUIRE(gtsam::assert_equal(numericalH2, d_point2_wrt_camera, 1.0e-6));
+    };
+
+//    do_test(fvlam::Transform3::from(model.cameras_.cameras_[0]),
+//            fvlam::Transform3::from(model.markers_.markers_[1]));
 
     for (auto &m_camera : model.cameras_.cameras_)
       for (auto &m_marker : model.markers_.markers_)
