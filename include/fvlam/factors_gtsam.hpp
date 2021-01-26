@@ -3,11 +3,11 @@
 #pragma ide diagnostic ignored "OCUnusedStructInspection"
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 
+#include "fvlam/logger.hpp"
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/PinholeCamera.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/geometry/Pose3.h>
-#include <gtsam/inference/Symbol.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
@@ -24,6 +24,9 @@ namespace fvlam
 
   struct GtsamUtil
   {
+    using Pose3CovarianceMatrixGtsam = Eigen::Matrix<double, gtsam::Pose3::dimension, gtsam::Pose3::dimension>;
+    using Pose3CovarianceMatrixRos = Eigen::Matrix<double, 6, 6>;
+
     // ROS2 has the following definition of a pose transform:
     //  # Row-major representation of the 6x6 covariance matrix (ie values in a row are stored adjacently)
     //  # The orientation parameters use a fixed-axis representation.
@@ -43,10 +46,10 @@ namespace fvlam
     //  2) Both ROS2 and GTSAM use rotations about the three (x, y, z) axes to represent a 3D rotation but ROS
     //    seems to use fixed/static axes while GTSAM uses relative axes. One switches the order of the variables
     //    to generate equivalent rotations in the two systems.
-    static gtsam::Pose3::Jacobian cov_gtsam_from_ros(const gtsam::Pose3 &pose_gtsam,
-                                                     const Transform3::CovarianceMatrix &cov_ros)
+    static Pose3CovarianceMatrixGtsam cov_gtsam_from_ros(const gtsam::Pose3 &pose_gtsam,
+                                                         const Pose3CovarianceMatrixRos &cov_ros)
     {
-      gtsam::Pose3::Jacobian cov_gtsam_f_world;
+      Pose3CovarianceMatrixGtsam cov_gtsam_f_world;
       for (int r = 0; r < 6; r += 1) {
         for (int c = 0; c < 6; c += 1) {
           static int ro[] = {5, 4, 3, 0, 1, 2};
@@ -54,22 +57,22 @@ namespace fvlam
         }
       }
 
-      // Rotate the translation part of the covariance from the body frame to the world frame.
-      gtsam::Pose3::Jacobian rotate_translate_part;
+      // Rotate the translation part of the covariance from the world frame to the body frame.
+      Pose3CovarianceMatrixGtsam rotate_translate_part;
       rotate_translate_part << gtsam::I_3x3, gtsam::Z_3x3, gtsam::Z_3x3, pose_gtsam.rotation().matrix();
       return rotate_translate_part.transpose() * cov_gtsam_f_world * rotate_translate_part;
     }
 
-    static Transform3::CovarianceMatrix cov_ros_from_gtsam(const gtsam::Pose3 &pose_gtsam,
-                                                           const gtsam::Pose3::Jacobian &cov_gtsam)
+    static Pose3CovarianceMatrixRos cov_ros_from_gtsam(const gtsam::Pose3 &pose_gtsam,
+                                                       const Pose3CovarianceMatrixGtsam &cov_gtsam)
     {
       // Rotate the translation part of the covariance from the body frame to the world frame.
-      gtsam::Pose3::Jacobian rotate_translate_part;
+      Pose3CovarianceMatrixRos rotate_translate_part;
       rotate_translate_part << gtsam::I_3x3, gtsam::Z_3x3, gtsam::Z_3x3, pose_gtsam.rotation().matrix();
       gtsam::Pose3::Jacobian cov_gtsam_f_world = rotate_translate_part * cov_gtsam * rotate_translate_part.transpose();
 
       // interchange the rotate and translation variables and reverse the order of the rotation variables.
-      Transform3::CovarianceMatrix cov_ros;
+      Pose3CovarianceMatrixRos cov_ros;
       for (int r = 0; r < 6; r += 1) {
         for (int c = 0; c < 6; c += 1) {
           static int ro[] = {3, 4, 5, 2, 1, 0};
@@ -108,21 +111,30 @@ namespace fvlam
 
   class ProjectBetweenFactor : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>
   {
+    gtsam::Point2 point_f_image_;
+    gtsam::Key key_marker_;
+    gtsam::Key key_camera_;
+    gtsam::Point3 point_f_marker_;
     const gtsam::Cal3DS2 &cal3ds2_;
-    const gtsam::Point3 point_f_marker_;
-    const gtsam::Point2 point_f_image_;
+    Logger &logger_;
+    bool throwCheirality_;     // If true, rethrows Cheirality exceptions (default: false)
 
   public:
     ProjectBetweenFactor(gtsam::Point2 point_f_image,
                          const gtsam::SharedNoiseModel &model,
-                         const gtsam::Key key_marker,
+                         gtsam::Key key_marker,
+                         gtsam::Key key_camera,
                          gtsam::Point3 point_f_marker,
-                         const gtsam::Key key_camera,
-                         const gtsam::Cal3DS2 &cal3ds2) :
+                         const gtsam::Cal3DS2 &cal3ds2,
+                         Logger &logger,
+                         bool throwCheirality = false) :
       NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(model, key_marker, key_camera),
-      cal3ds2_{cal3ds2},
+      point_f_image_{std::move(point_f_image)},
+      key_marker_{key_marker}, key_camera_{key_camera},
       point_f_marker_{std::move(point_f_marker)},
-      point_f_image_{std::move(point_f_image)}
+      cal3ds2_{cal3ds2},
+      logger_{logger},
+      throwCheirality_{throwCheirality}
     {}
 
     /// evaluate the error
@@ -140,11 +152,6 @@ namespace fvlam
         point_f_marker_,
         H1 ? gtsam::OptionalJacobian<3, 6>(d_point3_wrt_pose3) : boost::none);
 
-//      marker_f_world.print("\nmarker_f_world\n");
-//      camera_f_world.print("\ncamera_f_world\n");
-//      cal3ds2_->print("\ncal3ds2\n");
-//      point_f_world.print("point_f_world\n");
-
       // Project this point to the camera's image frame. Catch and return a default
       // value on a CheiralityException.
       auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{camera_f_world, cal3ds2_};
@@ -153,8 +160,6 @@ namespace fvlam
           point_f_world,
           H2 ? gtsam::OptionalJacobian<2, 6>(d_point2_wrt_pose3) : boost::none,
           H1 ? gtsam::OptionalJacobian<2, 3>(d_point2_wrt_point3) : boost::none);
-
-//        point_f_image.print("point_f_image\n");
 
         // Return the Jacobian for each input
         if (H1) {
@@ -168,10 +173,15 @@ namespace fvlam
         return point_f_image - point_f_image_;
 
       } catch (gtsam::CheiralityException &e) {
-        std::cout << "ProjectBetweenFactor CheiralityException Exception!" << std::endl;
+        if (H1) *H1 = gtsam::Matrix26::Zero();
+        if (H2) *H2 = gtsam::Matrix26::Zero();
+
+        logger_.error() << e.what() << ": Marker " << gtsam::DefaultKeyFormatter(key_marker_) <<
+                        " moved behind camera " << gtsam::DefaultKeyFormatter(key_camera_) << std::endl;
+
+        if (throwCheirality_)
+          throw gtsam::CheiralityException(key_camera_);
       }
-      if (H1) *H1 = gtsam::Matrix26::Zero();
-      if (H2) *H2 = gtsam::Matrix26::Zero();
       return gtsam::Vector2{2.0 * cal3ds2_.px(), 2.0 * cal3ds2_.py()};
     }
   };
@@ -183,21 +193,29 @@ namespace fvlam
 
   class ResectioningFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
   {
-    const gtsam::Cal3DS2 &cal3ds2_;
-    const gtsam::Point3 point_f_world;
     const gtsam::Point2 point_f_image;
+    gtsam::Key key_camera_;
+    const gtsam::Point3 point_f_world;
+    const gtsam::Cal3DS2 &cal3ds2_;
+    Logger &logger_;
+    bool throwCheirality_;     // If true, rethrows Cheirality exceptions (default: false)
 
   public:
     /// Construct factor given known point P and its projection p
-    ResectioningFactor(const gtsam::SharedNoiseModel &model,
-                       const gtsam::Key key,
-                       const gtsam::Cal3DS2 &cal3ds2,
+    ResectioningFactor(gtsam::Point2 point_f_image,
+                       const gtsam::SharedNoiseModel &model,
+                       gtsam::Key key_camera,
                        gtsam::Point3 point_f_world,
-                       gtsam::Point2 point_f_image) :
-      NoiseModelFactor1<gtsam::Pose3>(model, key),
-      cal3ds2_{cal3ds2},
+                       const gtsam::Cal3DS2 &cal3ds2,
+                       Logger &logger,
+                       bool throwCheirality = false) :
+      NoiseModelFactor1<gtsam::Pose3>(model, key_camera),
+      point_f_image{std::move(point_f_image)},
+      key_camera_{key_camera},
       point_f_world{std::move(point_f_world)},
-      point_f_image{std::move(point_f_image)}
+      cal3ds2_{cal3ds2},
+      logger_{logger},
+      throwCheirality_{throwCheirality}
     {}
 
     /// evaluate the error
@@ -208,8 +226,14 @@ namespace fvlam
       try {
         return camera.project(point_f_world, H) - point_f_image;
       } catch (gtsam::CheiralityException &e) {
+        if (H) *H = gtsam::Matrix26::Zero();
+
+        logger_.error() << e.what() << ": point moved behind camera "
+                        << gtsam::DefaultKeyFormatter(key_camera_) << std::endl;
+
+        if (throwCheirality_)
+          throw gtsam::CheiralityException(key_camera_);
       }
-      if (H) *H = gtsam::Matrix26::Zero();
       return gtsam::Vector2{2.0 * cal3ds2_.px(), 2.0 * cal3ds2_.py()};
     }
   };

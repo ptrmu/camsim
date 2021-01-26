@@ -49,16 +49,14 @@ namespace fvlam
 
           // The marker corners as seen in the image.
           auto corners_f_image = observation.to<std::vector<gtsam::Point2>>();
-          auto corners_f_marker = Marker::to_corners_f_marker<std::vector<gtsam::Point3>>(map.marker_length());
+          auto corners_f_marker = Marker::corners_f_marker<std::vector<gtsam::Point3>>(map.marker_length());
 
           // Add factors to the graph.
           for (size_t j = 0; j < corners_f_image.size(); j += 1) {
-            graph.emplace_shared<ProjectBetweenFactor>(corners_f_image[j],
-                                                       corner_noise,
-                                                       marker_key,
-                                                       corners_f_marker[j],
-                                                       camera_key_,
-                                                       cal3ds2);
+            graph.emplace_shared<ProjectBetweenFactor>(corners_f_image[j], corner_noise,
+                                                       marker_key, camera_key_,
+                                                       corners_f_marker[j], cal3ds2,
+                                                       logger_, true);
           }
 
           // Add the marker initial value.
@@ -132,18 +130,18 @@ namespace fvlam
       params.setRelativeErrorTol(1e-8);
       params.setAbsoluteErrorTol(1e-8);
 //      params.setVerbosity("TERMINATION");
-      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
+
+      try {
+        auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
 //      logger_.debug() << "initial error = " << graph.error(initial) << std::endl;
 //      logger_.debug() << "final error = " << graph.error(result) << std::endl;
 
-      // 5. Extract the result into a Transform3WithCovariance
-      auto t_map_camera = GtsamUtil::extract_transform3_with_covariance(graph, result, camera_key_);
+        // 5. Extract the result into a Transform3WithCovariance
+        return GtsamUtil::extract_transform3_with_covariance(graph, result, camera_key_);
 
-//      if ((t_map_camera_cv.tf().t().mu() - t_map_camera.tf().t().mu()).norm() > 0.1) {
-//        logger_.info() << "gtsam different ****";
-//      }
-
-      return t_map_camera;
+      } catch (gtsam::CheiralityException &e) {
+      }
+      return Transform3WithCovariance{};
     }
 
     // Given the corners of one marker (observation) calculate t_camera_marker.
@@ -198,13 +196,13 @@ namespace fvlam
 
           // The marker corners as seen in the image.
           auto corners_f_image = observation.to<std::vector<gtsam::Point2>>();
-          auto corners_f_map = marker_ptr->to_corners_f_world<std::vector<gtsam::Point3>>(map.marker_length());
+          auto corners_f_map = marker_ptr->corners_f_world<std::vector<gtsam::Point3>>(map.marker_length());
 
           // Add factors to the graph.
           for (size_t j = 0; j < corners_f_image.size(); j += 1) {
-            graph.emplace_shared<ResectioningFactor>(corner_noise, camera_key_, cal3ds2,
-                                                     corners_f_map[j],
-                                                     corners_f_image[j]);
+            graph.emplace_shared<ResectioningFactor>(corners_f_image[j], corner_noise,
+                                                     camera_key_, corners_f_map[j], cal3ds2,
+                                                     logger_, true);
           }
         }
       }
@@ -249,12 +247,18 @@ namespace fvlam
       params.setRelativeErrorTol(1e-8);
       params.setAbsoluteErrorTol(1e-8);
 //      params.setVerbosity("TERMINATION");
-      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
+
+      try {
+        auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
 //      logger_.debug() << "initial error = " << graph.error(initial) << std::endl;
 //      logger_.debug() << "final error = " << graph.error(result) << std::endl;
 
-      // 5. Extract the result into a TransformWithCovariance
-      return GtsamUtil::extract_transform3_with_covariance(graph, result, camera_key_);
+        // 5. Extract the result into a Transform3WithCovariance
+        return GtsamUtil::extract_transform3_with_covariance(graph, result, camera_key_);
+
+      } catch (gtsam::CheiralityException &e) {
+      }
+      return Transform3WithCovariance{};
     }
 
     // Given the corners of one marker (observation) calculate t_camera_marker.

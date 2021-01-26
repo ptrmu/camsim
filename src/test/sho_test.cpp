@@ -445,11 +445,11 @@ namespace camsim
 
       gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(1.0, 1.0));
       auto corners_f_image = observation.to<std::vector<gtsam::Point2>>();
-      auto corners_f_world = f_marker.to_corners_f_world<std::vector<gtsam::Point3>>(marker_length);
-      auto corners_f_marker = fvlam::Marker::to_corners_f_marker<std::vector<gtsam::Point3>>(marker_length);
+      auto corners_f_world = f_marker.corners_f_world<std::vector<gtsam::Point3>>(marker_length);
+      auto corners_f_marker = fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(marker_length);
 
-      auto factor = fvlam::ResectioningFactor(measurement_noise, 0, cal3ds2,
-                                              corners_f_world[0], corners_f_image[0]);
+      auto factor = fvlam::ResectioningFactor(corners_f_image[0], measurement_noise, 0,
+                                              corners_f_world[0], cal3ds2, logger);
 
       gtsam::Matrix d_point2_wrt_camera;
       factor.evaluateError(camera_pose.to<gtsam::Pose3>(),
@@ -505,10 +505,12 @@ namespace camsim
       auto corners_f_image = observation.corners_f_image();
       gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(1.0, 1.0));
 
-      auto corners_f_marker = fvlam::Marker::to_corners_f_marker<std::vector<gtsam::Point3>>(marker_length);
+      auto corners_f_marker = fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(marker_length);
 
-      auto factor = fvlam::ProjectBetweenFactor(corners_f_image[0].to<gtsam::Point2>(), measurement_noise, 0,
-                                                corners_f_marker[0], 1, cal3ds2);
+      auto factor = fvlam::ProjectBetweenFactor(corners_f_image[0].to<gtsam::Point2>(), measurement_noise,
+                                                0, 1,
+                                                corners_f_marker[0], cal3ds2,
+                                                logger);
 
       gtsam::Matrix d_point2_wrt_marker;
       gtsam::Matrix d_point2_wrt_camera;
@@ -675,6 +677,47 @@ namespace camsim
         REQUIRE(gtsam::assert_equal<double>(sigma[3] * sigma[3], cov(3, 3), 5.0e-2));
         REQUIRE(gtsam::assert_equal<double>(sigma[4] * sigma[4], cov(4, 4), 5.0e-2));
         REQUIRE(gtsam::assert_equal<double>(sigma[5] * sigma[5], cov(5, 5), 5.0e-2));
+      }
+  }
+
+  TEST_CASE("sho_test - Test covariance conversion", "[.][all]")
+  {
+    TestParams tp{};
+    fvlam::LoggerCout logger(tp.logger_level);
+
+    using Pose = fvlam::Transform3;
+    using PoseMu = fvlam::Transform3::MuVector;
+
+    std::vector<Pose> poses{
+      Pose{1 * degree, 1 * degree, 1 * degree, 2, 1, 1},
+      Pose{81 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+      Pose{79 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+      Pose{79 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+      Pose{181 * degree, 1 * degree, 1 * degree, 2, 1, 1},
+      Pose{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+      Pose{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+      Pose{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+    };
+
+    std::vector<PoseMu> sigmas{
+      (PoseMu{} << 0.1, 0.0, 0.0, 0.0, 0.0, 0.0).finished(),
+      (PoseMu{} << 0.1, 0.1, 0.0, 0.0, 0.0, 0.0).finished(),
+      (PoseMu{} << 0.1, 0.1, 0.1, 0.0, 0.0, 0.0).finished(),
+      (PoseMu{} << 0.1, 0.0, 0.0, 0.2, 0.0, 0.0).finished(),
+      (PoseMu{} << 0.1, 0.1, 0.0, 0.2, 0.2, 0.0).finished(),
+      (PoseMu{} << 0.1, 0.1, 0.1, 0.2, 0.2, 0.2).finished(),
+    };
+
+    for (auto pose : poses)
+      for (auto &sigma : sigmas) {
+
+        auto pose_gtsam = pose.to<gtsam::Pose3>();
+        auto cov = sigma * sigma.transpose();
+
+        auto cov_gtsam = fvlam::GtsamUtil::cov_gtsam_from_ros(pose_gtsam, cov);
+        auto cov_actual = fvlam::GtsamUtil::cov_ros_from_gtsam(pose_gtsam, cov_gtsam);
+
+        REQUIRE(gtsam::assert_equal<fvlam::Transform3::CovarianceMatrix>(cov, cov_actual));
       }
   }
 
