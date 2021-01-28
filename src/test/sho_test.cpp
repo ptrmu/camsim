@@ -360,10 +360,24 @@ namespace camsim
       double corner_measurement_sigma{1.0};
       bool use_marker_covariance{true};
       auto localize_camera_cv = make_localize_camera(fvlam::LocalizeCameraCvContext{}, logger);
-      auto localize_camera_project_between = make_localize_camera(
-        fvlam::LocalizeCameraProjectBetweenContext{corner_measurement_sigma, use_marker_covariance}, logger);
+
+      int gtsam_factor_resectioning{0};
       auto localize_camera_resectioning = make_localize_camera(
-        fvlam::LocalizeCameraResectioningContext{corner_measurement_sigma}, logger);
+        fvlam::LocalizeCameraGtsamFactorContext{corner_measurement_sigma,
+                                                gtsam_factor_resectioning,
+                                                use_marker_covariance}, logger);
+
+      int gtsam_factor_project_between{0};
+      auto localize_camera_project_between = make_localize_camera(
+        fvlam::LocalizeCameraGtsamFactorContext{corner_measurement_sigma,
+                                                gtsam_factor_project_between,
+                                                use_marker_covariance}, logger);
+
+      int gtsam_factor_quad_resectioning{0};
+      auto localize_camera_quad_resectioning = make_localize_camera(
+        fvlam::LocalizeCameraGtsamFactorContext{corner_measurement_sigma,
+                                                gtsam_factor_quad_resectioning,
+                                                use_marker_covariance}, logger);
 
       logger.debug() << "camera pose  " << camera_pose.to_string()
                      << "    marker pose  " << marker_pose.to_string();
@@ -395,15 +409,20 @@ namespace camsim
       logger.debug() << "              cv camera pose   " << t_map_camera_cv.tf().to_string();
       REQUIRE(camera_pose.equals(t_map_camera_cv.tf(), 1.0e-6));
 
-      auto t_map_camera_project_between = localize_camera_project_between->solve_t_map_camera(observations,
-                                                                                              camera_calibration, map);
-      logger.debug() << "  camera_project camera pose   " << t_map_camera_project_between.tf().to_string();
-      REQUIRE(camera_pose.equals(t_map_camera_project_between.tf(), 1.0e-6));
-
       auto t_map_camera_resectioning = localize_camera_resectioning->solve_t_map_camera(observations,
                                                                                         camera_calibration, map);
-      logger.debug() << "    resectioning camera pose   " << t_map_camera_resectioning.tf().to_string();
+      logger.debug() << "          resectioning camera pose   " << t_map_camera_resectioning.tf().to_string();
       REQUIRE(camera_pose.equals(t_map_camera_resectioning.tf(), 1.0e-6));
+
+      auto t_map_camera_project_between = localize_camera_project_between->solve_t_map_camera(observations,
+                                                                                              camera_calibration, map);
+      logger.debug() << "     camera_project camera pose   " << t_map_camera_project_between.tf().to_string();
+      REQUIRE(camera_pose.equals(t_map_camera_project_between.tf(), 1.0e-6));
+
+      auto t_map_camera_quad_resectioning = localize_camera_quad_resectioning->solve_t_map_camera(observations,
+                                                                                        camera_calibration, map);
+      logger.debug() << "  quad resectioning camera pose   " << t_map_camera_quad_resectioning.tf().to_string();
+      REQUIRE(camera_pose.equals(t_map_camera_quad_resectioning.tf(), 1.0e-6));
     };
 
     do_test(fvlam::Transform3::from(model.cameras_.cameras_[0]),
@@ -429,11 +448,14 @@ namespace camsim
 
     auto do_test = [
       &logger,
-      cal3ds2 = model.cameras_.calibration_,
+      &cal3ds2 = model.cameras_.calibration_,
       marker_length = model.cfg_.marker_length_]
       (const fvlam::Transform3 &camera_pose,
        const fvlam::Transform3 &marker_pose)
     {
+      // Create a shared calibration object
+      auto cal3ds2_ptr = std::make_shared<const gtsam::Cal3DS2>(cal3ds2);
+
       // Get corners_f_image
       auto project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
         cal3ds2, camera_pose, master_marker_length);
@@ -449,7 +471,7 @@ namespace camsim
       auto corners_f_marker = fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(marker_length);
 
       auto factor = fvlam::ResectioningFactor(corners_f_image[0], measurement_noise, 0,
-                                              corners_f_world[0], cal3ds2, logger);
+                                              corners_f_world[0], cal3ds2_ptr, logger);
 
       gtsam::Matrix d_point2_wrt_camera;
       factor.evaluateError(camera_pose.to<gtsam::Pose3>(),
@@ -489,11 +511,14 @@ namespace camsim
 
     auto do_test = [
       &logger,
-      cal3ds2 = model.cameras_.calibration_,
+      &cal3ds2 = model.cameras_.calibration_,
       marker_length = model.cfg_.marker_length_]
       (const fvlam::Transform3 &camera_pose,
        const fvlam::Transform3 &marker_pose)
     {
+      // Create a shared calibration object
+      auto cal3ds2_ptr = std::make_shared<const gtsam::Cal3DS2>(cal3ds2);
+
       // Get corners_f_image
       auto project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
         cal3ds2, camera_pose, master_marker_length);
@@ -509,7 +534,7 @@ namespace camsim
 
       auto factor = fvlam::ProjectBetweenFactor(corners_f_image[0].to<gtsam::Point2>(), measurement_noise,
                                                 0, 1,
-                                                corners_f_marker[0], cal3ds2,
+                                                corners_f_marker[0], cal3ds2_ptr,
                                                 logger);
 
       gtsam::Matrix d_point2_wrt_marker;
