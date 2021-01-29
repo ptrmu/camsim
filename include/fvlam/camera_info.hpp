@@ -13,7 +13,43 @@ namespace cv
   template <typename T, int N>
   class Vec;
 }
+#if 0
+class CameraInfo
+  {
+    frameid_;
+    camera_matrix_
+    dist_coeffs_;
+    t_base_camera_;
+  };
 
+class CameraInfoMap : std::map<std::string, CameraInfo>
+  {};
+
+class Observations
+  {
+    frameid_
+    stamp_
+    std::vector<Observation> observations_;
+  };
+
+class SyncedObservations : std::vector<Observatinos>
+  {
+  };
+
+SyncedObservationsStamped msg
+{
+  header_;
+  map_desription_
+  aruco_dictionary_id_;
+  marker_length_;
+  camera_info_map_;
+  observations_map_;
+};
+
+Solve_t_map_camera(CameraInfoMap, ObservationsMap, map)
+
+
+#endif
 namespace fvlam
 {
 // ==============================================================================
