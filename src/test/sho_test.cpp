@@ -344,13 +344,7 @@ namespace camsim
        const fvlam::Transform3 &marker_pose)
     {
       auto camera_calibration = fvlam::CameraInfo::from(cal3ds2);
-      auto cv_camera_calibration = camera_calibration.to<fvlam::CvCameraCalibration>();
       auto gtsam_camera_calibration = camera_calibration.to<gtsam::Cal3DS2>();
-
-      auto cv_solve_t_world_marker_function = fvlam::Marker::solve_t_world_marker(
-        cv_camera_calibration,
-        camera_pose,
-        master_marker_length);
 
       auto gtsam_project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
         gtsam_camera_calibration,
@@ -392,11 +386,12 @@ namespace camsim
       logger.debug() << "             corners_f_image " << gtsam_corners_f_image.to_string();
 
       // Given observations and camera pose, solve to find the marker pose.
-      auto cv_t_world_marker = cv_solve_t_world_marker_function(gtsam_corners_f_image);
-      logger.debug() << "              cv marker pose   " << cv_t_world_marker.t_world_marker().tf().to_string();
+      auto cv_t_world_marker = camera_pose * gtsam_corners_f_image
+        .solve_t_camera_marker(camera_calibration, master_marker_length);
+      logger.debug() << "              cv marker pose   " << cv_t_world_marker.to_string();
 
       REQUIRE(gtsam::assert_equal(f_marker.t_world_marker().tf().mu(),
-                                  cv_t_world_marker.t_world_marker().tf().mu(),
+                                  cv_t_world_marker.mu(),
                                   1.0e-6));
 
       // Given observations and marker pose, solve to find the camera pose.
@@ -420,7 +415,8 @@ namespace camsim
       REQUIRE(camera_pose.equals(t_map_camera_project_between.tf(), 1.0e-6));
 
       auto t_map_camera_quad_resectioning = localize_camera_quad_resectioning->solve_t_map_camera(observations,
-                                                                                        camera_calibration, map);
+                                                                                                  camera_calibration,
+                                                                                                  map);
       logger.debug() << "  quad resectioning camera pose   " << t_map_camera_quad_resectioning.tf().to_string();
       REQUIRE(camera_pose.equals(t_map_camera_quad_resectioning.tf(), 1.0e-6));
     };
