@@ -86,7 +86,7 @@ namespace fvlam
 
     for (auto &measurement : other) {
       auto mo{Observation::from(measurement)};
-      observations.add(mo);
+      observations.emplace_back(mo);
     }
 
     return observations;

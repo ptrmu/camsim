@@ -77,7 +77,7 @@ namespace camsim
                                                           corners_f_image_perturbed,
                                                           cfg.point2_noise_sigmas_.asDiagonal()};
 
-          observations.add(observation_perturbed);
+          observations.emplace_back(observation_perturbed);
         }
       }
       observations_perturbed_.emplace_back(observations);
