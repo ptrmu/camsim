@@ -390,14 +390,14 @@ namespace camsim
         .solve_t_camera_marker(camera_calibration, master_marker_length);
       logger.debug() << "              cv marker pose   " << cv_t_world_marker.to_string();
 
-      REQUIRE(gtsam::assert_equal(f_marker.t_world_marker().tf().mu(),
+      REQUIRE(gtsam::assert_equal(f_marker.t_map_marker().tf().mu(),
                                   cv_t_world_marker.mu(),
                                   1.0e-6));
 
       // Given observations and marker pose, solve to find the camera pose.
-      fvlam::Observations observations{};
+      fvlam::Observations observations{fvlam::Stamp{}, ""};
       observations.emplace_back(gtsam_corners_f_image);
-      fvlam::MarkerMap map{marker_length};
+      fvlam::MarkerMap map{fvlam::MapEnvironment{"", 0, marker_length}};
       map.add_marker(f_marker);
 
       auto t_map_camera_cv = localize_camera_cv->solve_t_map_camera(observations, camera_calibration, map);
@@ -766,7 +766,7 @@ namespace camsim
 
     Model model{model_config};
 
-    auto map_initial = std::make_unique<fvlam::MarkerMap>(model.cfg_.marker_length_);
+    auto map_initial = std::make_unique<fvlam::MarkerMap>(fvlam::MapEnvironment{"", 0, model.cfg_.marker_length_});
     auto marker_initial = fvlam::Marker{0, fvlam::Transform3WithCovariance{}, true};
     map_initial->add_marker(marker_initial);
 

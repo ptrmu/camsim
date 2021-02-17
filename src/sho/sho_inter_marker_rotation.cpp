@@ -82,7 +82,7 @@ namespace fvlam
   Observations Observations::from<const std::vector<camsim::MarkerMeasurement>>(
     const std::vector<camsim::MarkerMeasurement> &other)
   {
-    Observations observations{};
+    Observations observations{fvlam::Stamp{}, ""};
 
     for (auto &measurement : other) {
       auto mo{Observation::from(measurement)};
@@ -328,7 +328,7 @@ namespace camsim
   {
     auto image_measurements = load_image_measurements_from_file("../src/data/observations_sequence.json");
 
-    auto map_initial = std::make_unique<fvlam::MarkerMap>(0.21);
+    auto map_initial = std::make_unique<fvlam::MarkerMap>(fvlam::MapEnvironment{"", 0, 0.21});
     map_initial->add_marker(fvlam::Marker{
       0, fvlam::Transform3WithCovariance{}, true});
 

@@ -1,4 +1,4 @@
-
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
 
 #include "fvlam/camera_info.hpp"
 #include "fvlam/logger.hpp"
@@ -26,11 +26,13 @@ namespace fvlam
       cv::FileNode node_;
 
     public:
-      Node(FileStorageContext &cxt, cv::FileNode node)
+      Node(FileStorageContext &cxt, const cv::FileNode &node)
         : cxt_{cxt}, node_{node}
-      {}
+      {
+        (void) cxt;
+      }
 
-      Node make(cv::FileNode file_node)
+      Node make(const cv::FileNode &file_node)
       {
         return Node{cxt_, file_node};
       }
@@ -38,15 +40,17 @@ namespace fvlam
       cv::FileNode operator()()
       { return node_; }
 
-      FileStorageContext &cxt()
-      { return cxt_; }
+//      FileStorageContext &cxt()
+//      { return cxt_; }
     };
 
     explicit FileStorageContext(Logger &logger) :
       logger_{logger}
-    {}
+    {
+      (void) logger_;
+    }
 
-    Node make(cv::FileNode file_node)
+    Node make(const cv::FileNode &file_node)
     {
       return Node{*this, file_node};
     }
@@ -108,6 +112,26 @@ namespace fvlam
     other << "]";
   }
 
+  static std::string string_from_int32(int32_t val)//
+  { return std::to_string(val); } //
+  static std::string string_from_uint32(uint32_t val)//
+  { return std::to_string(val); } //
+//  static std::string string_from_int64(int64_t val)//
+//  { return std::to_string(val); } //
+  static std::string string_from_uint64(uint64_t val)//
+  { return std::to_string(val); } //
+
+  static int32_t int32_from_string(const std::string &str) //
+  { return std::stol(str); } //
+  static uint32_t uint32_from_string(const std::string &str) //
+  { return std::stoul(str); } //
+//  static int64_t int64_from_string(const std::string &str) //
+//  { return std::stoll(str); } //
+  static uint64_t uint64_from_string(const std::string &str) //
+  { return std::stoull(str); } //
+
+
+
 // ==============================================================================
 // from/to methods
 // ==============================================================================
@@ -151,17 +175,16 @@ namespace fvlam
   template<>
   Rotate3 Rotate3::from<FileStorageContext::Node>(FileStorageContext::Node &other)
   {
-    double rx = other()[0];
-    double ry = other()[1];
-    double rz = other()[2];
-    return Rotate3::RzRyRx(rx, ry, rz);
+    return Rotate3::RzRyRx(
+      double(other()[0]),
+      double(other()[1]),
+      double(other()[2]));
   }
 
   template<>
   void Rotate3::to<cv::FileStorage>(cv::FileStorage &other) const
   {
-    auto r = xyz();
-    to_1d(r, other);
+    to_1d(xyz(), other);
   }
 
   template<>
@@ -247,8 +270,9 @@ namespace fvlam
   template<>
   CameraInfo CameraInfo::from<FileStorageContext::Node>(FileStorageContext::Node &other)
   {
-    auto width = std::uint32_t(int(other()["width"]));
-    auto height = std::uint32_t(int(other()["height"]));
+    auto imager_frame_id = other()["imager_frame_id"].string();
+    auto width = uint32_from_string(other()["width"].string());
+    auto height = uint32_from_string(other()["height"].string());
 
     auto k_node = other()["k"];
     auto k_cxt = other.make(k_node);
@@ -264,15 +288,20 @@ namespace fvlam
       d_cxt()[2], d_cxt()[3],
       d_cxt()[4]).finished();
 
-    return CameraInfo{width, height, k, d};
+    auto tci_node = other()["t_camera_imager"];
+    auto tci_cxt = other.make(tci_node);
+    auto tci = Transform3::from(tci_cxt);
+
+    return CameraInfo{imager_frame_id, width, height, k, d, tci};
   }
 
   template<>
   void CameraInfo::to<cv::FileStorage>(cv::FileStorage &other) const
   {
     other << "{";
-    other << "width" << int(width_);
-    other << "height" << int(height_);
+    other << "imager_frame_id" << imager_frame_id_;
+    other << "width" << string_from_uint32(width_);
+    other << "height" << string_from_uint32(height_);
     other << "k" << "["
           << camera_matrix_(0, 0) << camera_matrix_(1, 1)
           << camera_matrix_(0, 1)
@@ -281,19 +310,22 @@ namespace fvlam
           << dist_coeffs_(0) << dist_coeffs_(1)
           << dist_coeffs_(2) << dist_coeffs_(3)
           << dist_coeffs_(4) << "]";
+    other << "t_camera_imager";
+    t_camera_imager_.to(other);
     other << "}";
   }
 
   template<>
   Marker Marker::from<FileStorageContext::Node>(FileStorageContext::Node &other)
   {
-    int id = other()["id"];
-    int fixed = other()["f"];
+    // There are two formats for the serialization of markers. The original format
+    // writes the ID as an integer.
 
-    // There are two formats for the serialization of markers. The original format does
-    // not write the data in a hierarchical format. Look for that format here:
-    auto xyz_node = other()["xyz"];
-    if (!xyz_node.empty()) {
+    auto id_node = other()["id"];
+    if (id_node.type() == cv::FileNode::INT) {
+      int id = int(id_node);
+      int fixed = int(other()["f"]);
+
       auto t_node = other()["xyz"];
       auto t_context = other.make(t_node);
       auto t = Translate3::from(t_context);
@@ -306,7 +338,9 @@ namespace fvlam
     }
 
     // Otherwise use the hierarchical format
-    auto twc_node = other()["t_world_marker"];
+    std::uint64_t id = uint64_from_string(id_node.string());
+    int fixed = int(other()["f"]);
+    auto twc_node = other()["t_map_marker"];
     auto twc_context = other.make(twc_node);
     auto twc = Transform3WithCovariance::from(twc_context);
 
@@ -317,18 +351,50 @@ namespace fvlam
   void Marker::to<cv::FileStorage>(cv::FileStorage &other) const
   {
     other << "{";
-    other << "id" << int(id_);
+    other << "id" << string_from_uint64(id_);
     other << "f" << (is_fixed_ ? 1 : 0);
-    other << "t_world_marker";
-    t_world_marker_.to(other);
+    other << "t_map_marker";
+    t_map_marker_.to(other);
+    other << "}";
+  }
+
+  template<>
+  MapEnvironment MapEnvironment::from<FileStorageContext::Node>(FileStorageContext::Node &other)
+  {
+    auto description = other()["desc"].string();
+    auto marker_dictionary_id = int(other()["dict"]);
+    auto marker_length = double(other()["mlen"]);
+    return MapEnvironment{description, marker_dictionary_id, marker_length};
+  }
+
+  template<>
+  void MapEnvironment::to<cv::FileStorage>(cv::FileStorage &other) const
+  {
+    other << "{";
+    other << "desc" << description_;
+    other << "dict" << marker_dictionary_id_;
+    other << "mlen" << marker_length_;
     other << "}";
   }
 
   template<>
   MarkerMap MarkerMap::from<FileStorageContext::Node>(FileStorageContext::Node &other)
   {
-    double marker_length = other()["marker_length"];
-    MarkerMap map{marker_length};
+    MarkerMap map{};
+
+    // The old format has the marker_length here
+    auto ml_node = other()["marker_length"];
+    if (!ml_node.empty()) {
+      auto marker_length = double(ml_node);
+      map = MarkerMap{MapEnvironment{"", 0, marker_length}};
+
+    } else {
+      // The new format has the marker_length in the map_environment
+      auto me_node = other()["me"];
+      auto me_context = other.make(me_node);
+      auto me = MapEnvironment::from(me_context);
+      map = MarkerMap{me};
+    }
 
     auto markers_node = other()["markers"];
     for (auto it = markers_node.begin(); it != markers_node.end(); ++it) {
@@ -344,13 +410,14 @@ namespace fvlam
   void MarkerMap::to<cv::FileStorage>(cv::FileStorage &other) const
   {
     other << "{";
-    other << "marker_length" << marker_length();
-    other << "markers" << "[";
 
-    for (auto &marker : markers_) {
+    other << "me";
+    map_environment_.to(other);
+
+    other << "markers" << "[";
+    for (auto &marker : *this) {
       marker.second.to(other);
     }
-
     other << "]";
     other << "}";
   }
@@ -363,7 +430,7 @@ namespace fvlam
       return Observation{};
     }
 
-    auto id = std::uint64_t(int(other()["id"]));
+    auto id = uint64_from_string(other()["id"].string());
 
     auto corners_node = other.make(other()["corners"]);
     auto corner0_node = other.make(corners_node()[0]);
@@ -388,26 +455,46 @@ namespace fvlam
   {
     other << "{";
     other << "is_valid" << is_valid_;
-    other << "id" << int(id_);
-    other << "corners" << "[";
-    corners_f_image_[0].to(other);
-    corners_f_image_[1].to(other);
-    corners_f_image_[2].to(other);
-    corners_f_image_[3].to(other);
-    other << "]";
-    other << "cov";
-    Element::cov_to(cov_, other);
+    if (is_valid()) {
+      other << "id" << string_from_uint64(id_);
+      other << "corners" << "[";
+      corners_f_image_[0].to(other);
+      corners_f_image_[1].to(other);
+      corners_f_image_[2].to(other);
+      corners_f_image_[3].to(other);
+      other << "]";
+      other << "cov";
+      Element::cov_to(cov_, other);
+    }
+    other << "}";
+  }
+
+  template<>
+  Stamp Stamp::from<FileStorageContext::Node>(FileStorageContext::Node &other)
+  {
+    std::int32_t s = int32_from_string(other()["s"].string());
+    std::uint32_t ns = uint32_from_string(other()["ns"].string());
+    return Stamp{s, ns};
+  }
+
+  template<>
+  void Stamp::to<cv::FileStorage>(cv::FileStorage &other) const
+  {
+    other << "{";
+    other << "s" << string_from_int32(sec_);
+    other << "ns" << string_from_uint32(nanosec_);
     other << "}";
   }
 
   template<>
   Observations Observations::from<FileStorageContext::Node>(FileStorageContext::Node &other)
   {
-    int stamp_lo = other()["stamp_lo"];
-    int stamp_hi = other()["stamp_hi"];
-    std::uint64_t stamp = (std::uint64_t(stamp_hi) << 32) + std::uint64_t(stamp_lo);
+    std::string imager_frame_id = other()["imager_frame_id"].string();
+    auto stamp_node = other()["stamp"];
+    auto stamp_context = other.make(stamp_node);
+    auto stamp = Stamp::from(stamp_context);
+    Observations observations{stamp, imager_frame_id};
 
-    Observations observations{stamp};
     auto observations_node = other()["observations"];
     for (auto it = observations_node.begin(); it != observations_node.end(); ++it) {
       auto observation_context = other.make(*it);
@@ -422,8 +509,9 @@ namespace fvlam
   void Observations::to<cv::FileStorage>(cv::FileStorage &other) const
   {
     other << "{";
-    other << "stamp_lo" << int(stamp_ & UINT32_MAX);
-    other << "stamp_hi" << int(stamp_ >> 32 & UINT32_MAX);
+    other << "imager_frame_id" << imager_frame_id_;
+    other << "stamp";
+    stamp_.to(other);
     other << "observations" << "[";
 
     for (auto &observation : *this) {
@@ -510,7 +598,7 @@ namespace fvlam
     cv::FileStorage fs(filename, cv::FileStorage::READ | cv::FileStorage::FORMAT_YAML);
     if (!fs.isOpened()) {
       logger.error() << "Could not open MarkerMap file :" << filename;
-      return MarkerMap{0.0};
+      return MarkerMap{};
     }
 
     FileStorageContext context{logger};
@@ -518,7 +606,7 @@ namespace fvlam
     auto marker_map_node = root_node.make(root_node()["marker_map"]);
 
     auto map = MarkerMap::from(marker_map_node().empty() ? root_node : marker_map_node);
-    return context.success() ? map : MarkerMap{0.0};
+    return context.success() ? map : MarkerMap{};
   }
 
 
@@ -543,7 +631,7 @@ namespace fvlam
     cv::FileStorage fs(filename, cv::FileStorage::READ | cv::FileStorage::FORMAT_YAML);
     if (!fs.isOpened()) {
       logger.error() << "Could not open ObservationsBundles file :" << filename;
-      return ObservationsBundles{MarkerMap{0.0}};
+      return ObservationsBundles{MarkerMap{}};
     }
 
     FileStorageContext context{logger};
@@ -551,6 +639,6 @@ namespace fvlam
     auto observations_bundles_node = root_node.make(root_node()["observations_bundles"]);
 
     auto map = ObservationsBundles::from(observations_bundles_node);
-    return context.success() ? map : ObservationsBundles{MarkerMap{0.0}};
+    return context.success() ? map : ObservationsBundles{MarkerMap{}};
   }
 }

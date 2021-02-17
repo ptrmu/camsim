@@ -10,6 +10,47 @@
 
 namespace fvlam
 {
+  class CameraInfo;
+
+// ==============================================================================
+// Stamp class
+// ==============================================================================
+
+// A time class modeled after the ROS2 message stamp class
+  class Stamp
+  {
+    std::int32_t sec_;
+    std::uint32_t nanosec_;
+
+  public:
+    Stamp() :
+      Stamp(0, 0)
+    {}
+
+    Stamp(std::int32_t sec, std::uint32_t nanosec) :
+      sec_{sec}, nanosec_{nanosec}
+    {}
+
+    auto sec() const
+    { return sec_; }
+
+    auto nanosec() const
+    { return nanosec_; }
+
+    template<class T>
+    static Stamp from(T &other);
+
+    template<class T>
+    T to() const;
+
+    template<class T>
+    void to(T &other) const;
+
+    std::string to_string() const;
+
+    bool equals(const Stamp &other, double tol = 1.0e-9, bool check_relative_also = true) const;
+  };
+
 // ==============================================================================
 // Observation class
 // ==============================================================================
@@ -108,13 +149,19 @@ namespace fvlam
 
   class Observations : public std::vector<Observation>
   {
-    std::uint64_t stamp_; // Same as image_raw
-    std::string frame_id_; // The frame id of the camera that produced the image that these observations came from.
+    Stamp stamp_; // Same as image_raw
+    std::string imager_frame_id_; // One or more imagers are components of a camera.
 
   public:
-    explicit Observations(std::uint64_t stamp = 0) :
-      stamp_(stamp), frame_id_{}
+    Observations(Stamp stamp, std::string imager_frame_id) :
+      stamp_(stamp), imager_frame_id_{std::move(imager_frame_id)}
     {}
+
+    auto &stamp() const
+    { return stamp_; }
+
+    auto &imager_frame_id() const
+    { return imager_frame_id_; }
 
     template<typename T>
     static Observations from(T &other);
@@ -136,13 +183,19 @@ namespace fvlam
 
   class ObservationsSynced : public std::vector<Observations>
   {
-    std::uint64_t stamp_; // The average of the image raw stamps.
-    std::string frame_id_; // Of the base of the group of cameras.
+    Stamp stamp_; // The stamp for the synced observations.
+    std::string camera_frame_id_; // A camera ahs one of more imagers..
 
   public:
-    explicit ObservationsSynced(std::uint64_t stamp = 0) :
-      stamp_(stamp), frame_id_{}
+    ObservationsSynced(Stamp stamp, std::string camera_frame_id) :
+      stamp_(stamp), camera_frame_id_{std::move(camera_frame_id)}
     {}
+
+    auto &stamp() const
+    { return stamp_; }
+
+    auto &camera_frame_id() const
+    { return camera_frame_id_; }
 
     template<typename T>
     static ObservationsSynced from(T &other);

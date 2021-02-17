@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "observation.hpp"
 #include "transform3_with_covariance.hpp"
 
 namespace rclcpp
@@ -23,9 +24,8 @@ namespace fvlam
 {
   class Logger; //
   class CameraInfo; //
+  class CameraInfoMap; //
   class MarkerMap; //
-  class Observation; //
-  class Observations; //
 
 // ==============================================================================
 // BuildMarkerMapInterface class
@@ -41,6 +41,12 @@ namespace fvlam
     // markers, figure out the camera pose in the world frame.
     virtual Transform3WithCovariance solve_t_map_camera(const Observations &observations,
                                                         const CameraInfo &camera_info,
+                                                        const MarkerMap &map) = 0;
+
+    // Given observations of fiducial markers and a map of world locations of those
+    // markers, figure out the bass pose in the world frame.
+    virtual Transform3WithCovariance solve_t_map_camera(const ObservationsSynced &observations_synced,
+                                                        const CameraInfoMap &camera_info_map,
                                                         const MarkerMap &map) = 0;
   };
 
@@ -93,7 +99,9 @@ namespace fvlam
     virtual ~FiducialMarkerInterface() = default;
 
     // Look for fiducial markers in a gray image.
-    virtual Observations detect_markers(cv::Mat &gray_image) = 0;
+    virtual Observations detect_markers(cv::Mat &gray_image,
+                                        const std::string &camera_frame_id,
+                                        const Stamp &stamp) = 0;
 
     // Draw the boundary around detected markers.
     virtual void annotate_image_with_detected_markers(cv::Mat &color_image,

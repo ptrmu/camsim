@@ -41,7 +41,6 @@ namespace camsim
       // Create the perturbed camera
       auto t_world_camera_perturbed = fvlam::Transform3WithCovariance{
         fvlam::Transform3{
-          m_camera.index(),
           fvlam::Transform3::from<const gtsam::Pose3>(m_camera.camera_f_world_.retract(pose3_sampler.sample()))},
         cfg.pose3_noise_sigmas_.asDiagonal()};
       t_world_cameras_perturbed_.emplace_back(t_world_camera_perturbed);
@@ -51,14 +50,13 @@ namespace camsim
                                                                     fvlam::Transform3::from(m_camera),
                                                                     model_.cfg_.marker_length_);
 
-      fvlam::Observations observations{};
+      fvlam::Observations observations{fvlam::Stamp{}, ""};
       for (auto &m_marker : model_.markers_.markers_) {
         // Create the perturbed marker
         auto t_world_marker_perturbed = fvlam::Marker{
           m_marker.index(),
           fvlam::Transform3WithCovariance{
             fvlam::Transform3{
-              m_marker.index(),
               fvlam::Transform3::from<const gtsam::Pose3>(m_marker.marker_f_world_.retract(pose3_sampler.sample()))},
             cfg.pose3_noise_sigmas_.asDiagonal()}};
         markers_perturbed_.emplace_back(t_world_marker_perturbed);

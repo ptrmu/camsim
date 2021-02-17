@@ -56,7 +56,7 @@ namespace camsim
   {
     std::vector<MapAndError> solved_maps{};
 
-    auto map_initial = std::make_unique<fvlam::MarkerMap>(model.cfg_.marker_length_);
+    auto map_initial = std::make_unique<fvlam::MarkerMap>(fvlam::MapEnvironment{"", 0, model.cfg_.marker_length_});
     map_initial->add_marker(fvlam::Marker{
       0,
       fvlam::Transform3WithCovariance{fvlam::Transform3::from(model.markers_.markers_[0].marker_f_world_)},
@@ -116,7 +116,7 @@ namespace camsim
       if (it != nullptr) {
         n += 1;
         auto model_mu = fvlam::Transform3::from(m_marker.marker_f_world_).mu();
-        auto solve_mu = it->t_world_marker().tf().mu();
+        auto solve_mu = it->t_map_marker().tf().mu();
         r_error_sq_accum += (model_mu.head<3>() - solve_mu.head<3>()).cwiseAbs().sum() / 3.;
         t_error_sq_accum += (model_mu.tail<3>() - solve_mu.tail<3>()).cwiseAbs().sum() / 3.;
       }
@@ -134,9 +134,9 @@ namespace camsim
           logger.debug() << "  " << it->to_string();
 
           REQUIRE(gtsam::assert_equal(fvlam::Transform3::from(m_marker.marker_f_world_).r().rotation_matrix(),
-                                      it->t_world_marker().tf().r().rotation_matrix(), tolerance));
+                                      it->t_map_marker().tf().r().rotation_matrix(), tolerance));
           REQUIRE(gtsam::assert_equal(fvlam::Transform3::from(m_marker.marker_f_world_).t().mu(),
-                                      it->t_world_marker().tf().t().mu(), tolerance));
+                                      it->t_map_marker().tf().t().mu(), tolerance));
         }
       }
 

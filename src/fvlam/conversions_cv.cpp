@@ -81,7 +81,7 @@ namespace fvlam
   }
 
 // ==============================================================================
-// from fvlam/marker_map.hpp
+// from fvlam/marker.hpp
 // ==============================================================================
 
   template<>
@@ -154,24 +154,6 @@ namespace fvlam
     });
   }
 
-  template<>
-  Observations Observations::from<std::pair<std::vector<int>, std::vector<std::vector<cv::Point2f>>>>(
-    std::pair<std::vector<int>, std::vector<std::vector<cv::Point2f>>> &other)
-  {
-    auto &ids = other.first;
-    auto &corners = other.second;
-
-    Observations observations;
-    for (size_t i = 0; i < ids.size(); i += 1) {
-      observations.emplace_back(Observation(ids[i],
-                                            corners[i][0].x, corners[i][0].y,
-                                            corners[i][1].x, corners[i][1].y,
-                                            corners[i][2].x, corners[i][2].y,
-                                            corners[i][3].x, corners[i][3].y));
-    }
-    return observations;
-  }
-
   Transform3 Observation::solve_t_camera_marker(const CameraInfo &camera_info, double marker_length) const
   {
     auto camera_calibration = camera_info.to<CvCameraCalibration>();
@@ -199,7 +181,7 @@ namespace fvlam
 
   Transform3 Observation::solve_t_base_marker(const CameraInfo &camera_info, double marker_length) const
   {
-    return camera_info.t_base_camera() * solve_t_camera_marker(camera_info, marker_length);
+    return camera_info.t_camera_imager() * solve_t_camera_marker(camera_info, marker_length);
   }
 
   Transform3 Observation::solve_t_marker_base(const CameraInfo &camera_info, double marker_length) const

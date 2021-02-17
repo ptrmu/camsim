@@ -27,6 +27,26 @@ namespace fvlam
       lc_context_{lc_context}, logger_{logger}
     {}
 
+    Transform3WithCovariance solve_t_map_camera(const ObservationsSynced &observations_synced,
+                                                const CameraInfoMap &camera_info_map,
+                                                const MarkerMap &map) override
+    {
+      if (observations_synced.size() == 1) {
+        auto &observations = observations_synced[0];
+        auto ci = camera_info_map.find(observations.imager_frame_id());
+        if (ci != camera_info_map.end()) {
+          auto &camera_info = ci->second;
+          auto t_map_camera = solve_t_map_camera(observations, camera_info, map);
+          if (t_map_camera.is_valid()) {
+            return Transform3WithCovariance{
+              t_map_camera.tf() * camera_info.t_camera_imager().inverse(),
+              t_map_camera.cov()};
+          }
+        }
+      }
+      return Transform3WithCovariance{};
+    }
+
     // Given observations of fiducial markers and a map of world locations of those
     // markers, figure out the camera pose in the world frame.
     Transform3WithCovariance solve_t_map_camera(const Observations &observations,
@@ -132,7 +152,9 @@ namespace fvlam
     {}
 
     // Look for fiducial markers in a gray image.
-    Observations detect_markers(cv::Mat &gray_image) override
+    Observations detect_markers(cv::Mat &gray_image,
+                                const std::string &frame_id,
+                                const Stamp &stamp) override
     {
       auto detectorParameters = cv::aruco::DetectorParameters::create();
 
@@ -148,8 +170,15 @@ namespace fvlam
       cv::aruco::detectMarkers(gray_image, localization_aruco_dictionary_, corners, ids, detectorParameters);
 
       // return the corners as an observations structure.
-      std::pair<std::vector<int>, std::vector<std::vector<cv::Point2f>>> args{ids, corners};
-      return fvlam::Observations::from(args);
+      auto observations = fvlam::Observations{stamp, frame_id};
+      for (size_t i = 0; i < ids.size(); i += 1) {
+        observations.emplace_back(Observation(ids[i],
+                                              corners[i][0].x, corners[i][0].y,
+                                              corners[i][1].x, corners[i][1].y,
+                                              corners[i][2].x, corners[i][2].y,
+                                              corners[i][3].x, corners[i][3].y));
+      }
+      return observations;
     }
 
     // Draw the boundary around detected markers.

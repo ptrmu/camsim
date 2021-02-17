@@ -37,7 +37,7 @@ namespace camsim
   TEST_CASE("file storage test - save MarkerMap", "[.][all]")
   {
     fvlam::LoggerCout logger{fvlam::Logger::level_info};
-    fvlam::MarkerMap map{0.321};
+    fvlam::MarkerMap map{fvlam::MapEnvironment{"", 0, 0.321}};
     map.add_marker(fvlam::Marker{});
     map.add_marker(fvlam::Marker{3, fvlam::Transform3WithCovariance{
       fvlam::Transform3{fvlam::Rotate3::RzRyRx(0.1, 0.2, 0.3), fvlam::Translate3{1, 2, 3}}}, true});
@@ -71,7 +71,7 @@ namespace camsim
     BuildMarkerMapRunner bmm_runner{model, runner_config};
 
 
-    auto map = fvlam::MarkerMap{0.321};
+    auto map = fvlam::MarkerMap{fvlam::MapEnvironment{"", 0, 0.321}};
     map.add_marker(fvlam::Marker{});
     map.add_marker(fvlam::Marker{2, fvlam::Transform3WithCovariance{
       fvlam::Transform3{fvlam::Rotate3::RzRyRx(0.1, 0.2, 0.3),
@@ -120,7 +120,7 @@ namespace camsim
     BuildMarkerMapRunner bmm_runner{model, runner_config};
 
 
-    auto map = fvlam::MarkerMap{0.321};
+    auto map = fvlam::MarkerMap{fvlam::MapEnvironment{"", 0, 0.321}};
     map.add_marker(fvlam::Marker{});
     map.add_marker(fvlam::Marker{2, fvlam::Transform3WithCovariance{
       fvlam::Transform3{fvlam::Rotate3::RzRyRx(0.1, 0.2, 0.3),

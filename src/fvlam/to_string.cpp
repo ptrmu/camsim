@@ -92,7 +92,7 @@ namespace fvlam
 // ==============================================================================
 
 // ==============================================================================
-// from fvlam/marker_map.hpp
+// from fvlam/marker.hpp
 // ==============================================================================
 
   std::string Marker::to_string(bool also_cov) const
@@ -102,9 +102,9 @@ namespace fvlam
     NumFmt nf(9, 3);
 
     if (also_cov) {
-      ss << nf(id_) << std::endl << t_world_marker_.to_string();
+      ss << nf(id_) << std::endl << t_map_marker_.to_string();
     } else {
-      ss << nf(id_) << t_world_marker_.tf().to_string();
+      ss << nf(id_) << t_map_marker_.tf().to_string();
     }
     return ss.str();
   }
@@ -143,7 +143,7 @@ namespace fvlam
     bool first{true};
 
     // Assume a map keeps items sorted
-    for (auto &kvp : markers_) {
+    for (auto &kvp : *this) {
       ss << (first ? "" : "\n") << "marker id:" << kvp.second.to_string(also_cov);
       first = false;
     }
@@ -178,7 +178,7 @@ namespace fvlam
 
   std::string ObservationsBundles::to_string(bool also_cov) const
   {
-    (void)also_cov;
+    (void) also_cov;
     std::stringstream ss{};
     NumFmt nf(9, 3);
 
@@ -223,9 +223,9 @@ namespace fvlam
     return to_row_str(xyz());
   }
 
-  std::string Transform3::to_string(bool also_id) const
+  std::string Transform3::to_string() const
   {
-    return (also_id ? to_id_str(id_) + "\n" : "") + r_.to_string() + " " + t_.to_string();
+    return r_.to_string() + " " + t_.to_string();
   }
 
   std::string Transform3::cov_to_string(const Transform3::CovarianceMatrix &cov)
@@ -397,14 +397,22 @@ namespace fvlam
   {
     return id_ == other.id_ &&
            is_fixed_ == other.is_fixed_ &&
-           t_world_marker_.equals(other.t_world_marker_, tol, check_relative_also);
+           t_map_marker_.equals(other.t_map_marker_, tol, check_relative_also);
+  }
+
+  bool MapEnvironment::equals(const MapEnvironment &other,
+                              double tol, bool check_relative_also) const
+  {
+    return description_ == other.description_ &&
+           marker_dictionary_id_ == other.marker_dictionary_id_ &&
+           test_double(marker_length_, other.marker_length_, tol, check_relative_also);
   }
 
   bool MarkerMap::equals(const MarkerMap &other,
                          double tol, bool check_relative_also) const
   {
-    return test_double(marker_length_, other.marker_length_, tol, check_relative_also) &&
-           equals_map(markers_, other.markers_, tol, check_relative_also);
+    return map_environment_.equals(other.map_environment_, tol, check_relative_also) &&
+           equals_map(*this, other, tol, check_relative_also);
   }
 
   bool Observation::equals(const Observation &other,
@@ -419,10 +427,20 @@ namespace fvlam
            Translate2::cov_equals(cov_, other.cov_, tol, check_relative_also);
   }
 
+  bool Stamp::equals(const Stamp &other,
+                     double tol, bool check_relative_also) const
+  {
+    (void) tol;
+    (void) check_relative_also;
+    return sec_ == other.sec_ &&
+           nanosec_ == other.nanosec_;
+  }
+
   bool Observations::equals(const Observations &other,
                             double tol, bool check_relative_also) const
   {
-    return stamp_ == other.stamp_ &&
+    return imager_frame_id_ == other.imager_frame_id_ &&
+           stamp_.equals(other.stamp_, tol, check_relative_also) &&
            equals_vector(*this, other, tol, check_relative_also);
   }
 

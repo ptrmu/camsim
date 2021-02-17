@@ -34,7 +34,7 @@ namespace fvlam
     std::uint64_t id_;
 
     // The pose of the marker in some world frame. Which frame is world depends on the context.
-    Transform3WithCovariance t_world_marker_;
+    Transform3WithCovariance t_map_marker_;
 
     // Prevent modification if true
     bool is_fixed_{false};
@@ -78,23 +78,23 @@ namespace fvlam
     inline Array3 calc_corners3_f_world(double marker_length) const
     {
       auto corners_f_marker = calc_corners3_f_marker(marker_length);
-      return Array3{t_world_marker_.tf() * corners_f_marker[0],
-                    t_world_marker_.tf() * corners_f_marker[1],
-                    t_world_marker_.tf() * corners_f_marker[2],
-                    t_world_marker_.tf() * corners_f_marker[3]};
+      return Array3{t_map_marker_.tf() * corners_f_marker[0],
+                    t_map_marker_.tf() * corners_f_marker[1],
+                    t_map_marker_.tf() * corners_f_marker[2],
+                    t_map_marker_.tf() * corners_f_marker[3]};
     }
 
   public:
     Marker() :
-      id_(0), t_world_marker_(), is_fixed_(false)
+      id_(0), t_map_marker_(), is_fixed_(false)
     {}
 
-    Marker(std::uint64_t id, Transform3WithCovariance t_world_marker, bool is_fixed = false) :
-      id_(id), t_world_marker_(std::move(t_world_marker)), is_fixed_(is_fixed)
+    Marker(std::uint64_t id, Transform3WithCovariance t_map_marker, bool is_fixed = false) :
+      id_(id), t_map_marker_(std::move(t_map_marker)), is_fixed_(is_fixed)
     {}
 
     auto is_valid() const
-    { return t_world_marker_.is_valid(); }
+    { return t_map_marker_.is_valid(); }
 
     auto id() const
     { return id_; }
@@ -102,8 +102,8 @@ namespace fvlam
     auto is_fixed() const
     { return is_fixed_; }
 
-    const auto &t_world_marker() const
-    { return t_world_marker_; }
+    const auto &t_map_marker() const
+    { return t_map_marker_; }
 
     template<class T>
     static Marker from(T &other);
@@ -146,26 +146,74 @@ namespace fvlam
   };
 
 // ==============================================================================
+// MapEnvironment class
+// ==============================================================================
+
+  class MapEnvironment
+  {
+    std::string description_;
+    int marker_dictionary_id_;
+    double marker_length_;
+
+  public:
+    MapEnvironment() :
+      description_{}, marker_dictionary_id_{0}, marker_length_{0.0}
+    {}
+
+    MapEnvironment(std::string description,
+                   int marker_dictionary_id,
+                   double marker_length) :
+      description_{std::move(description)},
+      marker_dictionary_id_{marker_dictionary_id},
+      marker_length_{marker_length}
+    {}
+
+    const auto &description() const
+    { return description_; }
+
+    const auto &marker_dictionary_id() const
+    { return marker_dictionary_id_; }
+
+    const auto &marker_length() const
+    { return marker_length_; }
+
+    template<class T>
+    static MapEnvironment from(T &other);
+
+    template<class T>
+    T to() const;
+
+    template<class T>
+    void to(T &other) const;
+
+    std::string to_string(bool also_cov = false) const;
+
+    bool equals(const MapEnvironment &other, double tol = 1.0e-9, bool check_relative_also = true) const;
+
+  };
+
+// ==============================================================================
 // MarkerMap class
 // ==============================================================================
 
-  class MarkerMap
+  class MarkerMap : public std::map<std::uint64_t, Marker>
   {
-    double marker_length_;
-    std::map<std::uint64_t, Marker> markers_;
+    MapEnvironment map_environment_;
 
   public:
-    MarkerMap() = delete;
-
-    explicit MarkerMap(double marker_length) :
-      marker_length_{marker_length}, markers_{}
+    explicit MarkerMap() :
+      map_environment_{}
     {}
 
-    const auto &markers() const
-    { return markers_; }
+    explicit MarkerMap(MapEnvironment map_environment) :
+      map_environment_{std::move(map_environment)}
+    {}
+
+    const auto &map_environment() const
+    { return map_environment_; }
 
     auto marker_length() const
-    { return marker_length_; }
+    { return map_environment_.marker_length(); }
 
     template<class T>
     static MarkerMap from(T &other);
@@ -182,23 +230,20 @@ namespace fvlam
 
     Marker *find_marker(int id)
     {
-      auto marker_pair = markers_.find(id);
-      return marker_pair == markers_.end() ? nullptr : &marker_pair->second;
+      auto marker_pair = this->find(id);
+      return marker_pair == this->end() ? nullptr : &marker_pair->second;
     }
 
     const Marker *find_marker_const(std::uint64_t id) const
     {
-      auto marker_pair = markers_.find(id);
-      return marker_pair == markers_.end() ? nullptr : &marker_pair->second;
+      auto marker_pair = this->find(id);
+      return marker_pair == this->end() ? nullptr : &marker_pair->second;
     }
 
     void add_marker(Marker marker)
     {
-      markers_.emplace(marker.id(), std::move(marker));
+      this->emplace(marker.id(), std::move(marker));
     }
-
-    bool empty() const
-    { return markers_.empty(); }
 
     void save(const std::string &filename, Logger &logger) const; //
     static MarkerMap load(const std::string &filename, Logger &logger); //
