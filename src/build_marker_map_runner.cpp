@@ -50,7 +50,7 @@ namespace camsim
                                                                     fvlam::Transform3::from(m_camera),
                                                                     model_.cfg_.marker_length_);
 
-      fvlam::Observations observations{fvlam::Stamp{}, ""};
+      fvlam::Observations observations{""};
       for (auto &m_marker : model_.markers_.markers_) {
         // Create the perturbed marker
         auto t_world_marker_perturbed = fvlam::Marker{

@@ -82,7 +82,7 @@ namespace fvlam
   Observations Observations::from<const std::vector<camsim::MarkerMeasurement>>(
     const std::vector<camsim::MarkerMeasurement> &other)
   {
-    Observations observations{fvlam::Stamp{}, ""};
+    Observations observations{""};
 
     for (auto &measurement : other) {
       auto mo{Observation::from(measurement)};
