@@ -4,7 +4,7 @@
 #include "fvlam/logger.hpp"
 #include "fvlam/marker.hpp"
 #include "fvlam/observation.hpp"
-#include "fvlam/observations_bundle.hpp"
+#include "fvlam/observations_series.hpp"
 #include "fvlam/transform3_with_covariance.hpp"
 #include "../../src/build_marker_map_runner.hpp"
 #include "../../src/model.hpp"
@@ -48,7 +48,7 @@ namespace camsim
     REQUIRE(map.equals(loaded_map));
   }
 
-  TEST_CASE("file storage test - save ObservationsBundles", "[.][all]")
+  TEST_CASE("file storage test - save ObservationsSeries", "[.][all]")
   {
     fvlam::LoggerCout logger{fvlam::Logger::Levels::level_debug};
 
@@ -83,18 +83,23 @@ namespace camsim
                                  false});
 
 
-    fvlam::ObservationsBundles bundles{map};
     auto camera_info = fvlam::CameraInfo::from(model.cameras_.calibration_);
+    auto camera_info_map = fvlam::CameraInfoMap{};
+    camera_info_map.emplace(camera_info.imager_frame_id(), camera_info);
+
+    auto observations_series = fvlam::ObservationsSeries{map, camera_info_map};
 
     for (auto &observations : bmm_runner.observations_perturbed()) {
-      fvlam::ObservationsBundle bundle{camera_info, observations};
-      bundles.add_bundle(bundle);
+      auto observations_synched = fvlam::ObservationsSynced{fvlam::Stamp{}, "camera"};
+      observations_synched.emplace_back(observations);
+      observations_series.v_mutable().emplace_back(observations_synched);
     }
 
-    bundles.save("observations_bundles", logger);
-    auto loaded_bundles = fvlam::ObservationsBundles::load("observations_bundles", logger);
-    REQUIRE(true == bundles.equals(loaded_bundles));
-    logger.debug() << loaded_bundles.to_string();
+    auto filename = std::string("observations_series");
+    observations_series.save(filename, logger);
+    auto loaded_series = fvlam::ObservationsSeries::load(filename, logger);
+    REQUIRE(true == observations_series.equals(loaded_series));
+    logger.debug() << loaded_series.to_string();
   }
 
   TEST_CASE("file storage test - build_marker_map_recorder", "[.][all]")
@@ -131,25 +136,28 @@ namespace camsim
                         fvlam::Translate3{1, 2, 3}}},
                                  false});
 
-    // Use the recorder to record observations bundles
+    // Use the recorder to record observations series
     auto bmm_recorder_context = fvlam::BuildMarkerMapRecorderContext::from<const std::string>(
       std::string{"bmm_recorder"});
     auto bmm_recorder = make_build_marker_map(bmm_recorder_context, logger, map);
     auto built_map = bmm_runner(*bmm_recorder);
     bmm_recorder.reset(nullptr); // releasing the recorder closes the file
 
-    // Create a bundles from the runner
-    fvlam::ObservationsBundles bundles{map};
     auto camera_info = fvlam::CameraInfo::from(model.cameras_.calibration_);
+    auto camera_info_map = fvlam::CameraInfoMap{};
+    camera_info_map.emplace(camera_info.imager_frame_id(), camera_info);
+
+    auto observations_series = fvlam::ObservationsSeries{map, camera_info_map};
 
     for (auto &observations : bmm_runner.observations_perturbed()) {
-      fvlam::ObservationsBundle bundle{camera_info, observations};
-      bundles.add_bundle(bundle);
+      auto observations_synched = fvlam::ObservationsSynced{fvlam::Stamp{}, "camera"};
+      observations_synched.emplace_back(observations);
+      observations_series.v_mutable().emplace_back(observations_synched);
     }
 
-    // Compare the bundles recorded by the recorder with the bundles created directly from the recorder.
-    auto loaded_bundles = fvlam::ObservationsBundles::load("bmm_recorder", logger);
-    REQUIRE(true == bundles.equals(loaded_bundles));
-    logger.debug() << loaded_bundles.to_string();
+    // Compare the series recorded by the recorder with the series created directly from the model.
+    auto loaded_series = fvlam::ObservationsSeries::load("bmm_recorder", logger);
+    REQUIRE(true == observations_series.equals(loaded_series));
+    logger.debug() << loaded_series.to_string();
   }
 }

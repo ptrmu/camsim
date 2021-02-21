@@ -346,7 +346,11 @@ namespace camsim
     for (auto &image_measurement : image_measurements) {
       auto &measurements = image_measurement.measurements();
       auto observations{fvlam::Observations::from(measurements)};
-      map_builder->process(observations, image_measurement.camera_info());
+      auto observations_synced = fvlam::ObservationsSynced{fvlam::Stamp{}, "camera"};
+      observations_synced.emplace_back(observations);
+      auto camera_info_map = fvlam::CameraInfoMap{};
+      camera_info_map.emplace(image_measurement.camera_info().imager_frame_id(), image_measurement.camera_info());
+      map_builder->process(observations_synced, camera_info_map);
     }
 
     auto built_map = map_builder->build();

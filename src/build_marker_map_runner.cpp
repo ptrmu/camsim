@@ -91,8 +91,13 @@ namespace camsim
     // Loop over all the cameras
     for (auto &camera : model_.cameras_.cameras_) {
 
+      auto observations_synced = fvlam::ObservationsSynced{fvlam::Stamp{}, "camera"};
+      observations_synced.emplace_back(observations_perturbed_[camera.index()]);
+      auto camera_info_map = fvlam::CameraInfoMap{};
+      camera_info_map.emplace(camera_info_.imager_frame_id(), camera_info_);
+
       // Pass the perturbed observations to the builder
-      build_map.process(observations_perturbed_[camera.index()], camera_info_);
+      build_map.process(observations_synced, camera_info_map);
 
       this->frames_processed_ += 1;
     }
