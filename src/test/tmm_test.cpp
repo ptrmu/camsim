@@ -22,7 +22,7 @@ namespace camsim
 
     double r_sampler_sigma = 0.0;
     double t_sampler_sigma = 0.0;
-    double u_sampler_sigma = 0.25;
+    double u_sampler_sigma = 0.00025;
     double r_noise_sigma = 0.1;
     double t_noise_sigma = 0.3;
     double u_noise_sigma = 0.5;
