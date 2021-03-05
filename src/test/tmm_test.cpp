@@ -6,6 +6,7 @@
 #include "../../include/fvlam/camera_info.hpp"
 #include "../../include/fvlam/logger.hpp"
 #include "../../include/fvlam/marker.hpp"
+#include "../../include/fvlam/model.hpp"
 #include "../../include/fvlam/observation.hpp"
 #include "../../include/fvlam/transform3_with_covariance.hpp"
 #include "../../src/build_marker_map_runner.hpp"
@@ -225,5 +226,61 @@ namespace camsim
 
     auto solved_maps = run_solvers(model, tp, logger);
     check_maps(model, solved_maps, tp.tolerance, logger);
+  }
+
+
+// ==============================================================================
+// BuildMarkerMapTest class
+// ==============================================================================
+
+  class BuildMarkerMapTest
+  {
+  public:
+
+    struct Config
+    {
+      const fvlam::Transform3::MuVector pose3_sampler_sigmas_;
+      const fvlam::Transform3::MuVector pose3_noise_sigmas_;
+      const fvlam::Translate2::MuVector point2_sampler_sigmas_;
+      const fvlam::Translate2::MuVector point2_noise_sigmas_;
+      const bool print_covariance_;
+
+      Config(const fvlam::Transform3::MuVector &pose3_sampler_sigmas,
+             const fvlam::Transform3::MuVector &pose3_noise_sigmas,
+             const fvlam::Translate2::MuVector &point2_sampler_sigmas,
+             const fvlam::Translate2::MuVector &point2_noise_sigmas,
+             bool print_covariance) :
+        pose3_sampler_sigmas_{pose3_sampler_sigmas},
+        pose3_noise_sigmas_{pose3_noise_sigmas},
+        point2_sampler_sigmas_{point2_sampler_sigmas},
+        point2_noise_sigmas_{point2_noise_sigmas},
+        print_covariance_{print_covariance}
+      {}
+    };
+
+  private:
+    const Model &model_;
+    const BuildMarkerMapRunnerConfig cfg_;
+    fvlam::CameraInfo camera_info_;
+
+    std::vector<fvlam::Transform3WithCovariance> t_world_cameras_perturbed_{};
+    std::vector<fvlam::Marker> markers_perturbed_{};
+    std::vector<fvlam::Observations> observations_perturbed_{};
+    int frames_processed_{0};
+
+  public:
+    BuildMarkerMapTest(const Model &model,
+                       const BuildMarkerMapRunnerConfig &cfg);
+
+    std::unique_ptr<fvlam::MarkerMap> operator()(fvlam::BuildMarkerMapInterface &build_map);
+
+    auto &observations_perturbed() const
+    { return observations_perturbed_; }
+  };
+
+
+  TEST_CASE("fvlam::Model test", "[.][all]")
+  {
+//    fvlam::MarkerModel model(fvlam::MarkerModel::ConfigMaker());
   }
 }
