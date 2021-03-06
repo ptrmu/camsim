@@ -180,7 +180,7 @@ namespace fvlam
   class ObservationsSynced : public std::vector<Observations>
   {
     Stamp stamp_; // The stamp for the synced observations.
-    std::string camera_frame_id_; // A camera ahs one of more imagers..
+    std::string camera_frame_id_; // A camera has one of more imagers..
 
   public:
     ObservationsSynced(Stamp stamp, std::string camera_frame_id) :

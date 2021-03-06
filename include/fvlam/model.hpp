@@ -2,15 +2,66 @@
 
 #include "fvlam/camera_info.hpp"
 #include "fvlam/marker.hpp"
+#include "fvlam/observation.hpp"
+#include "opencv2/core.hpp"
+
 
 namespace fvlam
 {
 
 // ==============================================================================
+// MarkerObservations class
+// ==============================================================================
+
+  class MarkerObservations
+  {
+    uint64_t camera_index_;
+    ObservationsSynced observations_synced_;
+
+    static ObservationsSynced gen_observations_synced(Transform3 t_map_camera,
+                                                      const CameraInfoMap &camera_info_map,
+                                                      const std::vector<Marker> markers,
+                                                      double marker_length)
+    {
+      auto observations_synced = ObservationsSynced{Stamp{}, "camera_frame"};
+
+      for (auto &camera_info_pair : camera_info_map) {
+        const CameraInfo &camera_info = camera_info_pair.second;
+        auto cv_camera_calibration = camera_info.to<fvlam::CvCameraCalibration>();
+        auto cv_project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
+          cv_camera_calibration,
+          fvlam::Transform3::from(t_map_camera),
+          marker_length);
+
+        auto observations = Observations{camera_info.imager_frame_id()};
+        for (auto &marker : markers) {
+
+        }
+      }
+    }
+
+  public:
+    MarkerObservations(uint64_t camera_index,
+                       Transform3 t_map_camera,
+                       const CameraInfoMap &camera_info_map,
+                       const std::vector<Marker> markers,
+                       double marker_length) :
+      camera_index_{camera_index},
+      observations_synced_{gen_observations_synced(t_map_camera, camera_info_map, markers, marker_length)}
+    {}
+
+    auto &camera_index() const
+    { return camera_index_; }
+
+    auto &observations_synced() const
+    { return observations_synced_; }
+  };
+
+// ==============================================================================
 // Model class
 // ==============================================================================
 
-  template<class Target>
+  template<class Target, class TargetObservations>
   class Model
   {
     MapEnvironment map_environment_;
@@ -44,7 +95,7 @@ namespace fvlam
     { return targets_; }
   };
 
-  using MarkerModel = Model<Marker>;
+  using MarkerModel = Model<Marker, MarkerObservations>;
 
 // ==============================================================================
 // Runner class
