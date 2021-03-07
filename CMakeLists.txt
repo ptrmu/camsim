@@ -270,6 +270,7 @@ add_executable(camsim_test
   src/build_marker_map_runner.cpp
   src/test/tmm_test.cpp
   src/test/file_storage_test.cpp
+  src/fvlam/model.cpp
   )
 
 

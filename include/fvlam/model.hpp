@@ -3,11 +3,23 @@
 #include "fvlam/camera_info.hpp"
 #include "fvlam/marker.hpp"
 #include "fvlam/observation.hpp"
-#include "opencv2/core.hpp"
 
 
 namespace fvlam
 {
+
+  class CamerasGen
+  {
+    static std::vector<Transform3> SpinAboutZAtOriginFacingOut(int n); //
+  };
+
+  template<class Target>
+  class TargetsGen
+  {
+
+  };
+
+  using MarkersGen = TargetsGen<Marker>;
 
 // ==============================================================================
 // MarkerObservations class
@@ -16,42 +28,30 @@ namespace fvlam
   class MarkerObservations
   {
     uint64_t camera_index_;
+    Transform3 t_map_camera_;
     ObservationsSynced observations_synced_;
 
-    static ObservationsSynced gen_observations_synced(Transform3 t_map_camera,
+    static ObservationsSynced gen_observations_synced(const MapEnvironment &map_environment,
                                                       const CameraInfoMap &camera_info_map,
-                                                      const std::vector<Marker> markers,
-                                                      double marker_length)
-    {
-      auto observations_synced = ObservationsSynced{Stamp{}, "camera_frame"};
-
-      for (auto &camera_info_pair : camera_info_map) {
-        const CameraInfo &camera_info = camera_info_pair.second;
-        auto cv_camera_calibration = camera_info.to<fvlam::CvCameraCalibration>();
-        auto cv_project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
-          cv_camera_calibration,
-          fvlam::Transform3::from(t_map_camera),
-          marker_length);
-
-        auto observations = Observations{camera_info.imager_frame_id()};
-        for (auto &marker : markers) {
-
-        }
-      }
-    }
+                                                      const Transform3 &t_map_camera,
+                                                      const std::vector<Marker> &markers);
 
   public:
-    MarkerObservations(uint64_t camera_index,
-                       Transform3 t_map_camera,
+    MarkerObservations(const MapEnvironment &map_environment,
                        const CameraInfoMap &camera_info_map,
-                       const std::vector<Marker> markers,
-                       double marker_length) :
+                       Transform3 t_map_camera,
+                       const std::vector<Marker> &markers,
+                       uint64_t camera_index) :
       camera_index_{camera_index},
-      observations_synced_{gen_observations_synced(t_map_camera, camera_info_map, markers, marker_length)}
+      t_map_camera_{std::move(t_map_camera)},
+      observations_synced_{gen_observations_synced(map_environment, camera_info_map, t_map_camera, markers)}
     {}
 
     auto &camera_index() const
     { return camera_index_; }
+
+    auto &t_map_camera() const
+    { return t_map_camera_; }
 
     auto &observations_synced() const
     { return observations_synced_; }
@@ -61,41 +61,54 @@ namespace fvlam
 // Model class
 // ==============================================================================
 
-  template<class Target, class TargetObservations>
+  template<class Environment, class Target, class TargetObservations>
   class Model
   {
-    MapEnvironment map_environment_;
+    Environment environment_;
     CameraInfoMap camera_info_map_;
-    std::vector<Camera> cameras_;
     std::vector<Target> targets_;
+    std::vector<TargetObservations> target_observations_list_;
+
+    static std::vector<TargetObservations> gen_target_observations_list(const Environment &environment,
+                                                                        const CameraInfoMap &camera_info_map,
+                                                                        const std::vector<Transform3> &t_map_cameras,
+                                                                        const std::vector<Target> &targets)
+    {
+      std::vector<TargetObservations> target_observations_list;
+      for (size_t i = 0; i < t_map_cameras.size(); i += 1) {
+        target_observations_list.template emplace_back(
+          TargetObservations(environment, camera_info_map, t_map_cameras[i], targets, i));
+      }
+      return target_observations_list;
+    }
 
   public:
-    Model(MapEnvironment map_environment,
+    Model(Environment environment,
           CameraInfoMap camera_info_map,
-          std::vector<Camera> cameras,
+          const std::vector<Transform3> &t_map_cameras,
           std::vector<Target> targets) :
-      map_environment_{map_environment},
-      camera_info_map_{camera_info_map},
-      cameras_{cameras},
-      targets_{targets}
+      environment_{std::move(environment)},
+      camera_info_map_{std::move(camera_info_map)},
+      targets_{std::move(targets)},
+      target_observations_list_{gen_target_observations_list(environment_, camera_info_map_, t_map_cameras, targets_)}
     {}
 
-    using Maker = std::function<Model(void)>;
+    using Maker = std::function<Model<Environment, Target, TargetObservations>(void)>;
 
-    auto &map_environment() const
-    { return map_environment_; }
+    auto &environment() const
+    { return environment_; }
 
     auto &camera_info_map() const
     { return camera_info_map_; }
 
-    auto &cameras() const
-    { return cameras_; }
-
     auto &targets() const
     { return targets_; }
+
+    auto &target_observations_list() const
+    { return target_observations_list_; }
   };
 
-  using MarkerModel = Model<Marker, MarkerObservations>;
+  using MarkerModel = Model<MapEnvironment, Marker, MarkerObservations>;
 
 // ==============================================================================
 // Runner class
@@ -115,8 +128,8 @@ namespace fvlam
 
     void operator()(UUT &uut)
     {
-      Test test{test_config_maker_(), model_, uut};
-      test();
+      Test test{test_config_maker_(), model_};
+      test(uut);
     }
   };
 }

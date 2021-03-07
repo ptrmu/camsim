@@ -243,7 +243,9 @@ namespace camsim
       const fvlam::Transform3::MuVector pose3_noise_sigmas_;
       const fvlam::Translate2::MuVector point2_sampler_sigmas_;
       const fvlam::Translate2::MuVector point2_noise_sigmas_;
-      const bool print_covariance_;
+      const bool print_covariance_{false};
+
+      Config() = default; // Todo remove this
 
       Config(const fvlam::Transform3::MuVector &pose3_sampler_sigmas,
              const fvlam::Transform3::MuVector &pose3_noise_sigmas,
@@ -269,8 +271,10 @@ namespace camsim
     int frames_processed_{0};
 
   public:
-    BuildMarkerMapTest(const Model &model,
-                       const BuildMarkerMapRunnerConfig &cfg);
+    using ConfigMaker = std::function<Config(void)>;
+
+    BuildMarkerMapTest(const MarkerModel &model,
+                       const Config &cfg);
 
     std::unique_ptr<fvlam::MarkerMap> operator()(fvlam::BuildMarkerMapInterface &build_map);
 
@@ -279,8 +283,25 @@ namespace camsim
   };
 
 
-  TEST_CASE("fvlam::Model test", "[.][all]")
+  TEST_CASE("fvlam::Model test", "[all]")
   {
-//    fvlam::MarkerModel model(fvlam::MarkerModel::ConfigMaker());
+    auto model_maker = []() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironment{},
+                                fvlam::CameraInfoMap{},
+                                std::vector<fvlam::Transform3>{},
+                                std::vector<fvlam::Marker>{});
+    };
+
+    auto test_config_maker = []() -> BuildMarkerMapTest::Config
+    {
+      return BuildMarkerMapTest::Config();
+    };
+
+    auto runner = fvlam::Runner<fvlam::MarkerModel, BuildMarkerMapTest, fvlam::BuildMarkerMapInterface>{
+      model_maker, test_config_maker};
+
+//    auto build_marker_map_interface =
+//    runner(build_marker_map_interface);
   }
 }
