@@ -287,10 +287,10 @@ namespace camsim
   {
     auto model_maker = []() -> fvlam::MarkerModel
     {
-      return fvlam::MarkerModel(fvlam::MapEnvironment{},
-                                fvlam::CameraInfoMap{},
-                                std::vector<fvlam::Transform3>{},
-                                std::vector<fvlam::Marker>{});
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::DualCamera(),
+                                fvlam::CamerasGen::LookingDownZ(2.0),
+                                fvlam::MarkersGen::OriginLookingUp());
     };
 
     auto test_config_maker = []() -> BuildMarkerMapTest::Config

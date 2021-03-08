@@ -1,10 +1,29 @@
 
 
 #include "fvlam/model.hpp"
+#include <gtsam/geometry/Cal3DS2.h>
 #include "opencv2/core.hpp"
 
 namespace fvlam
 {
+  MapEnvironment MapEnvironmentGen::Default()
+  {
+    return fvlam::MapEnvironment{"TestMap", 0, 0.2};
+  }
+
+  CameraInfoMap CameraInfoMapGen::DualCamera()
+  {
+    auto camera_info_base = CameraInfo{475, 475, 0, 400, 300};
+    auto camera_info0 = CameraInfo("left", camera_info_base, Transform3{Rotate3{}, Translate3{-0.2, 0, 0}});
+    auto camera_info1 = CameraInfo("right", camera_info_base, Transform3{Rotate3{}, Translate3{0.2, 0, 0}});
+
+    auto camera_info_map = CameraInfoMap{};
+    camera_info_map.emplace(camera_info0.imager_frame_id(), camera_info0);
+    camera_info_map.emplace(camera_info1.imager_frame_id(), camera_info1);
+
+    return camera_info_map;
+  }
+
   static std::vector<fvlam::Transform3> rotate_around_z(int n, const fvlam::Transform3 &base)
   {
     std::vector<fvlam::Transform3> pose_f_worlds{};
@@ -17,11 +36,39 @@ namespace fvlam
     return pose_f_worlds;
   }
 
+  static std::vector<Marker> markers_from_transform3s(std::vector<Transform3> transform3s,
+                                                      std::uint64_t id_base)
+  {
+    std::vector<Marker> markers;
+    for (auto &transform3 : transform3s) {
+      markers.emplace_back(Marker{id_base++, Transform3WithCovariance{transform3}});
+    }
+    return markers;
+  }
 
   std::vector<Transform3> CamerasGen::SpinAboutZAtOriginFacingOut(int n)
   {
-    static Transform3 base{fvlam::Rotate3::RzRyRx(M_PI_2, 0., M_PI_2), fvlam::Translate3{0, 0, 0}};
+    Transform3 base{fvlam::Rotate3::RzRyRx(M_PI_2, 0., M_PI_2), fvlam::Translate3{0, 0, 0}};
     return rotate_around_z(n, base);
+  }
+
+  std::vector<Transform3> CamerasGen::LookingDownZ(double z)
+  {
+    auto p = Transform3{fvlam::Rotate3::RzRyRx(M_PI, 0., 0.), fvlam::Translate3{0, 0, z}};
+    return std::vector<Transform3>{p};
+  }
+
+  template<>
+  std::vector<Marker> MarkersGen::CircleInXYPlaneFacingOrigin(int n, double radius)
+  {
+    return markers_from_transform3s(rotate_around_z(
+      n, Transform3{Rotate3::RzRyRx(M_PI_2, 0., -M_PI_2), Translate3{radius, 0., 0.}}), 0);
+  }
+
+  template<>
+  std::vector<Marker> MarkersGen::OriginLookingUp()
+  {
+    return markers_from_transform3s(std::vector<Transform3>{Transform3{}}, 0);
   }
 
 // ==============================================================================
@@ -37,10 +84,10 @@ namespace fvlam
 
     for (auto &camera_info_pair : camera_info_map) {
       const CameraInfo &camera_info = camera_info_pair.second;
-      auto cv_camera_calibration = camera_info.to<fvlam::CvCameraCalibration>();
+      auto gtsam_camera_calibration = camera_info.to<gtsam::Cal3DS2>();
 
       auto cv_project_t_world_marker_function = fvlam::Marker::project_t_world_marker(
-        cv_camera_calibration,
+        gtsam_camera_calibration,
         t_map_camera * camera_info.t_camera_imager(),
         map_environment.marker_length());
 

@@ -8,15 +8,27 @@
 namespace fvlam
 {
 
-  class CamerasGen
+  struct MapEnvironmentGen
+  {
+    static MapEnvironment Default(); //
+  };
+
+  struct CameraInfoMapGen
+  {
+    static CameraInfoMap DualCamera(); //
+  };
+
+  struct CamerasGen
   {
     static std::vector<Transform3> SpinAboutZAtOriginFacingOut(int n); //
+    static std::vector<Transform3> LookingDownZ(double z); //
   };
 
   template<class Target>
-  class TargetsGen
+  struct TargetsGen
   {
-
+    static std::vector<Target> CircleInXYPlaneFacingOrigin(int n, double radius); //
+    static std::vector<Target> OriginLookingUp(); //
   };
 
   using MarkersGen = TargetsGen<Marker>;
