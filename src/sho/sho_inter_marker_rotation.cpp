@@ -86,7 +86,7 @@ namespace fvlam
 
     for (auto &measurement : other) {
       auto mo{Observation::from(measurement)};
-      observations.emplace_back(mo);
+      observations.v_mutable().emplace_back(mo);
     }
 
     return observations;
@@ -347,9 +347,9 @@ namespace camsim
       auto &measurements = image_measurement.measurements();
       auto observations{fvlam::Observations::from(measurements)};
       auto observations_synced = fvlam::ObservationsSynced{fvlam::Stamp{}, "camera"};
-      observations_synced.emplace_back(observations);
+      observations_synced.v_mutable().emplace_back(observations);
       auto camera_info_map = fvlam::CameraInfoMap{};
-      camera_info_map.emplace(image_measurement.camera_info().imager_frame_id(), image_measurement.camera_info());
+      camera_info_map.m_mutable().emplace(image_measurement.camera_info().imager_frame_id(), image_measurement.camera_info());
       map_builder->process(observations_synced, camera_info_map);
     }
 

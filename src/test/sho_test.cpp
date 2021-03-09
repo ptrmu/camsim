@@ -396,7 +396,7 @@ namespace camsim
 
       // Given observations and marker pose, solve to find the camera pose.
       fvlam::Observations observations{""};
-      observations.emplace_back(gtsam_corners_f_image);
+      observations.v_mutable().emplace_back(gtsam_corners_f_image);
       fvlam::MarkerMap map{fvlam::MapEnvironment{"", 0, marker_length}};
       map.add_marker(f_marker);
 

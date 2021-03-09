@@ -175,9 +175,23 @@ namespace fvlam
 // CameraInfo class
 // ==============================================================================
 
-  class CameraInfoMap : public std::map<std::string, CameraInfo>
+  class CameraInfoMap
   {
+    std::map<std::string, CameraInfo> m_{};
+
   public:
+    auto &m_mutable()
+    { return m_; }
+
+    auto &m() const
+    { return m_; }
+
+    auto size() const
+    { return m_.size(); }
+
+    auto empty() const
+    { return m_.empty(); }
+
     template<class T>
     static CameraInfoMap from(T &other);
 

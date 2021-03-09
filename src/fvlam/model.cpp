@@ -18,8 +18,8 @@ namespace fvlam
     auto camera_info1 = CameraInfo("right", camera_info_base, Transform3{Rotate3{}, Translate3{0.2, 0, 0}});
 
     auto camera_info_map = CameraInfoMap{};
-    camera_info_map.emplace(camera_info0.imager_frame_id(), camera_info0);
-    camera_info_map.emplace(camera_info1.imager_frame_id(), camera_info1);
+    camera_info_map.m_mutable().emplace(camera_info0.imager_frame_id(), camera_info0);
+    camera_info_map.m_mutable().emplace(camera_info1.imager_frame_id(), camera_info1);
 
     return camera_info_map;
   }
@@ -48,7 +48,7 @@ namespace fvlam
 
   std::vector<Transform3> CamerasGen::SpinAboutZAtOriginFacingOut(int n)
   {
-    Transform3 base{fvlam::Rotate3::RzRyRx(M_PI_2, 0., M_PI_2), fvlam::Translate3{0, 0, 0}};
+    Transform3 base{fvlam::Rotate3::RzRyRx(-M_PI_2, 0., -M_PI_2), fvlam::Translate3{0, 0, 0}};
     return rotate_around_z(n, base);
   }
 
@@ -82,7 +82,7 @@ namespace fvlam
   {
     auto observations_synced = ObservationsSynced{Stamp{}, "camera_frame"};
 
-    for (auto &camera_info_pair : camera_info_map) {
+    for (auto &camera_info_pair : camera_info_map.m()) {
       const CameraInfo &camera_info = camera_info_pair.second;
       auto gtsam_camera_calibration = camera_info.to<gtsam::Cal3DS2>();
 
@@ -93,9 +93,10 @@ namespace fvlam
 
       auto observations = Observations{camera_info.imager_frame_id()};
       for (auto &marker : markers) {
-        observations.emplace_back(cv_project_t_world_marker_function(marker));
+        auto observation = cv_project_t_world_marker_function(marker);
+        observations.v_mutable().emplace_back(observation);
       }
-      observations_synced.emplace_back(observations);
+      observations_synced.v_mutable().emplace_back(observations);
     }
 
     return observations_synced;

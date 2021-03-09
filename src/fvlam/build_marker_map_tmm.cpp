@@ -63,7 +63,7 @@ namespace fvlam
   public:
     explicit MarkerMarkerGraph(const MarkerMap &map_initial)
     {
-      for (auto &marker : map_initial) {
+      for (auto &marker : map_initial.m()) {
         if (marker.second.is_fixed()) {
           fixed_markers_.emplace(marker);
         }
@@ -227,7 +227,7 @@ namespace fvlam
 
     static fvlam::Marker find_fixed_marker(const MarkerMap &map)
     {
-      for (auto &marker : map) {
+      for (auto &marker : map.m()) {
         if (marker.second.is_fixed()) {
           return marker.second;
         }
@@ -420,8 +420,8 @@ namespace fvlam
       double t_sum{0.0};
       uint64_t n{0};
 
-      for (auto it0 = map.begin(); it0 != map.end(); ++it0)
-        for (auto it1 = map.upper_bound(it0->first); it1 != map.end(); ++it1) {
+      for (auto it0 = map.m().begin(); it0 != map.m().end(); ++it0)
+        for (auto it1 = map.m().upper_bound(it0->first); it1 != map.m().end(); ++it1) {
           auto solve_tmm = solve_tmm_graph_.lookup(it0->first, it1->first);
           if (solve_tmm != nullptr) {
             auto tmm_meas = (*solve_tmm)->t_marker0_marker1().tf();
@@ -459,10 +459,10 @@ namespace fvlam
                  const CameraInfoMap &camera_info_map) override
     {
       // Walk through all the imagers
-      for (auto &observations : observations_synced) {
+      for (auto &observations : observations_synced.v()) {
         // Find the camera_info for this imager
-        auto camera_info_it = camera_info_map.find(observations.imager_frame_id());
-        if (camera_info_it != camera_info_map.end()) {
+        auto camera_info_it = camera_info_map.m().find(observations.imager_frame_id());
+        if (camera_info_it != camera_info_map.m().end()) {
           // Walk through all pairs of observations
           for (std::size_t m0 = 0; m0 < observations.size(); m0 += 1)
             for (std::size_t m1 = m0 + 1; m1 < observations.size(); m1 += 1) {
@@ -470,15 +470,15 @@ namespace fvlam
               std::size_t m1r{m1};
 
               // Alawys do the transform calculation with the lower id first.
-              if (observations[m1r].id() < observations[m0r].id()) {
+              if (observations.v()[m1r].id() < observations.v()[m0r].id()) {
                 m0r = m1;
                 m1r = m0;
               }
 
               // Find the appropriate SolveTmmInterface
-              auto &solve_tmm = solve_tmm_graph_.add_or_lookup(observations[m0r].id(), observations[m1r].id(),
+              auto &solve_tmm = solve_tmm_graph_.add_or_lookup(observations.v()[m0r].id(), observations.v()[m1r].id(),
                                                                tmm_context_.solve_tmm_factory_);
-              solve_tmm->accumulate(observations[m0r], observations[m1r], camera_info_it->second);
+              solve_tmm->accumulate(observations.v()[m0r], observations.v()[m1r], camera_info_it->second);
             }
         }
       }

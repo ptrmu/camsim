@@ -85,13 +85,13 @@ namespace camsim
 
     auto camera_info = fvlam::CameraInfo::from(model.cameras_.calibration_);
     auto camera_info_map = fvlam::CameraInfoMap{};
-    camera_info_map.emplace(camera_info.imager_frame_id(), camera_info);
+    camera_info_map.m_mutable().emplace(camera_info.imager_frame_id(), camera_info);
 
     auto observations_series = fvlam::ObservationsSeries{map, camera_info_map};
 
     for (auto &observations : bmm_runner.observations_perturbed()) {
       auto observations_synched = fvlam::ObservationsSynced{fvlam::Stamp{}, "camera"};
-      observations_synched.emplace_back(observations);
+      observations_synched.v_mutable().emplace_back(observations);
       observations_series.v_mutable().emplace_back(observations_synched);
     }
 
@@ -145,13 +145,13 @@ namespace camsim
 
     auto camera_info = fvlam::CameraInfo::from(model.cameras_.calibration_);
     auto camera_info_map = fvlam::CameraInfoMap{};
-    camera_info_map.emplace(camera_info.imager_frame_id(), camera_info);
+    camera_info_map.m_mutable().emplace(camera_info.imager_frame_id(), camera_info);
 
     auto observations_series = fvlam::ObservationsSeries{map, camera_info_map};
 
     for (auto &observations : bmm_runner.observations_perturbed()) {
       auto observations_synched = fvlam::ObservationsSynced{fvlam::Stamp{}, "camera"};
-      observations_synched.emplace_back(observations);
+      observations_synched.v_mutable().emplace_back(observations);
       observations_series.v_mutable().emplace_back(observations_synched);
     }
 

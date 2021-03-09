@@ -75,7 +75,7 @@ namespace camsim
                                                           corners_f_image_perturbed,
                                                           cfg.point2_noise_sigmas_.asDiagonal()};
 
-          observations.emplace_back(observation_perturbed);
+          observations.v_mutable().emplace_back(observation_perturbed);
         }
       }
       observations_perturbed_.emplace_back(observations);
@@ -92,9 +92,9 @@ namespace camsim
     for (auto &camera : model_.cameras_.cameras_) {
 
       auto observations_synced = fvlam::ObservationsSynced{fvlam::Stamp{}, "camera"};
-      observations_synced.emplace_back(observations_perturbed_[camera.index()]);
+      observations_synced.v_mutable().emplace_back(observations_perturbed_[camera.index()]);
       auto camera_info_map = fvlam::CameraInfoMap{};
-      camera_info_map.emplace(camera_info_.imager_frame_id(), camera_info_);
+      camera_info_map.m_mutable().emplace(camera_info_.imager_frame_id(), camera_info_);
 
       // Pass the perturbed observations to the builder
       build_map.process(observations_synced, camera_info_map);

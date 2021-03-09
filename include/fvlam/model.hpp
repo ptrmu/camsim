@@ -56,7 +56,7 @@ namespace fvlam
                        uint64_t camera_index) :
       camera_index_{camera_index},
       t_map_camera_{std::move(t_map_camera)},
-      observations_synced_{gen_observations_synced(map_environment, camera_info_map, t_map_camera, markers)}
+      observations_synced_(gen_observations_synced(map_environment, camera_info_map, t_map_camera, markers))
     {}
 
     auto &camera_index() const
@@ -126,22 +126,26 @@ namespace fvlam
 // Runner class
 // ==============================================================================
 
-  template<class Model, class Test, class UUT>
+  template<class Model, class Test, class Uut>
   class Runner
   {
+    Logger &logger_;
     Model model_;
-    typename Test::ConfigMaker test_config_maker_;
+    typename Test::Maker test_maker_;
 
   public:
-    Runner(typename Model::Maker model_maker,
-           typename Test::ConfigMaker test_config_maker) :
-      model_{model_maker()}, test_config_maker_{test_config_maker}
+    using UutMaker = std::function<Uut(Logger &, Model &)>;
+
+    Runner(Logger &logger,
+           typename Model::Maker model_maker,
+           typename Test::Maker test_maker) :
+      logger_{logger}, model_{model_maker()}, test_maker_{test_maker}
     {}
 
-    void operator()(UUT &uut)
+    void operator()(UutMaker &uut_maker)
     {
-      Test test{test_config_maker_(), model_};
-      test(uut);
+      auto test = test_maker(logger_, model_);
+      test(uut_maker(logger_, model_));
     }
   };
 }

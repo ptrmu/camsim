@@ -235,29 +235,66 @@ namespace camsim
 
   class BuildMarkerMapTest
   {
+    const fvlam::Transform3::MuVector pose3_sampler_sigmas_;
+    const fvlam::Transform3::MuVector pose3_noise_sigmas_;
+    const fvlam::Translate2::MuVector point2_sampler_sigmas_;
+    const fvlam::Translate2::MuVector point2_noise_sigmas_;
+
   public:
 
     struct Config
     {
-      const fvlam::Transform3::MuVector pose3_sampler_sigmas_;
-      const fvlam::Transform3::MuVector pose3_noise_sigmas_;
-      const fvlam::Translate2::MuVector point2_sampler_sigmas_;
-      const fvlam::Translate2::MuVector point2_noise_sigmas_;
-      const bool print_covariance_{false};
+      int n_markers_;
+      int n_cameras_;
 
-      Config() = default; // Todo remove this
+      double r_sampler_sigma_;
+      double t_sampler_sigma_;
+      double u_sampler_sigma_;
+      double r_noise_sigma_;
+      double t_noise_sigma_;
+      double u_noise_sigma_;
 
-      Config(const fvlam::Transform3::MuVector &pose3_sampler_sigmas,
-             const fvlam::Transform3::MuVector &pose3_noise_sigmas,
-             const fvlam::Translate2::MuVector &point2_sampler_sigmas,
-             const fvlam::Translate2::MuVector &point2_noise_sigmas,
-             bool print_covariance) :
-        pose3_sampler_sigmas_{pose3_sampler_sigmas},
-        pose3_noise_sigmas_{pose3_noise_sigmas},
-        point2_sampler_sigmas_{point2_sampler_sigmas},
-        point2_noise_sigmas_{point2_noise_sigmas},
-        print_covariance_{print_covariance}
+      double tolerance_;
+
+      fvlam::Logger::Levels logger_level_;
+
+      explicit Config(int n_markers = 8,
+                      int n_cameras = 64,
+                      double r_sampler_sigma = 0.0,
+                      double t_sampler_sigma = 0.0,
+                      double u_sampler_sigma = 0.0,
+                      double r_noise_sigma = 0.1,
+                      double t_noise_sigma = 0.3,
+                      double u_noise_sigma = 0.5,
+                      double tolerance = 4.0e-1,
+                      fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_info) :
+        n_markers_{n_markers},
+        n_cameras_{n_cameras},
+        r_sampler_sigma_{r_sampler_sigma},
+        t_sampler_sigma_{t_sampler_sigma},
+        u_sampler_sigma_{u_sampler_sigma},
+        r_noise_sigma_{r_noise_sigma},
+        t_noise_sigma_{t_noise_sigma},
+        u_noise_sigma_{u_noise_sigma},
+        tolerance_{tolerance},
+        logger_level_{logger_level}
       {}
+//
+//      const bool print_covariance_{false};
+//
+//      Config() = default; // Todo remove this
+//
+//      Config(const fvlam::Transform3::MuVector &pose3_sampler_sigmas,
+//             const fvlam::Transform3::MuVector &pose3_noise_sigmas,
+//             const fvlam::Translate2::MuVector &point2_sampler_sigmas,
+//             const fvlam::Translate2::MuVector &point2_noise_sigmas,
+//             bool print_covariance) :
+//        pose3_sampler_sigmas_{pose3_sampler_sigmas},
+//        pose3_noise_sigmas_{pose3_noise_sigmas},
+//        point2_sampler_sigmas_{point2_sampler_sigmas},
+//        point2_noise_sigmas_{point2_noise_sigmas},
+//        print_covariance_{print_covariance}
+//      {}
     };
 
   private:
@@ -271,7 +308,7 @@ namespace camsim
     int frames_processed_{0};
 
   public:
-    using ConfigMaker = std::function<Config(void)>;
+    using Maker = std::function<BuildMarkerMapTest(fvlam::Logger &, camsim::MarkerModel &)>;
 
     BuildMarkerMapTest(const MarkerModel &model,
                        const Config &cfg);
@@ -285,21 +322,39 @@ namespace camsim
 
   TEST_CASE("fvlam::Model test", "[all]")
   {
+    auto bmm_test_config = BuildMarkerMapTest::Config();
+    fvlam::LoggerCout logger{bmm_test_config.logger_level_};
+
     auto model_maker = []() -> fvlam::MarkerModel
     {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::DualCamera(),
-                                fvlam::CamerasGen::LookingDownZ(2.0),
-                                fvlam::MarkersGen::OriginLookingUp());
+      fvlam::MarkerModel model(fvlam::MapEnvironmentGen::Default(),
+                               fvlam::CameraInfoMapGen::DualCamera(),
+                               fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(8),
+                               fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(8, 2));
+      return model;
     };
 
-    auto test_config_maker = []() -> BuildMarkerMapTest::Config
+    auto test_maker = [](fvlam::Logger &logger,
+                         fvlam::MarkerModel &model) -> std::unique_ptr<fvlam::BuildMarkerMapInterface>
     {
-      return BuildMarkerMapTest::Config();
+      return std::unique_ptr<fvlam::BuildMarkerMapInterface>{};
     };
 
-    auto runner = fvlam::Runner<fvlam::MarkerModel, BuildMarkerMapTest, fvlam::BuildMarkerMapInterface>{
-      model_maker, test_config_maker};
+    auto runner = fvlam::Runner<fvlam::MarkerModel,
+      BuildMarkerMapTest,
+      std::unique_ptr<fvlam::BuildMarkerMapInterface>>{
+      logger, model_maker, test_maker};
+
+//
+//    auto solve_tmm_context = fvlam::SolveTmmContextCvSolvePnp{average_on_space_not_manifold};
+//    auto solve_tmm_factory = fvlam::make_solve_tmm_factory(solve_tmm_context,
+//                                                           model.cfg_.marker_length_);
+//
+//    auto tmm_context = fvlam::BuildMarkerMapTmmContext(solve_tmm_factory,
+//                                                       use_shonan_initial,
+//                                                       fvlam::BuildMarkerMapTmmContext::NoiseStrategy::minimum,
+//                                                       tp.r_noise_sigma, tp.t_noise_sigma);
+//    auto map_builder = make_build_marker_map(tmm_context, logger, *map_initial);
 
 //    auto build_marker_map_interface =
 //    runner(build_marker_map_interface);
