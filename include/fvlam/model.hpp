@@ -136,16 +136,21 @@ namespace fvlam
   public:
     using UutMaker = std::function<Uut(Logger &, Model &)>;
 
+    Runner() = delete; //
+    Runner(const Runner &) = delete; //
+    Runner(Runner &&) = delete;
+
     Runner(Logger &logger,
            typename Model::Maker model_maker,
            typename Test::Maker test_maker) :
       logger_{logger}, model_{model_maker()}, test_maker_{test_maker}
     {}
 
-    void operator()(UutMaker &uut_maker)
+    void operator()(UutMaker uut_maker)
     {
-      auto test = test_maker(logger_, model_);
-      test(uut_maker(logger_, model_));
+      auto test = test_maker_(logger_, model_);
+      auto uut = uut_maker(logger_, model_);
+      test(std::move(uut));
     }
   };
 }
