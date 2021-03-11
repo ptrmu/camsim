@@ -59,6 +59,14 @@ namespace fvlam
       observations_synced_(gen_observations_synced(map_environment, camera_info_map, t_map_camera, markers))
     {}
 
+    MarkerObservations(uint64_t camera_index,
+                       Transform3 t_map_camera,
+                       ObservationsSynced observations_synced) :
+      camera_index_{camera_index},
+      t_map_camera_{std::move(t_map_camera)},
+      observations_synced_{std::move(observations_synced)}
+    {}
+
     auto &camera_index() const
     { return camera_index_; }
 

@@ -63,6 +63,7 @@ namespace fvlam
     using Array = std::array<Element, ArraySize>;
     using MuVector = Eigen::Matrix<double, Element::MuVector::MaxRowsAtCompileTime * ArraySize, 1>;
 
+  private:
     bool is_valid_;
 
     // The id of the marker that we observed.
@@ -118,6 +119,9 @@ namespace fvlam
 
     auto &corners_f_image() const
     { return corners_f_image_; }
+
+    auto &cov() const
+    { return cov_; }
 
     template<class T>
     static Observation from(T &other);

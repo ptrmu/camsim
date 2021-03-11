@@ -296,7 +296,7 @@ namespace camsim
     const fvlam::Translate2::MuVector point2_sampler_sigmas_;
     const fvlam::Translate2::MuVector point2_noise_sigmas_;
 
-    std::vector<fvlam::MarkerObservations> marker_observations_list_perturbed_;
+    std::vector<fvlam::MarkerObservations> marker_observations_list_perturbed_{};
 
     int frames_processed_{0};
 
@@ -315,10 +315,44 @@ namespace camsim
         fvlam::Translate3::MuVector::Constant(cfg.t_noise_sigma_)).finished()},
       point2_sampler_sigmas_{fvlam::Translate2::MuVector::Constant(cfg.u_sampler_sigma_)},
       point2_noise_sigmas_{fvlam::Translate2::MuVector::Constant(cfg.u_noise_sigma_)}
-    {}
+    {
+      auto point2_sampler = gtsam::Sampler{point2_sampler_sigmas_};
+
+      for (auto const &target_observations: model_.target_observations_list()) {
+        auto &observations_synced = target_observations.observations_synced();
+
+        fvlam::ObservationsSynced perturbed_observations_synced{observations_synced.stamp(),
+                                                                observations_synced.camera_frame_id()};
+        for (auto &observations : observations_synced.v()) {
+
+          fvlam::Observations perturbed_observations{observations.imager_frame_id()};
+          for (auto &observation : observations.v()) {
+
+            auto cfi = observation.corners_f_image();
+            auto corners_f_image_perturbed = fvlam::Observation::Array{
+              fvlam::Translate2{cfi[0].t() + point2_sampler.sample()},
+              fvlam::Translate2{cfi[1].t() + point2_sampler.sample()},
+              fvlam::Translate2{cfi[2].t() + point2_sampler.sample()},
+              fvlam::Translate2{cfi[3].t() + point2_sampler.sample()},
+            };
+            fvlam::Observation perturbed_observation{observation.id(),
+                                                     corners_f_image_perturbed,
+                                                     observation.cov()};
+            perturbed_observations.v_mutable().emplace_back(perturbed_observation);
+          }
+          perturbed_observations_synced.v_mutable().emplace_back(perturbed_observations);
+        }
+        fvlam::MarkerObservations perturbed_marker_observations{target_observations.camera_index(),
+                                                                target_observations.t_map_camera(),
+                                                                perturbed_observations_synced};
+        marker_observations_list_perturbed_.emplace_back(perturbed_marker_observations);
+      }
+    }
 
     void operator()(std::unique_ptr<fvlam::BuildMarkerMapInterface>)
-    {}
+    {
+
+    }
 
     auto &marker_observations_list_perturbed() const
     { return marker_observations_list_perturbed_; }
