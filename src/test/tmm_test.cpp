@@ -349,9 +349,21 @@ namespace camsim
       }
     }
 
-    void operator()(std::unique_ptr<fvlam::BuildMarkerMapInterface>)
+    void operator()(std::unique_ptr<fvlam::BuildMarkerMapInterface> build_marker_map)
     {
+      frames_processed_ = 0;
 
+      // Loop over the list of observations
+      for (auto &marker_observation : marker_observations_list_perturbed_) {
+
+        // Pass the perturbed observations to the builder
+        build_marker_map->process(marker_observation.observations_synced(), model_.camera_info_map());
+
+        this->frames_processed_ += 1;
+      }
+
+      // Build the map.
+      auto result = build_marker_map->build();
     }
 
     auto &marker_observations_list_perturbed() const
