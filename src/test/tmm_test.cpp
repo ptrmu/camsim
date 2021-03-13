@@ -374,6 +374,7 @@ namespace camsim
   TEST_CASE("fvlam::Model test", "[all]")
   {
     auto bmm_test_config = BuildMarkerMapTest::Config();
+    bmm_test_config.logger_level_ = fvlam::Logger::Levels::level_debug;
 
     fvlam::LoggerCout logger{bmm_test_config.logger_level_};
 
@@ -402,7 +403,7 @@ namespace camsim
                                         fvlam::MarkerModel &model) -> std::unique_ptr<fvlam::BuildMarkerMapInterface>
     {
       auto map_initial = std::make_unique<fvlam::MarkerMap>(model.environment());
-      map_initial->add_marker(model.targets()[0]);
+      map_initial->add_marker(fvlam::Marker(model.targets()[0].id(), model.targets()[0].t_map_marker(), true));
 
       auto solve_tmm_context = fvlam::SolveTmmContextCvSolvePnp{bmm_test_config.average_on_space_not_manifold_};
       auto solve_tmm_factory = fvlam::make_solve_tmm_factory(solve_tmm_context,

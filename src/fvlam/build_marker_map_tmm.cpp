@@ -319,7 +319,8 @@ namespace fvlam
       return pose_graph;
     }
 
-    static gtsam::ShonanAveraging3::Measurements load_shonan_measurements(const gtsam::NonlinearFactorGraph &pose_graph)
+    static gtsam::ShonanAveraging3::Measurements load_shonan_measurements(
+      const gtsam::NonlinearFactorGraph &pose_graph)
     {
       gtsam::ShonanAveraging3::Measurements measurements{};
 
@@ -503,6 +504,7 @@ namespace fvlam
       if (logger_.output_debug()) {
 //        pose_initial.print("pose_initial");
       }
+
       // Do the pose optimization
       gtsam::GaussNewtonParams params;
       if (logger_.output_debug()) {
@@ -592,11 +594,10 @@ namespace fvlam
   };
 
   template<>
-  SolveTMarker0Marker1Factory make_solve_tmm_factory<SolveTmmContextCvSolvePnp>
-    (const SolveTmmContextCvSolvePnp &solve_tmm_context,
-     double marker_length)
+  SolveTMarker0Marker1Factory make_solve_tmm_factory<SolveTmmContextCvSolvePnp>(
+    const SolveTmmContextCvSolvePnp &solve_tmm_context,
+    double marker_length)
   {
-
     return [
       solve_tmm_context{solve_tmm_context},
       marker_length
