@@ -264,7 +264,7 @@ namespace camsim
                       fvlam::BuildMarkerMapTmmContext::NoiseStrategy::minimum,
                       double r_sampler_sigma = 0.0,
                       double t_sampler_sigma = 0.0,
-                      double u_sampler_sigma = 0.0,
+                      double u_sampler_sigma = 0.00001,
                       double r_noise_sigma = 0.1,
                       double t_noise_sigma = 0.3,
                       double u_noise_sigma = 0.5,
@@ -347,6 +347,19 @@ namespace camsim
                                                                 perturbed_observations_synced};
         marker_observations_list_perturbed_.emplace_back(perturbed_marker_observations);
       }
+
+      logger_.debug() << "Model Markers:";
+      for (auto &marker : model_.targets()) {
+        logger_.info() << marker.to_string();
+      }
+//          std::cout << PoseWithCovariance::to_str(marker.marker_f_world_);
+//      auto &corners = marker.corners_;
+//      std::cout << " ("
+//                << corners.corners_[0].point_f_world_.transpose() << ") ("
+//                << corners.corners_[1].point_f_world_.transpose() << ") ( "
+//                << corners.corners_[2].point_f_world_.transpose() << ") ("
+//                << corners.corners_[3].point_f_world_.transpose() << ")";
+//          std::cout << std::endl;
     }
 
     void operator()(std::unique_ptr<fvlam::BuildMarkerMapInterface> build_marker_map)
@@ -364,6 +377,8 @@ namespace camsim
 
       // Build the map.
       auto result = build_marker_map->build();
+
+      logger_.debug() << "Result Markers:\n" << result->to_string();
     }
 
     auto &marker_observations_list_perturbed() const
@@ -381,9 +396,12 @@ namespace camsim
     auto model_maker = [&bmm_test_config]() -> fvlam::MarkerModel
     {
       fvlam::MarkerModel model(fvlam::MapEnvironmentGen::Default(),
-                               fvlam::CameraInfoMapGen::DualCamera(),
-                               fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(bmm_test_config.n_cameras_),
-                               fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(bmm_test_config.n_markers_, 2));
+                               fvlam::CameraInfoMapGen::DualCameraWideAngle(),
+//                               fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(bmm_test_config.n_cameras_),
+//                               fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(bmm_test_config.n_markers_, 2));
+                               fvlam::CamerasGen::LookingDownZ(2.0),
+                               fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
+                                 bmm_test_config.n_markers_, 2.0, 0.0, true));
       return model;
     };
 

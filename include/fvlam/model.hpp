@@ -16,6 +16,7 @@ namespace fvlam
   struct CameraInfoMapGen
   {
     static CameraInfoMap DualCamera(); //
+    static CameraInfoMap DualCameraWideAngle(); //
   };
 
   struct CamerasGen
@@ -29,6 +30,8 @@ namespace fvlam
   {
     static std::vector<Target> CircleInXYPlaneFacingOrigin(int n, double radius); //
     static std::vector<Target> OriginLookingUp(); //
+    static std::vector<Target> CircleInXYPlaneFacingAlongZ(int n, double radius, double z_offset,
+                                                           bool facing_z_plus_not_z_negative); //
   };
 
   using MarkersGen = TargetsGen<Marker>;
