@@ -15,8 +15,9 @@ namespace fvlam
 
   struct CameraInfoMapGen
   {
-    static CameraInfoMap DualCamera(); //
-    static CameraInfoMap DualCameraWideAngle(); //
+    static CameraInfoMap Simulation(); //
+    static CameraInfoMap Dual(); //
+    static CameraInfoMap DualWideAngle(); //
   };
 
   struct CamerasGen
@@ -157,11 +158,11 @@ namespace fvlam
       logger_{logger}, model_{model_maker()}, test_maker_{test_maker}
     {}
 
-    void operator()(UutMaker uut_maker)
+    bool operator()(UutMaker uut_maker)
     {
       auto test = test_maker_(logger_, model_);
       auto uut = uut_maker(logger_, model_);
-      test(std::move(uut));
+      return test(std::move(uut));
     }
   };
 }

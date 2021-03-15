@@ -11,6 +11,15 @@ namespace fvlam
     return fvlam::MapEnvironment{"TestMap", 0, 0.2};
   }
 
+  CameraInfoMap CameraInfoMapGen::Simulation()
+  {
+    auto camera_info_base = CameraInfo{475, 475, 0, 400, 300};
+    auto camera_info0 = CameraInfo("imager", camera_info_base, Transform3{});
+    auto camera_info_map = CameraInfoMap{};
+    camera_info_map.m_mutable().emplace(camera_info0.imager_frame_id(), camera_info0);
+    return camera_info_map;
+  }
+
   static CameraInfoMap centered_dual_camera(CameraInfo camera_info_base, double imager_offset)
   {
     auto camera_info0 = CameraInfo("left", camera_info_base,
@@ -25,13 +34,13 @@ namespace fvlam
     return camera_info_map;
   }
 
-  CameraInfoMap CameraInfoMapGen::DualCamera()
+  CameraInfoMap CameraInfoMapGen::Dual()
   {
     auto camera_info_base = CameraInfo{475, 475, 0, 400, 300};
     return centered_dual_camera(camera_info_base, 0.2);
   }
 
-  CameraInfoMap CameraInfoMapGen::DualCameraWideAngle()
+  CameraInfoMap CameraInfoMapGen::DualWideAngle()
   {
     auto camera_info_base = CameraInfo{100, 100, 0, 400, 300};
     return centered_dual_camera(camera_info_base, 0.2);
@@ -116,7 +125,9 @@ namespace fvlam
       auto observations = Observations{camera_info.imager_frame_id()};
       for (auto &marker : markers) {
         auto observation = project_t_world_marker_function(marker);
-        observations.v_mutable().emplace_back(observation);
+        if (observation.is_valid()) {
+          observations.v_mutable().emplace_back(observation);
+        }
       }
       observations_synced.v_mutable().emplace_back(observations);
     }

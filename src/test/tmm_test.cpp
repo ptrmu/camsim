@@ -23,14 +23,14 @@ namespace camsim
 
     double r_sampler_sigma = 0.0;
     double t_sampler_sigma = 0.0;
-    double u_sampler_sigma = 0.00025;
+    double u_sampler_sigma = 0.025;
     double r_noise_sigma = 0.1;
     double t_noise_sigma = 0.3;
     double u_noise_sigma = 0.5;
 
     double tolerance = 4.0e-1;
 
-    fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_info;
+    fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_debug;
   };
 
   static auto create_pose_generator(const std::vector<fvlam::Transform3> &poses)
@@ -238,52 +238,24 @@ namespace camsim
   public:
     struct Config
     {
-      int n_markers_;
-      int n_cameras_;
+      int n_markers_ = 8;
+      int n_cameras_ = 64;
 
-      bool average_on_space_not_manifold_;
-      bool use_shonan_initial_;
-      fvlam::BuildMarkerMapTmmContext::NoiseStrategy noise_strategy_;
+      bool average_on_space_not_manifold_ = false;
+      bool use_shonan_initial_ = false;
+      fvlam::BuildMarkerMapTmmContext::NoiseStrategy noise_strategy_ =
+        fvlam::BuildMarkerMapTmmContext::NoiseStrategy::minimum;
 
-      double r_sampler_sigma_;
-      double t_sampler_sigma_;
-      double u_sampler_sigma_;
-      double r_noise_sigma_;
-      double t_noise_sigma_;
-      double u_noise_sigma_;
+      double r_sampler_sigma_ = 0.0;
+      double t_sampler_sigma_ = 0.0;
+      double u_sampler_sigma_ = 0.001;
+      double r_noise_sigma_ = 0.1;
+      double t_noise_sigma_ = 0.3;
+      double u_noise_sigma_ = 0.5;
 
-      double tolerance_;
+      double tolerance_ = 1.0e-2;
 
-      fvlam::Logger::Levels logger_level_;
-
-      explicit Config(int n_markers = 8,
-                      int n_cameras = 64,
-                      bool average_on_space_not_manifold = false,
-                      bool use_shonan_initial = false,
-                      fvlam::BuildMarkerMapTmmContext::NoiseStrategy noise_strategy =
-                      fvlam::BuildMarkerMapTmmContext::NoiseStrategy::minimum,
-                      double r_sampler_sigma = 0.0,
-                      double t_sampler_sigma = 0.0,
-                      double u_sampler_sigma = 0.00001,
-                      double r_noise_sigma = 0.1,
-                      double t_noise_sigma = 0.3,
-                      double u_noise_sigma = 0.5,
-                      double tolerance = 4.0e-1,
-                      fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_info) :
-        n_markers_{n_markers},
-        n_cameras_{n_cameras},
-        average_on_space_not_manifold_{average_on_space_not_manifold},
-        use_shonan_initial_{use_shonan_initial},
-        noise_strategy_{noise_strategy},
-        r_sampler_sigma_{r_sampler_sigma},
-        t_sampler_sigma_{t_sampler_sigma},
-        u_sampler_sigma_{u_sampler_sigma},
-        r_noise_sigma_{r_noise_sigma},
-        t_noise_sigma_{t_noise_sigma},
-        u_noise_sigma_{u_noise_sigma},
-        tolerance_{tolerance},
-        logger_level_{logger_level}
-      {}
+      fvlam::Logger::Levels logger_level_ = fvlam::Logger::Levels::level_warn;
     };
 
   private:
@@ -348,21 +320,31 @@ namespace camsim
         marker_observations_list_perturbed_.emplace_back(perturbed_marker_observations);
       }
 
-      logger_.debug() << "Model Markers:";
+
+      logger_.info() << "Model Markers:";
       for (auto &marker : model_.targets()) {
         logger_.info() << marker.to_string();
       }
-//          std::cout << PoseWithCovariance::to_str(marker.marker_f_world_);
-//      auto &corners = marker.corners_;
-//      std::cout << " ("
-//                << corners.corners_[0].point_f_world_.transpose() << ") ("
-//                << corners.corners_[1].point_f_world_.transpose() << ") ( "
-//                << corners.corners_[2].point_f_world_.transpose() << ") ("
-//                << corners.corners_[3].point_f_world_.transpose() << ")";
-//          std::cout << std::endl;
+
+      logger_.debug() << "Model Observations:";
+      for (auto &to : model_.target_observations_list()) {
+        logger_.debug() << "ObservationsSynced " << to.camera_index() << " "
+                        << to.t_map_camera().to_string();
+        for (auto &os : to.observations_synced().v()) {
+          for (auto &o : os.v()) {
+            auto &cs = o.corners_f_image();
+            logger_.info() << os.imager_frame_id() << " ("
+                           << cs[0].t().transpose() << ") ("
+                           << cs[1].t().transpose() << ") ( "
+                           << cs[2].t().transpose() << ") ("
+                           << cs[3].t().transpose() << ")";
+          }
+        }
+      }
     }
 
-    void operator()(std::unique_ptr<fvlam::BuildMarkerMapInterface> build_marker_map)
+
+    bool operator()(std::unique_ptr<fvlam::BuildMarkerMapInterface> build_marker_map)
     {
       frames_processed_ = 0;
 
@@ -376,34 +358,54 @@ namespace camsim
       }
 
       // Build the map.
-      auto result = build_marker_map->build();
+      auto built_map = build_marker_map->build();
+      auto error = fvlam::BuildMarkerMapTmmContext::BuildError::from(*build_marker_map, *built_map);
 
-      logger_.debug() << "Result Markers:\n" << result->to_string();
+      logger_.info() << "Resulting Markers:\n"
+                     << built_map->to_string() << "\n"
+                     << error.to_string();
+
+      return check_maps(*built_map);
     }
 
-    auto &marker_observations_list_perturbed() const
-    { return marker_observations_list_perturbed_; }
+  private:
+    bool check_maps(const fvlam::MarkerMap &built_map)
+    {
+      int n{0};
+      double r_error_sq_accum{0};
+      double t_error_sq_accum{0};
+
+      for (auto &model_marker : model_.targets()) {
+        auto it = built_map.find_marker_const(model_marker.id());
+        if (it == nullptr) {
+          return false;
+        }
+
+        logger_.debug() << "  " << it->to_string();
+        if (!model_marker.t_map_marker().tf().equals(it->t_map_marker().tf(), cfg_.tolerance_, true)) {
+          return false;
+        }
+
+        n += 1;
+        auto model_mu = model_marker.t_map_marker().tf().mu();
+        auto solve_mu = it->t_map_marker().tf().mu();
+        r_error_sq_accum += (model_mu.head<3>() - solve_mu.head<3>()).cwiseAbs().sum() / 3.;
+        t_error_sq_accum += (model_mu.tail<3>() - solve_mu.tail<3>()).cwiseAbs().sum() / 3.;
+      }
+
+      double r_error = std::sqrt(r_error_sq_accum / n);
+      double t_error = std::sqrt(t_error_sq_accum / n);
+      logger_.info() << "True map error - r:" << r_error << " t:" << t_error;
+      return true;
+    }
   };
 
-
-  TEST_CASE("fvlam::Model test", "[all]")
+  static bool test_build_marker_map_tmm(
+    BuildMarkerMapTest::Config bmm_test_config,
+    fvlam::MarkerModel::Maker model_maker)
   {
-    auto bmm_test_config = BuildMarkerMapTest::Config();
-    bmm_test_config.logger_level_ = fvlam::Logger::Levels::level_debug;
 
     fvlam::LoggerCout logger{bmm_test_config.logger_level_};
-
-    auto model_maker = [&bmm_test_config]() -> fvlam::MarkerModel
-    {
-      fvlam::MarkerModel model(fvlam::MapEnvironmentGen::Default(),
-                               fvlam::CameraInfoMapGen::DualCameraWideAngle(),
-//                               fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(bmm_test_config.n_cameras_),
-//                               fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(bmm_test_config.n_markers_, 2));
-                               fvlam::CamerasGen::LookingDownZ(2.0),
-                               fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
-                                 bmm_test_config.n_markers_, 2.0, 0.0, true));
-      return model;
-    };
 
     auto test_maker = [&bmm_test_config](fvlam::Logger &logger,
                                          fvlam::MarkerModel &model) -> BuildMarkerMapTest
@@ -435,6 +437,58 @@ namespace camsim
       return make_build_marker_map(tmm_context, logger, *map_initial);
     };
 
-    runner(uut_maker);
+    return runner(uut_maker);
+  }
+
+  TEST_CASE("build_marker_map_tmm - rotating camera - match markers", "[.][all]")
+  {
+    auto bmm_test_config = BuildMarkerMapTest::Config();
+
+    auto model_maker = [&bmm_test_config]() -> fvlam::MarkerModel
+    {
+      fvlam::MarkerModel model(fvlam::MapEnvironmentGen::Default(),
+                               fvlam::CameraInfoMapGen::Dual(),
+                               fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(bmm_test_config.n_cameras_),
+                               fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(bmm_test_config.n_markers_, 2));
+      return model;
+    };
+
+    REQUIRE(test_build_marker_map_tmm(bmm_test_config, model_maker));
+  }
+
+  TEST_CASE("build_marker_map_tmm - space accumulate - match markers", "[.][all]")
+  {
+    auto bmm_test_config = BuildMarkerMapTest::Config();
+    bmm_test_config.average_on_space_not_manifold_ = true;
+
+    auto model_maker = [&bmm_test_config]() -> fvlam::MarkerModel
+    {
+      fvlam::MarkerModel model(fvlam::MapEnvironmentGen::Default(),
+                               fvlam::CameraInfoMapGen::DualWideAngle(),
+                               fvlam::CamerasGen::LookingDownZ(2.0),
+                               fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
+                                 8, 1.0, 0.0, true));
+      return model;
+    };
+
+    REQUIRE(test_build_marker_map_tmm(bmm_test_config, model_maker));
+  }
+
+  TEST_CASE("build_marker_map_tmm - manifold accumulate - match markers", "[.][all]")
+  {
+    auto bmm_test_config = BuildMarkerMapTest::Config();
+    bmm_test_config.average_on_space_not_manifold_ = false;
+
+    auto model_maker = [&bmm_test_config]() -> fvlam::MarkerModel
+    {
+      fvlam::MarkerModel model(fvlam::MapEnvironmentGen::Default(),
+                               fvlam::CameraInfoMapGen::DualWideAngle(),
+                               fvlam::CamerasGen::LookingDownZ(2.0),
+                               fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
+                                 8, 1.0, 0.0, true));
+      return model;
+    };
+
+    REQUIRE(test_build_marker_map_tmm(bmm_test_config, model_maker));
   }
 }

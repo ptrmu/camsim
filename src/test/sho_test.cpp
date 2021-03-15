@@ -674,7 +674,7 @@ namespace camsim
     for (auto pose : poses)
       for (auto &sigma : sigmas) {
         gtsam::Sampler sampler{sigma};
-        fvlam::EstimateTransform3MeanAndCovariance emac{};
+        fvlam::EstimateTransform3MeanAndCovarianceOnManifold emac{};
 
         for (int i = 0; i < 10000; i += 1) {
           PoseMu offset = sampler.sample();

@@ -302,6 +302,8 @@ namespace fvlam
             auto ix0_bf = interchange ? ix1 : ix0;
             auto ix1_bf = interchange ? ix0 : ix1;
 
+            logger_.debug() << ix0_bf << " " << ix1_bf << " " << t_marker0_marker1.tf().to_string();
+
             pose_graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
               ix0_bf, ix1_bf, t_marker0_marker1.tf().to<gtsam::Pose3>(),
               noise_model);
@@ -507,7 +509,7 @@ namespace fvlam
 
       // Do the pose optimization
       gtsam::GaussNewtonParams params;
-      if (logger_.output_debug()) {
+      if (logger_.output_info()) {
         params.setVerbosity("TERMINATION");
       }
 
@@ -559,15 +561,15 @@ namespace fvlam
   {
     const SolveTmmContextCvSolvePnp solve_tmm_context_;
     double marker_length_;
-    EstimateTransform3MeanAndCovariance emac_algebra_; // Averaging in the vector space
-    EstimateMeanAndCovariance<Transform3::MuVector> emac_group_; // Averaging on the manifold
+    EstimateTransform3MeanAndCovarianceOnManifold emac_manifold_; // Averaging in the vector space
+    EstimateTransform3MeanAndCovarianceOnVectorSpace emac_space_; // Averaging on the manifold
 
   public:
     SolveTmmCvSolvePnp(const SolveTmmContextCvSolvePnp &solve_tmm_context,
                        double marker_length) :
       solve_tmm_context_{solve_tmm_context},
       marker_length_{marker_length},
-      emac_algebra_{}, emac_group_{}
+      emac_manifold_{}, emac_space_{}
     {}
 
     void accumulate(const Observation &observation0,
@@ -578,9 +580,9 @@ namespace fvlam
       auto t_camera_marker1 = observation1.solve_t_camera_marker(camera_info, marker_length_);
       auto t_marker0_marker1 = t_camera_marker0.inverse() * t_camera_marker1;
       if (solve_tmm_context_.average_on_space_not_manifold_) {
-        emac_algebra_.accumulate(t_marker0_marker1);
+        emac_space_.accumulate(t_marker0_marker1);
       } else {
-        emac_group_.accumulate(t_marker0_marker1.mu());
+        emac_manifold_.accumulate(t_marker0_marker1);
       }
     }
 
@@ -588,8 +590,8 @@ namespace fvlam
     Transform3WithCovariance t_marker0_marker1() override
     {
       return Transform3WithCovariance{
-        solve_tmm_context_.average_on_space_not_manifold_ ? emac_algebra_.mean() : Transform3(emac_group_.mean()),
-        solve_tmm_context_.average_on_space_not_manifold_ ? emac_algebra_.cov() : emac_group_.cov()};
+        solve_tmm_context_.average_on_space_not_manifold_ ? emac_space_.mean() : emac_manifold_.mean(),
+        solve_tmm_context_.average_on_space_not_manifold_ ? emac_space_.cov() : emac_manifold_.cov()};
     }
   };
 
