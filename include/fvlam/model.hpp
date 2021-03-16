@@ -24,11 +24,14 @@ namespace fvlam
   {
     static std::vector<Transform3> SpinAboutZAtOriginFacingOut(int n); //
     static std::vector<Transform3> LookingDownZ(double z); //
+    static std::vector<Transform3> CircleInXYPlaneFacingAlongZ(int n, double radius, double z_offset,
+                                                               bool facing_z_plus_not_z_negative); //
   };
 
   template<class Target>
   struct TargetsGen
   {
+    static std::vector<Target> TargetsFromTransform3s(std::vector<Transform3> transform3s); //
     static std::vector<Target> CircleInXYPlaneFacingOrigin(int n, double radius); //
     static std::vector<Target> OriginLookingUp(); //
     static std::vector<Target> CircleInXYPlaneFacingAlongZ(int n, double radius, double z_offset,

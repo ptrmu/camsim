@@ -333,7 +333,8 @@ namespace camsim
         for (auto &os : to.observations_synced().v()) {
           for (auto &o : os.v()) {
             auto &cs = o.corners_f_image();
-            logger_.info() << os.imager_frame_id() << " ("
+            logger_.info() << os.imager_frame_id() << " "
+                           << o.id() << " ("
                            << cs[0].t().transpose() << ") ("
                            << cs[1].t().transpose() << ") ( "
                            << cs[2].t().transpose() << ") ("
@@ -440,6 +441,24 @@ namespace camsim
     return runner(uut_maker);
   }
 
+  static void test_four_build_marker_map_tmm(
+    BuildMarkerMapTest::Config bmm_test_config,
+    fvlam::MarkerModel::Maker model_maker)
+  {
+    bmm_test_config.average_on_space_not_manifold_ = false;
+    bmm_test_config.use_shonan_initial_ = false;
+    REQUIRE(test_build_marker_map_tmm(bmm_test_config, model_maker));
+    bmm_test_config.average_on_space_not_manifold_ = true;
+    bmm_test_config.use_shonan_initial_ = false;
+    REQUIRE(test_build_marker_map_tmm(bmm_test_config, model_maker));
+    bmm_test_config.average_on_space_not_manifold_ = false;
+    bmm_test_config.use_shonan_initial_ = true;
+    REQUIRE(test_build_marker_map_tmm(bmm_test_config, model_maker));
+    bmm_test_config.average_on_space_not_manifold_ = true;
+    bmm_test_config.use_shonan_initial_ = true;
+    REQUIRE(test_build_marker_map_tmm(bmm_test_config, model_maker));
+  }
+
   TEST_CASE("build_marker_map_tmm - rotating camera - match markers", "[.][all]")
   {
     auto bmm_test_config = BuildMarkerMapTest::Config();
@@ -453,13 +472,12 @@ namespace camsim
       return model;
     };
 
-    REQUIRE(test_build_marker_map_tmm(bmm_test_config, model_maker));
+    test_four_build_marker_map_tmm(bmm_test_config, model_maker);
   }
 
   TEST_CASE("build_marker_map_tmm - space accumulate - match markers", "[.][all]")
   {
     auto bmm_test_config = BuildMarkerMapTest::Config();
-    bmm_test_config.average_on_space_not_manifold_ = true;
 
     auto model_maker = [&bmm_test_config]() -> fvlam::MarkerModel
     {
@@ -471,24 +489,72 @@ namespace camsim
       return model;
     };
 
-    REQUIRE(test_build_marker_map_tmm(bmm_test_config, model_maker));
+    test_four_build_marker_map_tmm(bmm_test_config, model_maker);
   }
 
-  TEST_CASE("build_marker_map_tmm - manifold accumulate - match markers", "[.][all]")
+  TEST_CASE("build_marker_map_tmm - build_marker_map_tmm circle of markers, camera in circle", "[.][all]")
   {
     auto bmm_test_config = BuildMarkerMapTest::Config();
-    bmm_test_config.average_on_space_not_manifold_ = false;
 
     auto model_maker = [&bmm_test_config]() -> fvlam::MarkerModel
     {
       fvlam::MarkerModel model(fvlam::MapEnvironmentGen::Default(),
-                               fvlam::CameraInfoMapGen::DualWideAngle(),
-                               fvlam::CamerasGen::LookingDownZ(2.0),
+                               fvlam::CameraInfoMapGen::Simulation(),
+                               fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                 8, 1.0, 2.0, false),
                                fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
                                  8, 1.0, 0.0, true));
       return model;
     };
 
-    REQUIRE(test_build_marker_map_tmm(bmm_test_config, model_maker));
+    test_four_build_marker_map_tmm(bmm_test_config, model_maker);
+  }
+
+  TEST_CASE("build_marker_map_tmm - build_marker_map_tmm from model", "[.][all]")
+  {
+    // Assuming world coordinate system is ENU
+    // Marker coordinate system is also ENU
+    static auto marker_pose_list_0 = std::vector<fvlam::Transform3>{
+      fvlam::Transform3{0, 0, 0, 0, 0, 0},
+      fvlam::Transform3{0, 0, 0, 1, 0, 0},
+      fvlam::Transform3{5 * degree, 5 * degree, 0, 1, 1, 0},
+      fvlam::Transform3{0, 0, 5 * degree, 0, 1, 0},
+
+      fvlam::Transform3{5 * degree, 0, 0, 0, 0, 0.25},
+      fvlam::Transform3{-5 * degree, 0, 0, 1, 1, 0},
+    };
+
+    // Assuming world coordinate system is ENU
+    // Camera coordinate system is right,down,forward (along camera axis)
+    static auto camera_pose_list_0 = std::vector<fvlam::Transform3>{
+      fvlam::Transform3{180 * degree, 0, 0, 0, 0, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 1, 0, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 1, 1, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 0, 1, 2},
+      fvlam::Transform3{180 * degree, 0, 0, 0.01, 0, 2},
+
+      fvlam::Transform3{181 * degree, 0, 0, 0, 0, 2},
+      fvlam::Transform3{181 * degree, 0, 0, 1, 1, 2},
+      fvlam::Transform3{179 * degree, 0, 0, 0, 0, 2},
+      fvlam::Transform3{179 * degree, 0, 0, 1, 1, 2},
+
+      fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 0, 0, 2},
+      fvlam::Transform3{181 * degree, 1 * degree, 1 * degree, 1, 1, 2},
+      fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 0, 0, 2},
+      fvlam::Transform3{179 * degree, -1 * degree, -1 * degree, 1, 1, 2},
+    };
+
+    auto bmm_test_config = BuildMarkerMapTest::Config();
+
+    auto model_maker = [&bmm_test_config]() -> fvlam::MarkerModel
+    {
+      fvlam::MarkerModel model(fvlam::MapEnvironmentGen::Default(),
+                               fvlam::CameraInfoMapGen::Simulation(),
+                               camera_pose_list_0,
+                               fvlam::MarkersGen::TargetsFromTransform3s(marker_pose_list_0));
+      return model;
+    };
+
+    test_four_build_marker_map_tmm(bmm_test_config, model_maker);
   }
 }

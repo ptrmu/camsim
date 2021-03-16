@@ -58,6 +58,14 @@ namespace fvlam
     return pose_f_worlds;
   }
 
+  static std::vector<fvlam::Transform3> circle_in_xy_plane_facing_along_z(int n, double radius, double z_offset,
+                                                                          bool facing_z_plus_not_z_negative)
+  {
+    auto base_rotate = facing_z_plus_not_z_negative ? Rotate3{} : Rotate3::RzRyRx(M_PI, 0, 0);
+    auto poses_in_circle = rotate_around_z(n, Transform3{base_rotate, Translate3{radius, 0., z_offset}});
+    return poses_in_circle;
+  }
+
   static std::vector<Marker> markers_from_transform3s(std::vector<Transform3> transform3s,
                                                       std::uint64_t id_base)
   {
@@ -80,6 +88,18 @@ namespace fvlam
     return std::vector<Transform3>{p};
   }
 
+  std::vector<Transform3> CamerasGen::CircleInXYPlaneFacingAlongZ(int n, double radius, double z_offset,
+                                                                  bool facing_z_plus_not_z_negative)
+  {
+    return circle_in_xy_plane_facing_along_z(n, radius, z_offset, facing_z_plus_not_z_negative);
+  }
+
+  template<>
+  std::vector<Marker> MarkersGen::TargetsFromTransform3s(std::vector<Transform3> transform3s)
+  {
+    return markers_from_transform3s(transform3s, 0);
+  }
+
   template<>
   std::vector<Marker> MarkersGen::CircleInXYPlaneFacingOrigin(int n, double radius)
   {
@@ -97,9 +117,8 @@ namespace fvlam
   std::vector<Marker> MarkersGen::CircleInXYPlaneFacingAlongZ(int n, double radius, double z_offset,
                                                               bool facing_z_plus_not_z_negative)
   {
-    auto base_rotate = facing_z_plus_not_z_negative ? Rotate3{} : Rotate3::RzRyRx(M_PI, 0, 0);
-    auto poses_in_circle = rotate_around_z(n, Transform3{base_rotate, Translate3{radius, 0., z_offset}});
-    return markers_from_transform3s(poses_in_circle, 0);
+    return markers_from_transform3s(circle_in_xy_plane_facing_along_z(
+      n, radius, z_offset, facing_z_plus_not_z_negative), 0);
   }
 
 // ==============================================================================
