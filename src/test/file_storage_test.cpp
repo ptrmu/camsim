@@ -50,7 +50,7 @@ namespace camsim
 
   TEST_CASE("file storage test - save ObservationsSeries", "[.][all]")
   {
-    fvlam::LoggerCout logger{fvlam::Logger::Levels::level_debug};
+    fvlam::LoggerCout logger{fvlam::Logger::Levels::level_warn};
 
     ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{2, 2.},
                              PoseGens::SpinAboutZAtOriginFacingOut{2},
@@ -104,7 +104,7 @@ namespace camsim
 
   TEST_CASE("file storage test - build_marker_map_recorder", "[.][all]")
   {
-    fvlam::LoggerCout logger{fvlam::Logger::Levels::level_debug};
+    fvlam::LoggerCout logger{fvlam::Logger::Levels::level_warn};
 
     ModelConfig model_config{PoseGens::CircleInXYPlaneFacingOrigin{2, 2.},
                              PoseGens::SpinAboutZAtOriginFacingOut{2},

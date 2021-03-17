@@ -195,6 +195,24 @@ target_link_libraries(sho_run
   )
 
 
+add_executable(smf_run
+  src/fvlam/build_marker_map_tmm.cpp
+  src/fvlam/conversions_cv.cpp
+  src/fvlam/conversions_gtsam.cpp
+  src/fvlam/model.cpp
+  src/fvlam/to_string.cpp
+  src/fvlam/transform3_with_covariance.cpp
+  src/test/camsim_test.cpp
+  src/test/smf_test.cpp
+  )
+
+target_link_libraries(smf_run
+  PRIVATE gtsam
+  PRIVATE opencv_core
+  PRIVATE opencv_calib3d
+  )
+
+
 add_executable(kal_run
   src/kal/kal_run.cpp
   src/kal/kal_run_main.cpp

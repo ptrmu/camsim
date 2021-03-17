@@ -14,6 +14,7 @@
 
 namespace camsim
 {
+#if 0
   constexpr double degree = M_PI / 180.;
 
   struct TestParams
@@ -30,7 +31,7 @@ namespace camsim
 
     double tolerance = 4.0e-1;
 
-    fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_debug;
+    fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_warn;
   };
 
   static auto create_pose_generator(const std::vector<fvlam::Transform3> &poses)
@@ -227,11 +228,13 @@ namespace camsim
     auto solved_maps = run_solvers(model, tp, logger);
     check_maps(model, solved_maps, tp.tolerance, logger);
   }
-
+#endif
 
 // ==============================================================================
 // BuildMarkerMapTest class
 // ==============================================================================
+
+  constexpr double degree = M_PI / 180.;
 
   class BuildMarkerMapTest
   {
