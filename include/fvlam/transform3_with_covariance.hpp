@@ -335,6 +335,8 @@ namespace fvlam
     { return *this * other; } //
     Rotate3 between(const Rotate3 &other) const
     { return (*this).inverse() * other; } //
+    Rotate3 slerp(const Rotate3 &other, double t) const
+    { return compose(Expmap(t * Logmap(between(other)))); } //
 
     Rotate3 retract(const TangentVector &v) const
     { return compose(ChartAtOrigin::retract(v)); } //
@@ -368,23 +370,25 @@ namespace fvlam
     using CovarianceMatrix = Eigen::Matrix<double, MuVector::MaxSizeAtCompileTime, MuVector::MaxSizeAtCompileTime>;
 
   private:
+    bool is_valid_;
     Rotate3 r_;
     Translate3 t_;
 
   public:
     Transform3() :
-      r_{}, t_{}
+      is_valid_{false}, r_{}, t_{}
     {}
 
     Transform3(Rotate3 r, Translate3 t) :
-      r_(std::move(r)), t_(std::move(t))
+      is_valid_{true}, r_(std::move(r)), t_(std::move(t))
     {}
 
     Transform3(double rx, double ry, double rz, double tx, double ty, double tz) :
-      r_{Rotate3::RzRyRx(rx, ry, rz)}, t_(Translate3{tx, ty, tz})
+      is_valid_{true}, r_{Rotate3::RzRyRx(rx, ry, rz)}, t_(Translate3{tx, ty, tz})
     {}
 
     explicit Transform3(const MuVector &mu) :
+      is_valid_{true},
       r_(Rotate3::RzRyRx(mu(0), mu(1), mu(2))),
       t_(Translate3(mu(3), mu(4), mu(5)))
     {}
@@ -394,6 +398,9 @@ namespace fvlam
 
     const auto &t() const
     { return t_; }
+
+    auto is_valid() const
+    { return is_valid_; }
 
     MuVector mu() const
     { return (MuVector() << r_.mu(), t_.mu()).finished(); }
@@ -471,26 +478,25 @@ namespace fvlam
                                            Transform3::CovarianceMatrix::MaxSizeAtCompileTime, 1>;
 
   private:
-    bool is_valid_;
     bool is_cov_valid_;
     Transform3 tf_;
     Transform3::CovarianceMatrix cov_;
 
   public:
     Transform3WithCovariance() :
-      is_valid_{false}, is_cov_valid_{false}, tf_{}, cov_{Transform3::CovarianceMatrix::Zero()}
+      is_cov_valid_{false}, tf_{}, cov_{Transform3::CovarianceMatrix::Zero()}
     {}
 
     explicit Transform3WithCovariance(Transform3 tf) :
-      is_valid_(true), is_cov_valid_{false}, tf_(std::move(tf)), cov_(Transform3::CovarianceMatrix::Zero())
+      is_cov_valid_{false}, tf_(std::move(tf)), cov_(Transform3::CovarianceMatrix::Zero())
     {}
 
     Transform3WithCovariance(Transform3 tf, Transform3::CovarianceMatrix cov) :
-      is_valid_(true), is_cov_valid_{true}, tf_(std::move(tf)), cov_(std::move(cov))
+      is_cov_valid_{true}, tf_(std::move(tf)), cov_(std::move(cov))
     {}
 
     auto is_valid() const
-    { return is_valid_; }
+    { return tf_.is_valid(); }
 
     auto is_cov_valid() const
     { return is_cov_valid_; }
