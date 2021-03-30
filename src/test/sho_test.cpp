@@ -329,20 +329,17 @@ namespace camsim
   public:
     struct Config
     {
-      int n_markers_ = 8;
-      int n_cameras_ = 64;
+      double marker_length = 2.0;
 
-      bool average_on_space_not_manifold_ = false;
-      bool use_shonan_initial_ = false;
-      fvlam::BuildMarkerMapTmmContext::NoiseStrategy noise_strategy_ =
-        fvlam::BuildMarkerMapTmmContext::NoiseStrategy::minimum;
+      bool use_cv_not_gtsam_ = true;
+
+      double corner_measurement_sigma_ = 0.5;
+      int gtsam_factor_type_ = 0;
+      bool use_marker_covariance_ = false;
 
       double r_sampler_sigma_ = 0.0;
       double t_sampler_sigma_ = 0.0;
       double u_sampler_sigma_ = 0.001;
-      double r_noise_sigma_ = 0.1;
-      double t_noise_sigma_ = 0.3;
-      double u_noise_sigma_ = 0.5;
 
       double tolerance_ = 1.0e-2;
 
@@ -355,33 +352,32 @@ namespace camsim
     const Config cfg_;
 
     const fvlam::Transform3::MuVector pose3_sampler_sigmas_;
-    const fvlam::Transform3::MuVector pose3_noise_sigmas_;
     const fvlam::Translate2::MuVector point2_sampler_sigmas_;
-    const fvlam::Translate2::MuVector point2_noise_sigmas_;
 
+    fvlam::MarkerMap map_;
     std::vector<fvlam::MarkerObservations> marker_observations_list_perturbed_{};
 
     int frames_processed_{0};
 
-  public:
-    using Maker = std::function<LocalizeCameraTest(fvlam::Logger &, fvlam::MarkerModel &)>;
-
-    LocalizeCameraTest(fvlam::Logger &logger,
-                       const fvlam::MarkerModel &model,
-                       const Config &cfg) :
-      logger_{logger},
-      model_{model},
-      cfg_{cfg},
-      pose3_sampler_sigmas_{(fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(cfg.r_sampler_sigma_),
-        fvlam::Translate3::MuVector::Constant(cfg.t_sampler_sigma_)).finished()},
-      pose3_noise_sigmas_{(fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(cfg.r_noise_sigma_),
-        fvlam::Translate3::MuVector::Constant(cfg.t_noise_sigma_)).finished()},
-      point2_sampler_sigmas_{fvlam::Translate2::MuVector::Constant(cfg.u_sampler_sigma_)},
-      point2_noise_sigmas_{fvlam::Translate2::MuVector::Constant(cfg.u_noise_sigma_)}
+    static fvlam::MarkerMap gen_map(
+      const fvlam::MarkerModel &model)
     {
-      auto point2_sampler = gtsam::Sampler{point2_sampler_sigmas_};
+      auto map = fvlam::MarkerMap{model.environment()};
+      for (auto &marker : model.targets()) {
+        map.add_marker(marker);
+      }
+      return map;
+    }
 
-      for (auto const &target_observations: model_.target_observations_list()) {
+    static std::vector<fvlam::MarkerObservations> gen_marker_observations_list_perturbed(
+      const fvlam::MarkerModel &model,
+      const fvlam::Translate2::MuVector &point2_sampler_sigmas)
+    {
+      auto point2_sampler = gtsam::Sampler{point2_sampler_sigmas};
+
+      std::vector<fvlam::MarkerObservations> marker_observations_list_perturbed{};
+
+      for (auto const &target_observations: model.target_observations_list()) {
         auto &observations_synced = target_observations.observations_synced();
 
         fvlam::ObservationsSynced perturbed_observations_synced{observations_synced.stamp(),
@@ -408,10 +404,27 @@ namespace camsim
         fvlam::MarkerObservations perturbed_marker_observations{target_observations.camera_index(),
                                                                 target_observations.t_map_camera(),
                                                                 perturbed_observations_synced};
-        marker_observations_list_perturbed_.emplace_back(perturbed_marker_observations);
+        marker_observations_list_perturbed.emplace_back(perturbed_marker_observations);
       }
 
+      return marker_observations_list_perturbed;
+    }
 
+  public:
+    using Maker = std::function<LocalizeCameraTest(fvlam::Logger &, fvlam::MarkerModel &)>;
+
+    LocalizeCameraTest(fvlam::Logger &logger,
+                       const fvlam::MarkerModel &model,
+                       const Config &cfg) :
+      logger_{logger},
+      model_{model},
+      cfg_{cfg},
+      pose3_sampler_sigmas_{(fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(cfg.r_sampler_sigma_),
+        fvlam::Translate3::MuVector::Constant(cfg.t_sampler_sigma_)).finished()},
+      point2_sampler_sigmas_{fvlam::Translate2::MuVector::Constant(cfg.u_sampler_sigma_)},
+      map_{gen_map(model_)},
+      marker_observations_list_perturbed_{gen_marker_observations_list_perturbed(model_, point2_sampler_sigmas_)}
+    {
       logger_.info() << "Model Markers:";
       for (auto &marker : model_.targets()) {
         logger_.info() << marker.to_string();
@@ -436,58 +449,23 @@ namespace camsim
     }
 
 
-    bool operator()(std::unique_ptr<fvlam::BuildMarkerMapInterface> build_marker_map)
+    bool operator()(std::unique_ptr<fvlam::LocalizeCameraInterface> localize_camera)
     {
       frames_processed_ = 0;
 
       // Loop over the list of observations
       for (auto &marker_observation : marker_observations_list_perturbed_) {
 
-        // Pass the perturbed observations to the builder
-        build_marker_map->process(marker_observation.observations_synced(), model_.camera_info_map());
+        // Pass the perturbed observations to the localizer
+        auto t_map_camera = localize_camera->solve_t_map_camera(marker_observation.observations_synced(),
+                                                                model_.camera_info_map(), map_);
+
+        if (!marker_observation.t_map_camera().equals(t_map_camera.tf(), cfg_.tolerance_)) {
+          return false;
+        }
 
         this->frames_processed_ += 1;
       }
-
-      // Build the map.
-      auto built_map = build_marker_map->build();
-      auto error = fvlam::BuildMarkerMapTmmContext::BuildError::from(*build_marker_map, *built_map);
-
-      logger_.info() << "Resulting Markers:\n"
-                     << built_map->to_string() << "\n"
-                     << error.to_string();
-
-      return check_maps(*built_map);
-    }
-
-  private:
-    bool check_maps(const fvlam::MarkerMap &built_map)
-    {
-      int n{0};
-      double r_error_sq_accum{0};
-      double t_error_sq_accum{0};
-
-      for (auto &model_marker : model_.targets()) {
-        auto it = built_map.find_marker_const(model_marker.id());
-        if (it == nullptr) {
-          return false;
-        }
-
-        logger_.debug() << "  " << it->to_string();
-        if (!model_marker.t_map_marker().tf().equals(it->t_map_marker().tf(), cfg_.tolerance_, true)) {
-          return false;
-        }
-
-        n += 1;
-        auto model_mu = model_marker.t_map_marker().tf().mu();
-        auto solve_mu = it->t_map_marker().tf().mu();
-        r_error_sq_accum += (model_mu.head<3>() - solve_mu.head<3>()).cwiseAbs().sum() / 3.;
-        t_error_sq_accum += (model_mu.tail<3>() - solve_mu.tail<3>()).cwiseAbs().sum() / 3.;
-      }
-
-      double r_error = std::sqrt(r_error_sq_accum / n);
-      double t_error = std::sqrt(t_error_sq_accum / n);
-      logger_.info() << "True map error - r:" << r_error << " t:" << t_error;
       return true;
     }
   };
