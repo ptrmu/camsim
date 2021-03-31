@@ -35,7 +35,7 @@ namespace camsim
     double u_sampler_sigma = 0.0001;
     double u_noise_sigma = 0.01;
 
-    fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_debug;
+    fvlam::Logger::Levels logger_level = fvlam::Logger::Levels::level_warn;
   };
 
   static TestParams test_params;
@@ -329,7 +329,8 @@ namespace camsim
   public:
     struct Config
     {
-      double marker_length = 2.0;
+      int n_markers_ = 8;
+      int n_cameras_ = 64;
 
       bool use_cv_not_gtsam_ = true;
 
@@ -356,8 +357,6 @@ namespace camsim
 
     fvlam::MarkerMap map_;
     std::vector<fvlam::MarkerObservations> marker_observations_list_perturbed_{};
-
-    int frames_processed_{0};
 
     static fvlam::MarkerMap gen_map(
       const fvlam::MarkerModel &model)
@@ -451,8 +450,6 @@ namespace camsim
 
     bool operator()(std::unique_ptr<fvlam::LocalizeCameraInterface> localize_camera)
     {
-      frames_processed_ = 0;
-
       // Loop over the list of observations
       for (auto &marker_observation : marker_observations_list_perturbed_) {
 
@@ -463,14 +460,132 @@ namespace camsim
         if (!marker_observation.t_map_camera().equals(t_map_camera.tf(), cfg_.tolerance_)) {
           return false;
         }
-
-        this->frames_processed_ += 1;
       }
       return true;
     }
   };
 
-  TEST_CASE("sho_test - cv_solve_t_world_marker test", "[all]")
+  static bool run_localize_camera_test(
+    LocalizeCameraTest::Config cfg,
+    fvlam::MarkerModel::Maker model_maker)
+  {
+    fvlam::LoggerCout logger{cfg.logger_level_};
+
+    auto test_maker = [&cfg](fvlam::Logger &logger,
+                             fvlam::MarkerModel &model) -> LocalizeCameraTest
+    {
+      return LocalizeCameraTest(logger, model, cfg);
+    };
+
+
+    auto runner = fvlam::Runner<fvlam::MarkerModel, LocalizeCameraTest,
+      std::unique_ptr<fvlam::LocalizeCameraInterface>>
+      (logger, model_maker, test_maker);
+
+
+    auto uut_maker = [&cfg](fvlam::Logger &logger,
+                            fvlam::MarkerModel &model) -> std::unique_ptr<fvlam::LocalizeCameraInterface>
+    {
+      if (cfg.use_cv_not_gtsam_) {
+        return make_localize_camera(fvlam::LocalizeCameraCvContext{}, logger);
+      }
+
+      return make_localize_camera(fvlam::LocalizeCameraGtsamFactorContext{cfg.corner_measurement_sigma_,
+                                                                          cfg.gtsam_factor_type_,
+                                                                          cfg.use_marker_covariance_}, logger);
+    };
+
+    return runner(uut_maker);
+  }
+
+  static void multi_localize_camera_test(const LocalizeCameraTest::Config &cfg)
+  {
+    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Simulation(),
+                                fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
+                                fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
+    }));
+
+    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Dual(),
+                                fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
+                                fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
+    }));
+
+    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Simulation(),
+                                master_camera_pose_list,
+                                fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
+    }));
+
+    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Dual(),
+                                master_camera_pose_list,
+                                fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
+    }));
+
+    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Simulation(),
+                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                  8, 1.0, 2.0, false),
+                                fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
+                                  8, 1.0, 0.0, true));
+    }));
+
+    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Dual(),
+                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                  8, 1.0, 2.0, false),
+                                fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
+                                  8, 1.0, 0.0, true));
+    }));
+
+  }
+
+  TEST_CASE("localise_camera - cv - match camera poses", "[.][all]")
+  {
+    auto lc_test_config = LocalizeCameraTest::Config();
+    lc_test_config.use_cv_not_gtsam_ = true;
+    multi_localize_camera_test(lc_test_config);
+  }
+
+  TEST_CASE("localise_camera - gtsam-resectioning - match camera poses", "[.][all]")
+  {
+    auto lc_test_config = LocalizeCameraTest::Config();
+    lc_test_config.use_cv_not_gtsam_ = false;
+    lc_test_config.gtsam_factor_type_ = 0;
+    multi_localize_camera_test(lc_test_config);
+  }
+
+  TEST_CASE("localise_camera - gtsam-project-between - match camera poses", "[.][all]")
+  {
+    auto lc_test_config = LocalizeCameraTest::Config();
+    lc_test_config.use_cv_not_gtsam_ = false;
+    lc_test_config.gtsam_factor_type_ = 1;
+    multi_localize_camera_test(lc_test_config);
+  }
+
+  TEST_CASE("localise_camera - grsam-quad-resectioning - match camera poses", "[.][all]")
+  {
+    auto lc_test_config = LocalizeCameraTest::Config();
+    lc_test_config.use_cv_not_gtsam_ = false;
+    lc_test_config.gtsam_factor_type_ = 2;
+    multi_localize_camera_test(lc_test_config);
+  }
+
+  TEST_CASE("sho_test - solve_t_camera_marker test", "[.][all]")
   {
     TestParams tp{};
     fvlam::LoggerCout logger(tp.logger_level);
@@ -498,28 +613,6 @@ namespace camsim
         camera_pose,
         marker_length);
 
-      double corner_measurement_sigma{1.0};
-      bool use_marker_covariance{true};
-      auto localize_camera_cv = make_localize_camera(fvlam::LocalizeCameraCvContext{}, logger);
-
-      int gtsam_factor_resectioning{0};
-      auto localize_camera_resectioning = make_localize_camera(
-        fvlam::LocalizeCameraGtsamFactorContext{corner_measurement_sigma,
-                                                gtsam_factor_resectioning,
-                                                use_marker_covariance}, logger);
-
-      int gtsam_factor_project_between{0};
-      auto localize_camera_project_between = make_localize_camera(
-        fvlam::LocalizeCameraGtsamFactorContext{corner_measurement_sigma,
-                                                gtsam_factor_project_between,
-                                                use_marker_covariance}, logger);
-
-      int gtsam_factor_quad_resectioning{0};
-      auto localize_camera_quad_resectioning = make_localize_camera(
-        fvlam::LocalizeCameraGtsamFactorContext{corner_measurement_sigma,
-                                                gtsam_factor_quad_resectioning,
-                                                use_marker_covariance}, logger);
-
       logger.debug() << "camera pose  " << camera_pose.to_string()
                      << "    marker pose  " << marker_pose.to_string();
 
@@ -540,32 +633,6 @@ namespace camsim
       REQUIRE(gtsam::assert_equal(f_marker.t_map_marker().tf().mu(),
                                   cv_t_world_marker.mu(),
                                   1.0e-6));
-
-      // Given observations and marker pose, solve to find the camera pose.
-      fvlam::Observations observations{""};
-      observations.v_mutable().emplace_back(gtsam_corners_f_image);
-      fvlam::MarkerMap map{fvlam::MapEnvironment{"", 0, marker_length}};
-      map.add_marker(f_marker);
-
-      auto t_map_camera_cv = localize_camera_cv->solve_t_map_camera(observations, camera_calibration, map);
-      logger.debug() << "              cv camera pose   " << t_map_camera_cv.tf().to_string();
-      REQUIRE(camera_pose.equals(t_map_camera_cv.tf(), 1.0e-6));
-
-      auto t_map_camera_resectioning = localize_camera_resectioning->solve_t_map_camera(observations,
-                                                                                        camera_calibration, map);
-      logger.debug() << "          resectioning camera pose   " << t_map_camera_resectioning.tf().to_string();
-//      REQUIRE(camera_pose.equals(t_map_camera_resectioning.tf(), 1.0e-6));
-
-      auto t_map_camera_project_between = localize_camera_project_between->solve_t_map_camera(observations,
-                                                                                              camera_calibration, map);
-      logger.debug() << "     camera_project camera pose   " << t_map_camera_project_between.tf().to_string();
-      REQUIRE(camera_pose.equals(t_map_camera_project_between.tf(), 1.0e-6));
-
-      auto t_map_camera_quad_resectioning = localize_camera_quad_resectioning->solve_t_map_camera(observations,
-                                                                                                  camera_calibration,
-                                                                                                  map);
-      logger.debug() << "  quad resectioning camera pose   " << t_map_camera_quad_resectioning.tf().to_string();
-      REQUIRE(camera_pose.equals(t_map_camera_quad_resectioning.tf(), 1.0e-6));
     };
 
     do_test(fvlam::Transform3::from(model.cameras_.cameras_[0]),

@@ -192,7 +192,6 @@ namespace camsim
     BuildMarkerMapTest::Config bmm_test_config,
     fvlam::MarkerModel::Maker model_maker)
   {
-
     fvlam::LoggerCout logger{bmm_test_config.logger_level_};
 
     auto test_maker = [&bmm_test_config](fvlam::Logger &logger,
