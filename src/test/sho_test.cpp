@@ -465,9 +465,7 @@ namespace camsim
     }
   };
 
-  static bool run_localize_camera_test(
-    LocalizeCameraTest::Config cfg,
-    fvlam::MarkerModel::Maker model_maker)
+  static void multi_localize_camera_test(LocalizeCameraTest::Config cfg)
   {
     fvlam::LoggerCout logger{cfg.logger_level_};
 
@@ -476,12 +474,6 @@ namespace camsim
     {
       return LocalizeCameraTest(logger, model, cfg);
     };
-
-
-    auto runner = fvlam::Runner<fvlam::MarkerModel, LocalizeCameraTest,
-      std::unique_ptr<fvlam::LocalizeCameraInterface>>
-      (logger, model_maker, test_maker);
-
 
     auto uut_maker = [&cfg](fvlam::Logger &logger,
                             fvlam::MarkerModel &model) -> std::unique_ptr<fvlam::LocalizeCameraInterface>
@@ -495,62 +487,62 @@ namespace camsim
                                                                           cfg.use_marker_covariance_}, logger);
     };
 
-    return runner(uut_maker);
-  }
+    auto test_runner = fvlam::TestRunner<fvlam::MarkerModel, LocalizeCameraTest,
+      std::unique_ptr<fvlam::LocalizeCameraInterface>>
+      (logger, test_maker, uut_maker);
 
-  static void multi_localize_camera_test(const LocalizeCameraTest::Config &cfg)
-  {
-    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Simulation(),
-                                fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
-                                fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
-    }));
 
-    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Dual(),
-                                fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
-                                fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
-    }));
+    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
+                        {
+                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                                    fvlam::CameraInfoMapGen::Simulation(),
+                                                    fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
+                                                    fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
+                        }));
 
-    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Simulation(),
-                                master_camera_pose_list,
-                                fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
-    }));
+    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
+                        {
+                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                                    fvlam::CameraInfoMapGen::Dual(),
+                                                    fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
+                                                    fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
+                        }));
 
-    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Dual(),
-                                master_camera_pose_list,
-                                fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
-    }));
+    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
+                        {
+                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                                    fvlam::CameraInfoMapGen::Simulation(),
+                                                    master_camera_pose_list,
+                                                    fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
+                        }));
 
-    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Simulation(),
-                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 2.0, false),
-                                fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 0.0, true));
-    }));
+    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
+                        {
+                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                                    fvlam::CameraInfoMapGen::Dual(),
+                                                    master_camera_pose_list,
+                                                    fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
+                        }));
 
-    REQUIRE(run_localize_camera_test(cfg, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Dual(),
-                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 2.0, false),
-                                fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 0.0, true));
-    }));
+    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
+                        {
+                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                                    fvlam::CameraInfoMapGen::Simulation(),
+                                                    fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                                      8, 1.0, 2.0, false),
+                                                    fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
+                                                      8, 1.0, 0.0, true));
+                        }));
+
+    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
+                        {
+                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                                    fvlam::CameraInfoMapGen::Dual(),
+                                                    fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                                      8, 1.0, 2.0, false),
+                                                    fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
+                                                      8, 1.0, 0.0, true));
+                        }));
 
   }
 
