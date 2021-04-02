@@ -337,127 +337,32 @@ namespace camsim
       double corner_measurement_sigma_ = 0.5;
       int gtsam_factor_type_ = 0;
       bool use_marker_covariance_ = false;
-
-      double r_sampler_sigma_ = 0.0;
-      double t_sampler_sigma_ = 0.0;
-      double u_sampler_sigma_ = 0.001;
-
-      double tolerance_ = 1.0e-2;
-
-      fvlam::Logger::Levels logger_level_ = fvlam::Logger::Levels::level_warn;
     };
 
   private:
-    fvlam::Logger &logger_;
-    const fvlam::MarkerModel &model_;
     const Config cfg_;
-
-    const fvlam::Transform3::MuVector pose3_sampler_sigmas_;
-    const fvlam::Translate2::MuVector point2_sampler_sigmas_;
-
-    fvlam::MarkerMap map_;
-    std::vector<fvlam::MarkerObservations> marker_observations_list_perturbed_{};
-
-    static fvlam::MarkerMap gen_map(
-      const fvlam::MarkerModel &model)
-    {
-      auto map = fvlam::MarkerMap{model.environment()};
-      for (auto &marker : model.targets()) {
-        map.add_marker(marker);
-      }
-      return map;
-    }
-
-    static std::vector<fvlam::MarkerObservations> gen_marker_observations_list_perturbed(
-      const fvlam::MarkerModel &model,
-      const fvlam::Translate2::MuVector &point2_sampler_sigmas)
-    {
-      auto point2_sampler = gtsam::Sampler{point2_sampler_sigmas};
-
-      std::vector<fvlam::MarkerObservations> marker_observations_list_perturbed{};
-
-      for (auto const &target_observations: model.target_observations_list()) {
-        auto &observations_synced = target_observations.observations_synced();
-
-        fvlam::ObservationsSynced perturbed_observations_synced{observations_synced.stamp(),
-                                                                observations_synced.camera_frame_id()};
-        for (auto &observations : observations_synced.v()) {
-
-          fvlam::Observations perturbed_observations{observations.imager_frame_id()};
-          for (auto &observation : observations.v()) {
-
-            auto cfi = observation.corners_f_image();
-            auto corners_f_image_perturbed = fvlam::Observation::Array{
-              fvlam::Translate2{cfi[0].t() + point2_sampler.sample()},
-              fvlam::Translate2{cfi[1].t() + point2_sampler.sample()},
-              fvlam::Translate2{cfi[2].t() + point2_sampler.sample()},
-              fvlam::Translate2{cfi[3].t() + point2_sampler.sample()},
-            };
-            fvlam::Observation perturbed_observation{observation.id(),
-                                                     corners_f_image_perturbed,
-                                                     observation.cov()};
-            perturbed_observations.v_mutable().emplace_back(perturbed_observation);
-          }
-          perturbed_observations_synced.v_mutable().emplace_back(perturbed_observations);
-        }
-        fvlam::MarkerObservations perturbed_marker_observations{target_observations.camera_index(),
-                                                                target_observations.t_map_camera(),
-                                                                perturbed_observations_synced};
-        marker_observations_list_perturbed.emplace_back(perturbed_marker_observations);
-      }
-
-      return marker_observations_list_perturbed;
-    }
+    fvlam::MarkerModelRunner &runner_;
 
   public:
-    using Maker = std::function<LocalizeCameraTest(fvlam::Logger &, fvlam::MarkerModel &)>;
+    using Maker = std::function<LocalizeCameraTest(fvlam::MarkerModelRunner &)>;
+    using UutMaker = std::function<std::unique_ptr<fvlam::LocalizeCameraInterface>(fvlam::MarkerModelRunner &)>;
 
-    LocalizeCameraTest(fvlam::Logger &logger,
-                       const fvlam::MarkerModel &model,
-                       const Config &cfg) :
-      logger_{logger},
-      model_{model},
-      cfg_{cfg},
-      pose3_sampler_sigmas_{(fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(cfg.r_sampler_sigma_),
-        fvlam::Translate3::MuVector::Constant(cfg.t_sampler_sigma_)).finished()},
-      point2_sampler_sigmas_{fvlam::Translate2::MuVector::Constant(cfg.u_sampler_sigma_)},
-      map_{gen_map(model_)},
-      marker_observations_list_perturbed_{gen_marker_observations_list_perturbed(model_, point2_sampler_sigmas_)}
-    {
-      logger_.info() << "Model Markers:";
-      for (auto &marker : model_.targets()) {
-        logger_.info() << marker.to_string();
-      }
-
-      logger_.debug() << "Model Observations:";
-      for (auto &to : model_.target_observations_list()) {
-        logger_.debug() << "ObservationsSynced " << to.camera_index() << " "
-                        << to.t_map_camera().to_string();
-        for (auto &os : to.observations_synced().v()) {
-          for (auto &o : os.v()) {
-            auto &cs = o.corners_f_image();
-            logger_.info() << os.imager_frame_id() << " "
-                           << o.id() << " ("
-                           << cs[0].t().transpose() << ") ("
-                           << cs[1].t().transpose() << ") ( "
-                           << cs[2].t().transpose() << ") ("
-                           << cs[3].t().transpose() << ")";
-          }
-        }
-      }
-    }
+    LocalizeCameraTest(const Config &cfg,
+                       fvlam::MarkerModelRunner &runner) :
+      cfg_{cfg}, runner_{runner}
+    {}
 
 
     bool operator()(std::unique_ptr<fvlam::LocalizeCameraInterface> localize_camera)
     {
       // Loop over the list of observations
-      for (auto &marker_observation : marker_observations_list_perturbed_) {
+      for (auto &marker_observation : runner_.marker_observations_list_perturbed()) {
 
         // Pass the perturbed observations to the localizer
         auto t_map_camera = localize_camera->solve_t_map_camera(marker_observation.observations_synced(),
-                                                                model_.camera_info_map(), map_);
+                                                                runner_.model().camera_info_map(), runner_.map());
 
-        if (!marker_observation.t_map_camera().equals(t_map_camera.tf(), cfg_.tolerance_)) {
+        if (!marker_observation.t_map_camera().equals(t_map_camera.tf(), runner_.cfg().equals_tolerance_)) {
           return false;
         }
       }
@@ -465,116 +370,113 @@ namespace camsim
     }
   };
 
-  static void multi_localize_camera_test(LocalizeCameraTest::Config cfg)
+  static void multi_localize_camera_test(fvlam::MarkerModelRunner::Config runner_config,
+                                         LocalizeCameraTest::Config cfg)
   {
-    fvlam::LoggerCout logger{cfg.logger_level_};
-
-    auto test_maker = [&cfg](fvlam::Logger &logger,
-                             fvlam::MarkerModel &model) -> LocalizeCameraTest
+    auto test_maker = [&cfg](fvlam::MarkerModelRunner &runner) -> LocalizeCameraTest
     {
-      return LocalizeCameraTest(logger, model, cfg);
+      return LocalizeCameraTest(cfg, runner);
     };
 
-    auto uut_maker = [&cfg](fvlam::Logger &logger,
-                            fvlam::MarkerModel &model) -> std::unique_ptr<fvlam::LocalizeCameraInterface>
+    auto uut_maker = [&cfg](fvlam::MarkerModelRunner &runner) -> std::unique_ptr<fvlam::LocalizeCameraInterface>
     {
       if (cfg.use_cv_not_gtsam_) {
-        return make_localize_camera(fvlam::LocalizeCameraCvContext{}, logger);
+        return make_localize_camera(fvlam::LocalizeCameraCvContext{}, runner.logger());
       }
 
       return make_localize_camera(fvlam::LocalizeCameraGtsamFactorContext{cfg.corner_measurement_sigma_,
                                                                           cfg.gtsam_factor_type_,
-                                                                          cfg.use_marker_covariance_}, logger);
+                                                                          cfg.use_marker_covariance_},
+                                  runner.logger());
     };
 
-    auto test_runner = fvlam::TestRunner<fvlam::MarkerModel, LocalizeCameraTest,
-      std::unique_ptr<fvlam::LocalizeCameraInterface>>
-      (logger, test_maker, uut_maker);
 
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Simulation(),
+                                fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
+                                fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
+    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
 
-    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
-                        {
-                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                                    fvlam::CameraInfoMapGen::Simulation(),
-                                                    fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
-                                                    fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
-                        }));
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Dual(),
+                                fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
+                                fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
+    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
 
-    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
-                        {
-                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                                    fvlam::CameraInfoMapGen::Dual(),
-                                                    fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
-                                                    fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
-                        }));
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Simulation(),
+                                master_camera_pose_list,
+                                fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
+    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
 
-    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
-                        {
-                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                                    fvlam::CameraInfoMapGen::Simulation(),
-                                                    master_camera_pose_list,
-                                                    fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
-                        }));
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Dual(),
+                                master_camera_pose_list,
+                                fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
+    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
 
-    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
-                        {
-                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                                    fvlam::CameraInfoMapGen::Dual(),
-                                                    master_camera_pose_list,
-                                                    fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
-                        }));
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Simulation(),
+                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                  8, 1.0, 2.0, false),
+                                fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
+                                  8, 1.0, 0.0, true));
+    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
 
-    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
-                        {
-                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                                    fvlam::CameraInfoMapGen::Simulation(),
-                                                    fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
-                                                      8, 1.0, 2.0, false),
-                                                    fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
-                                                      8, 1.0, 0.0, true));
-                        }));
-
-    REQUIRE(test_runner([&cfg]() -> fvlam::MarkerModel
-                        {
-                          return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                                    fvlam::CameraInfoMapGen::Dual(),
-                                                    fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
-                                                      8, 1.0, 2.0, false),
-                                                    fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
-                                                      8, 1.0, 0.0, true));
-                        }));
-
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Dual(),
+                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                  8, 1.0, 2.0, false),
+                                fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
+                                  8, 1.0, 0.0, true));
+    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
   }
 
   TEST_CASE("localise_camera - cv - match camera poses", "[.][all]")
   {
+    auto runner_config = fvlam::MarkerModelRunner::Config();
     auto lc_test_config = LocalizeCameraTest::Config();
     lc_test_config.use_cv_not_gtsam_ = true;
-    multi_localize_camera_test(lc_test_config);
+    multi_localize_camera_test(runner_config, lc_test_config);
   }
 
   TEST_CASE("localise_camera - gtsam-resectioning - match camera poses", "[.][all]")
   {
+    auto runner_config = fvlam::MarkerModelRunner::Config();
     auto lc_test_config = LocalizeCameraTest::Config();
     lc_test_config.use_cv_not_gtsam_ = false;
     lc_test_config.gtsam_factor_type_ = 0;
-    multi_localize_camera_test(lc_test_config);
+    multi_localize_camera_test(runner_config, lc_test_config);
   }
 
   TEST_CASE("localise_camera - gtsam-project-between - match camera poses", "[.][all]")
   {
+    auto runner_config = fvlam::MarkerModelRunner::Config();
     auto lc_test_config = LocalizeCameraTest::Config();
     lc_test_config.use_cv_not_gtsam_ = false;
     lc_test_config.gtsam_factor_type_ = 1;
-    multi_localize_camera_test(lc_test_config);
+    multi_localize_camera_test(runner_config, lc_test_config);
   }
 
   TEST_CASE("localise_camera - grsam-quad-resectioning - match camera poses", "[.][all]")
   {
+    auto runner_config = fvlam::MarkerModelRunner::Config();
     auto lc_test_config = LocalizeCameraTest::Config();
     lc_test_config.use_cv_not_gtsam_ = false;
     lc_test_config.gtsam_factor_type_ = 2;
-    multi_localize_camera_test(lc_test_config);
+    multi_localize_camera_test(runner_config, lc_test_config);
   }
 
   TEST_CASE("sho_test - solve_t_camera_marker test", "[.][all]")

@@ -2,6 +2,7 @@
 
 #include "fvlam/model.hpp"
 #include <gtsam/geometry/Cal3DS2.h>
+#include <gtsam/linear/Sampler.h>
 #include "opencv2/core.hpp"
 
 namespace fvlam
@@ -153,5 +154,91 @@ namespace fvlam
 
     return observations_synced;
   }
+
+// ==============================================================================
+// MarkerModelRunner class
+// ==============================================================================
+
+  MarkerModelRunner::MarkerModelRunner(Config cfg,
+                                       MarkerModel::Maker model_maker) :
+    cfg_{cfg}, logger_{cfg.logger_level_}, model_{model_maker()},
+    map_{gen_map(model_)},
+    marker_observations_list_perturbed_{
+      gen_marker_observations_list_perturbed(model_, cfg.u_sampler_sigma_)}
+  {
+    logger_.info() << "Model Markers:";
+    for (auto &marker : model_.targets()) {
+      logger_.info() << marker.to_string();
+    }
+
+    logger_.debug() << "Model Observations:";
+    for (auto &to : model_.target_observations_list()) {
+      logger_.debug() << "ObservationsSynced " << to.camera_index() << " "
+                      << to.t_map_camera().to_string();
+      for (auto &os : to.observations_synced().v()) {
+        for (auto &o : os.v()) {
+          auto &cs = o.corners_f_image();
+          logger_.info() << os.imager_frame_id() << " "
+                         << o.id() << " ("
+                         << cs[0].t().transpose() << ") ("
+                         << cs[1].t().transpose() << ") ( "
+                         << cs[2].t().transpose() << ") ("
+                         << cs[3].t().transpose() << ")";
+        }
+      }
+    }
+  }
+
+  fvlam::MarkerMap MarkerModelRunner::gen_map(
+    const fvlam::MarkerModel &model)
+  {
+    auto map = fvlam::MarkerMap{model.environment()};
+    for (auto &marker : model.targets()) {
+      map.add_marker(marker);
+    }
+    return map;
+  }
+
+   std::vector<fvlam::MarkerObservations>  MarkerModelRunner::gen_marker_observations_list_perturbed(
+    const fvlam::MarkerModel &model,
+    double point2_sampler_sigma)
+  {
+    auto point2_sampler = gtsam::Sampler{fvlam::Translate2::MuVector::Constant(point2_sampler_sigma)};
+
+    std::vector<fvlam::MarkerObservations> marker_observations_list_perturbed{};
+
+    for (auto const &target_observations: model.target_observations_list()) {
+      auto &observations_synced = target_observations.observations_synced();
+
+      fvlam::ObservationsSynced perturbed_observations_synced{observations_synced.stamp(),
+                                                              observations_synced.camera_frame_id()};
+      for (auto &observations : observations_synced.v()) {
+
+        fvlam::Observations perturbed_observations{observations.imager_frame_id()};
+        for (auto &observation : observations.v()) {
+
+          auto cfi = observation.corners_f_image();
+          auto corners_f_image_perturbed = fvlam::Observation::Array{
+            fvlam::Translate2{cfi[0].t() + point2_sampler.sample()},
+            fvlam::Translate2{cfi[1].t() + point2_sampler.sample()},
+            fvlam::Translate2{cfi[2].t() + point2_sampler.sample()},
+            fvlam::Translate2{cfi[3].t() + point2_sampler.sample()},
+          };
+          fvlam::Observation perturbed_observation{observation.id(),
+                                                   corners_f_image_perturbed,
+                                                   observation.cov()};
+          perturbed_observations.v_mutable().emplace_back(perturbed_observation);
+        }
+        perturbed_observations_synced.v_mutable().emplace_back(perturbed_observations);
+      }
+      fvlam::MarkerObservations perturbed_marker_observations{target_observations.camera_index(),
+                                                              target_observations.t_map_camera(),
+                                                              perturbed_observations_synced};
+      marker_observations_list_perturbed.emplace_back(perturbed_marker_observations);
+    }
+
+    return marker_observations_list_perturbed;
+  }
+
 
 }
