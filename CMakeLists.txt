@@ -202,6 +202,8 @@ add_executable(smf_run
   src/fvlam/model.cpp
   src/fvlam/to_string.cpp
   src/fvlam/transform3_with_covariance.cpp
+  src/smf/SFMExample_SmartFactor.cpp
+  src/smf/smf_run.cpp
   src/test/camsim_test.cpp
   src/test/smf_test.cpp
   )

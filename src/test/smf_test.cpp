@@ -2,9 +2,10 @@
 
 #include "catch2/catch.hpp"
 
+#include "../smf/smf_run.hpp"
 
-
-TEST_CASE("build_marker_map_smf - build_marker_map_tmm circle of markers, camera in circle", "[all]")
+TEST_CASE("sfm_example_smart_factor - run - zero", "[all]")
 {
+  REQUIRE(sfm_example_smart_factor() == 0);
 }
 
