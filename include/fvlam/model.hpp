@@ -189,13 +189,21 @@ namespace fvlam
     LoggerCout logger_;
     MarkerModel model_;
     fvlam::MarkerMap map_;
+    std::vector<Marker> markers_perturbed_;
     std::vector<fvlam::MarkerObservations> marker_observations_list_perturbed_;
 
     static fvlam::MarkerMap gen_map(
       const fvlam::MarkerModel &model);
 
+    static std::vector<Marker> gen_markers_perturbed(
+      const fvlam::MarkerModel &model,
+      double r_sampler_sigma,
+      double t_sampler_sigma);
+
     static std::vector<fvlam::MarkerObservations> gen_marker_observations_list_perturbed(
       const fvlam::MarkerModel &model,
+      double r_sampler_sigma,
+      double t_sampler_sigma,
       double point2_sampler_sigma);
 
   public:
@@ -231,36 +239,5 @@ namespace fvlam
 
     auto &marker_observations_list_perturbed() const
     { return marker_observations_list_perturbed_; }
-  };
-
-  template<class Model, class Test, class Uut>
-  class TestRunner
-  {
-  public:
-    using UutMaker = std::function<Uut(Logger &, Model &)>;
-
-  private:
-    Logger &logger_;
-    typename Test::Maker test_maker_;
-    UutMaker uut_maker_;
-
-  public:
-    TestRunner() = delete; //
-    TestRunner(const TestRunner &) = delete; //
-    TestRunner(TestRunner &&) = delete;
-
-    TestRunner(Logger &logger,
-               typename Test::Maker test_maker,
-               UutMaker uut_maker) :
-      logger_{logger}, test_maker_{test_maker}, uut_maker_{uut_maker}
-    {}
-
-    bool operator()(const typename Model::Maker model_maker)
-    {
-      auto model = model_maker();
-      auto test = test_maker_(logger_, model);
-      auto uut = uut_maker_(logger_, model);
-      return test(std::move(uut));
-    }
   };
 }

@@ -163,8 +163,9 @@ namespace fvlam
                                        MarkerModel::Maker model_maker) :
     cfg_{cfg}, logger_{cfg.logger_level_}, model_{model_maker()},
     map_{gen_map(model_)},
+    markers_perturbed_{gen_markers_perturbed(model_, cfg.r_sampler_sigma_, cfg.t_sampler_sigma_)},
     marker_observations_list_perturbed_{
-      gen_marker_observations_list_perturbed(model_, cfg.u_sampler_sigma_)}
+      gen_marker_observations_list_perturbed(model_, cfg.r_sampler_sigma_, cfg.t_sampler_sigma_, cfg.u_sampler_sigma_)}
   {
     logger_.info() << "Model Markers:";
     for (auto &marker : model_.targets()) {
@@ -199,11 +200,34 @@ namespace fvlam
     return map;
   }
 
-   std::vector<fvlam::MarkerObservations>  MarkerModelRunner::gen_marker_observations_list_perturbed(
+  std::vector<Marker> MarkerModelRunner::gen_markers_perturbed(
     const fvlam::MarkerModel &model,
+    double r_sampler_sigma,
+    double t_sampler_sigma)
+  {
+    auto pose3_sampler = gtsam::Sampler{
+      (fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(r_sampler_sigma),
+        fvlam::Translate3::MuVector::Constant(t_sampler_sigma)).finished()};
+
+    auto markers_perturbed = std::vector<Marker>{};
+    for (auto &target_marker : model.targets()) {
+      auto tf_perturbed = Transform3WithCovariance{target_marker.t_map_marker().tf().retract(pose3_sampler.sample()),
+                                                   target_marker.t_map_marker().cov()};
+      markers_perturbed.emplace_back(Marker{target_marker.id(), tf_perturbed, target_marker.is_valid()});
+    }
+    return markers_perturbed;
+  }
+
+  std::vector<fvlam::MarkerObservations> MarkerModelRunner::gen_marker_observations_list_perturbed(
+    const fvlam::MarkerModel &model,
+    double r_sampler_sigma,
+    double t_sampler_sigma,
     double point2_sampler_sigma)
   {
     auto point2_sampler = gtsam::Sampler{fvlam::Translate2::MuVector::Constant(point2_sampler_sigma)};
+    auto pose3_sampler = gtsam::Sampler{
+      (fvlam::Transform3::MuVector{} << fvlam::Rotate3::MuVector::Constant(r_sampler_sigma),
+        fvlam::Translate3::MuVector::Constant(t_sampler_sigma)).finished()};
 
     std::vector<fvlam::MarkerObservations> marker_observations_list_perturbed{};
 
@@ -231,9 +255,10 @@ namespace fvlam
         }
         perturbed_observations_synced.v_mutable().emplace_back(perturbed_observations);
       }
-      fvlam::MarkerObservations perturbed_marker_observations{target_observations.camera_index(),
-                                                              target_observations.t_map_camera(),
-                                                              perturbed_observations_synced};
+      fvlam::MarkerObservations perturbed_marker_observations{
+        target_observations.camera_index(),
+        target_observations.t_map_camera().retract(pose3_sampler.sample()),
+        perturbed_observations_synced};
       marker_observations_list_perturbed.emplace_back(perturbed_marker_observations);
     }
 
