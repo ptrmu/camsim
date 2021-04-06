@@ -202,10 +202,12 @@ add_executable(smf_run
   src/fvlam/model.cpp
   src/fvlam/to_string.cpp
   src/fvlam/transform3_with_covariance.cpp
+  src/smf/ISAM2Example_SmartFactor
   src/smf/SFMExample_SmartFactor.cpp
   src/smf/smf_run.cpp
   src/test/camsim_test.cpp
   src/test/smf_test.cpp
+  src/smf/smart_factor_pose.cpp
   )
 
 target_link_libraries(smf_run
@@ -278,6 +280,7 @@ add_executable(camsim_test
   src/test/sho_test.cpp
   src/sho/sho_run.cpp
   src/sho/sho_inter_marker_rotation.cpp
+  src/smf/ISAM2Example_SmartFactor
   src/smf/SFMExample_SmartFactor.cpp
   src/smf/smf_run.cpp
   src/fvlam/build_marker_map_recorder.cpp

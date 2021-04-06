@@ -138,6 +138,16 @@ namespace fvlam
 
   using MarkerModel = Model<MapEnvironment, Marker, MarkerObservations>;
 
+  struct MarkerModelGen
+  {
+    static MarkerModel::Maker MonoSpinCameraAtOrigin(); //
+    static MarkerModel::Maker DualSpinCameraAtOrigin(); //
+    static MarkerModel::Maker MonoParallelGrid(); //
+    static MarkerModel::Maker DualParallelGrid(); //
+    static MarkerModel::Maker MonoParallelCircles(); //
+    static MarkerModel::Maker DualParallelCircles(); //
+  };
+
 // ==============================================================================
 // Runner class
 // ==============================================================================
@@ -168,6 +178,45 @@ namespace fvlam
       auto uut = uut_maker(logger_, model_);
       return test(std::move(uut));
     }
+  };
+
+  class MarkerModelRunnerSimple1
+  {
+  public:
+    struct Config
+    {
+      double equals_tolerance_ = 1.0e-2;
+      fvlam::Logger::Levels logger_level_ = fvlam::Logger::Levels::level_warn;
+    };
+
+  private:
+    Config cfg_;
+    LoggerCout logger_;
+    MarkerModel model_;
+
+  public:
+    MarkerModelRunnerSimple1() = delete; //
+    MarkerModelRunnerSimple1(const MarkerModelRunnerSimple1 &) = delete; //
+    MarkerModelRunnerSimple1(MarkerModelRunnerSimple1 &&) = delete;
+
+    MarkerModelRunnerSimple1(Config cfg,
+                             MarkerModel::Maker model_maker);
+
+    template<class TestMaker, class UutMaker>
+    bool run(TestMaker test_maker)
+    {
+      auto test = test_maker(*this);
+      return test();
+    }
+
+    auto &cfg() const
+    { return cfg_; }
+
+    Logger &logger()
+    { return logger_; }
+
+    auto &model() const
+    { return model_; }
   };
 
   class MarkerModelRunner

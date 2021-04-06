@@ -391,57 +391,23 @@ namespace camsim
     };
 
 
-    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Simulation(),
-                                fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
-                                fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
-    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, fvlam::MarkerModelGen::MonoSpinCameraAtOrigin())
+              .run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
 
-    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Dual(),
-                                fvlam::CamerasGen::SpinAboutZAtOriginFacingOut(cfg.n_cameras_),
-                                fvlam::MarkersGen::CircleInXYPlaneFacingOrigin(cfg.n_markers_, 2));
-    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, fvlam::MarkerModelGen::DualSpinCameraAtOrigin())
+              .run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
 
-    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Simulation(),
-                                master_camera_pose_list,
-                                fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
-    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, fvlam::MarkerModelGen::MonoParallelGrid())
+              .run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
 
-    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Dual(),
-                                master_camera_pose_list,
-                                fvlam::MarkersGen::TargetsFromTransform3s(master_marker_pose_list));
-    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, fvlam::MarkerModelGen::DualParallelGrid())
+              .run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
 
-    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Simulation(),
-                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 2.0, false),
-                                fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 0.0, true));
-    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, fvlam::MarkerModelGen::MonoParallelCircles())
+              .run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
 
-    REQUIRE(fvlam::MarkerModelRunner(runner_config, [&cfg]() -> fvlam::MarkerModel
-    {
-      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
-                                fvlam::CameraInfoMapGen::Dual(),
-                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 2.0, false),
-                                fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 0.0, true));
-    }).run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
+    REQUIRE(fvlam::MarkerModelRunner(runner_config, fvlam::MarkerModelGen::DualParallelCircles())
+              .run<LocalizeCameraTest::Maker, LocalizeCameraTest::UutMaker>(test_maker, uut_maker));
   }
 
   TEST_CASE("localise_camera - cv - match camera poses", "[.][all]")
