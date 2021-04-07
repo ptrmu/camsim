@@ -242,6 +242,18 @@ namespace fvlam
     };
   }
 
+  MarkerModel::Maker MarkerModelGen::DualWideSingleCamera()
+  {
+    return []() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::DualWideAngle(),
+                                fvlam::CamerasGen::LookingDownZ(2.0),
+                                fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
+                                  8, 1.0, 0.0, true));
+    };
+  }
+
 // ==============================================================================
 // MarkerObservations class
 // ==============================================================================
