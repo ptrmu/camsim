@@ -2,6 +2,7 @@
 
 #include "fvlam/model.hpp"
 #include <gtsam/geometry/Cal3DS2.h>
+#include "gtsam/inference/Symbol.h"
 #include <gtsam/linear/Sampler.h>
 #include "opencv2/core.hpp"
 
@@ -252,6 +253,28 @@ namespace fvlam
                                 fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
                                   8, 1.0, 0.0, true));
     };
+  }
+
+  std::uint64_t ModelKey::camera(std::size_t idx)
+  {
+    return gtsam::Symbol{'c', idx}.key();
+  }
+
+  std::uint64_t ModelKey::marker(std::size_t idx)
+  {
+    return gtsam::Symbol{'m', idx}.key();
+  }
+
+  std::uint64_t ModelKey::corner(std::uint64_t marker_key, int corner_idx)
+  {
+    static char codes[] = {'i', 'j', 'k', 'l'};
+    auto marker_index = gtsam::Symbol{marker_key}.index();
+    return gtsam::Symbol(codes[corner_idx % sizeof(codes)], marker_index);
+  }
+
+  std::uint64_t ModelKey::marker_from_corner(std::uint64_t corner_key)
+  {
+    return marker(gtsam::Symbol{corner_key}.index());
   }
 
 // ==============================================================================

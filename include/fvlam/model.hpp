@@ -149,6 +149,14 @@ namespace fvlam
     static MarkerModel::Maker DualWideSingleCamera(); //
   };
 
+  struct ModelKey
+  {
+    static std::uint64_t camera(std::size_t idx); //
+    static std::uint64_t marker(std::size_t idx); //
+    static std::uint64_t corner(std::uint64_t marker_key, int corner_idx); //
+    static std::uint64_t marker_from_corner(std::uint64_t corner_key); //
+  };
+
 // ==============================================================================
 // Runner class
 // ==============================================================================
