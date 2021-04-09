@@ -4,6 +4,7 @@
 #include "fvlam/model.hpp"
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/PinholeCamera.h>
+#include <gtsam/geometry/Point3.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/slam/SmartProjectionPoseFactor.h>
@@ -39,8 +40,14 @@ namespace camsim
       gtsam::NonlinearFactorGraph graph;
       gtsam::Values initial;
 
-      // for each camera
+      // For each camera.
       for (auto &marker_observations : runner_.model().target_observations_list()) {
+
+        // Get a camera key.
+        auto camera_key = fvlam::ModelKey::camera(marker_observations.camera_index());
+
+        // Add an initial value for each camera
+        initial.insert(camera_key, marker_observations.t_map_camera().to<gtsam::Pose3>());
 
         // For each imager's observations
         for (auto &observations : marker_observations.observations_synced().v()) {
@@ -63,14 +70,51 @@ namespace camsim
               graph.emplace_shared<gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
                 observation.corners_f_image()[i].to<gtsam::Point2>(),
                 measurement_noise,
-                fvlam::ModelKey::camera(marker_observations.camera_index()),
+                camera_key,
                 fvlam::ModelKey::corner(fvlam::ModelKey::marker(observation.id()), i), K);
-
-              // Add an initial location for each corner
             }
           }
         }
       }
+
+      // Add an initial value for the location of each corner of each marker
+      for (auto &marker : runner_.model().targets()) {
+
+        auto marker_key = fvlam::ModelKey::marker(marker.id());
+        auto corners_f_world = marker.corners_f_world<std::vector<gtsam::Point3>>(
+          runner_.model().environment().marker_length());
+
+        // For each corner of a marker
+        for (std::size_t i = 0; i < marker.ArraySize; i += 1) {
+
+          gtsam::Point3 corner_perturbed = corners_f_world[i] + gtsam::Point3(0.1, -0.1, 0.05);
+          initial.insert(fvlam::ModelKey::corner(marker_key, i), corner_perturbed);
+        }
+      }
+
+      // Add a prior for each corner of the first marker.
+      auto pointNoise = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+      auto marker0_key = fvlam::ModelKey::marker(runner_.model().targets()[0].id());
+      auto corners0_f_world = runner_.model().targets()[0]
+        .corners_f_world<std::vector<gtsam::Point3>>(runner_.model().environment().marker_length());
+      for (std::size_t i = 0; i < corners0_f_world.size(); i += 1) {
+
+        graph.emplace_shared<gtsam::PriorFactor<gtsam::Point3> >(
+          fvlam::ModelKey::corner(marker0_key, i), corners0_f_world[i], pointNoise);
+      }
+
+      /* Optimize the graph and print results */
+      auto params = gtsam::LevenbergMarquardtParams();
+      params.setVerbosityLM("TERMINATION");
+      params.setVerbosity("TERMINATION");
+      params.setRelativeErrorTol(1e-8);
+      params.setAbsoluteErrorTol(1e-8);
+
+      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
+      std::cout << "initial error = " << graph.error(initial) << std::endl;
+      std::cout << "final error = " << graph.error(result) << std::endl;
+
+      result.print("result\n");
 
       return 0;
     }
