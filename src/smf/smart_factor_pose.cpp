@@ -32,6 +32,40 @@ namespace camsim
     const Config cfg_;
     fvlam::MarkerModelRunner &runner_;
 
+    int check_corners(const gtsam::Values &result)
+    {
+      //Check that the camera poses match the model.
+      for (auto &marker_observations : runner_.model().target_observations_list()) {
+
+        // Get a camera key.
+        auto camera_key = fvlam::ModelKey::camera(marker_observations.camera_index());
+
+        // Test the camera pose
+        auto t_world_camera = result.at<gtsam::Pose3>(camera_key);
+        if (!marker_observations.t_map_camera().equals(fvlam::Transform3::from(t_world_camera))) {
+          return 1;
+        }
+      }
+
+      // Test that the corners match the model.
+      for (auto &marker : runner_.model().targets()) {
+
+        auto marker_key = fvlam::ModelKey::marker(marker.id());
+        auto corners_f_world = marker.calc_corners3_f_world(
+          runner_.model().environment().marker_length());
+
+        // For each corner of a marker
+        for (std::size_t i = 0; i < marker.ArraySize; i += 1) {
+
+          auto corner_f_image = result.at<gtsam::Point3>(fvlam::ModelKey::corner(marker_key, i));
+          if (!corners_f_world[i].equals(fvlam::Translate3::from<gtsam::Point3>(corner_f_image))) {
+            return 1;
+          }
+        }
+      }
+      return 0;
+    }
+
     int do_sfm(std::shared_ptr<gtsam::Cal3DS2> K,
                gtsam::SharedNoiseModel measurement_noise)
     {
@@ -114,9 +148,9 @@ namespace camsim
       std::cout << "initial error = " << graph.error(initial) << std::endl;
       std::cout << "final error = " << graph.error(result) << std::endl;
 
-      result.print("result\n");
+//      result.print("result\n");
 
-      return 0;
+      return check_corners(result);
     }
 
   public:
