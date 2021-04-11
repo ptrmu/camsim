@@ -92,7 +92,8 @@ namespace camsim
           if (cip == runner_.model().camera_info_map().m().end()) {
             continue;
           }
-          const auto K = gtsam::Cal3_S2::shared_ptr(new gtsam::Cal3_S2(cip->second.to<gtsam::Cal3_S2>()));
+          auto &camera_info = cip->second;
+          const auto K = gtsam::Cal3_S2::shared_ptr(new gtsam::Cal3_S2(camera_info.to<gtsam::Cal3_S2>()));
 
           // For each observation of a marker
           for (auto &observation : observations.v()) {
@@ -100,12 +101,17 @@ namespace camsim
             // For each corner of a marker
             for (std::size_t i = 0; i < observation.corners_f_image().size(); i += 1) {
 
+              // Maybe the imager is offset from the camera
+              auto body_P_sensor = camera_info.t_camera_imager().is_valid() ?
+                                   boost::optional<gtsam::Pose3>(camera_info.t_camera_imager().to<gtsam::Pose3>()) :
+                                   boost::none;
+
               // Add a projection factor for each corner of every marker viewed by an imager
               graph.emplace_shared<gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
                 observation.corners_f_image()[i].to<gtsam::Point2>(),
-                measurement_noise,
-                camera_key,
-                fvlam::ModelKey::corner(fvlam::ModelKey::marker(observation.id()), i), K);
+                measurement_noise, camera_key,
+                fvlam::ModelKey::corner(fvlam::ModelKey::marker(observation.id()), i), K,
+                body_P_sensor);
             }
           }
         }
@@ -136,6 +142,8 @@ namespace camsim
         graph.emplace_shared<gtsam::PriorFactor<gtsam::Point3> >(
           fvlam::ModelKey::corner(marker0_key, i), corners0_f_world[i], pointNoise);
       }
+
+//      graph.print("graph\n");
 
       /* Optimize the graph and print results */
       auto params = gtsam::LevenbergMarquardtParams();
@@ -174,6 +182,8 @@ namespace camsim
         default:
         case 0:
           return do_sfm(K, measurementNoise);
+        case 1:
+          return do_sfm_isam(K, measurementNoise);
       }
     }
   };
@@ -186,7 +196,10 @@ namespace camsim
 
     fvlam::LoggerCout logger{runner_config.logger_level_};
 
-    auto marker_runner = fvlam::MarkerModelRunner(runner_config, fvlam::MarkerModelGen::MonoParallelGrid());
+    auto marker_runner = fvlam::MarkerModelRunner(runner_config,
+//                                                  fvlam::MarkerModelGen::MonoParallelGrid());
+//                                                  fvlam::MarkerModelGen::DualParallelGrid());
+                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
 
     auto test_maker = [&smf_test_config](fvlam::MarkerModelRunner &runner) -> SfmSmartFactorTest
     {
