@@ -14,10 +14,10 @@ namespace camsim
 
 
 // Make the typename short so it looks much cleaner
-  typedef gtsam::SmartProjectionPoseFactor<gtsam::Cal3_S2> SmartFactor;
+  typedef gtsam::SmartProjectionPoseFactor<gtsam::Cal3DS2> SmartFactor;
 
 // create a typedef to the camera type
-  typedef gtsam::PinholePose<gtsam::Cal3_S2> Camera;
+  typedef gtsam::PinholePose<gtsam::Cal3DS2> Camera;
 
 
   class SfmSmartFactorTest
@@ -27,6 +27,18 @@ namespace camsim
     {
       int sfm_algoriithm_ = 0; // 0 - sfm, 1 - sfm isam, 2 - sfm, smart, 3 sfm, smart, isam
     };
+
+    struct CalInfo
+    {
+      boost::shared_ptr<gtsam::Cal3DS2> cal3ds2_;
+      const fvlam::CameraInfo &camera_info_;
+
+      CalInfo(boost::shared_ptr<gtsam::Cal3DS2> cal3ds2, const fvlam::CameraInfo &camera_info) :
+        cal3ds2_{std::move(cal3ds2)}, camera_info_{camera_info}
+      {}
+    };
+
+    using Cal3DS2Map = std::map<std::string, CalInfo>;
 
   private:
     const Config cfg_;
@@ -66,7 +78,7 @@ namespace camsim
       return 0;
     }
 
-    int do_sfm(std::shared_ptr<gtsam::Cal3DS2> K,
+    int do_sfm(Cal3DS2Map &k_map,
                gtsam::SharedNoiseModel measurement_noise)
     {
 
@@ -88,12 +100,10 @@ namespace camsim
 
           // Could create fewer Ks.
           // Find the camera_info and K
-          const auto &cip = runner_.model().camera_info_map().m().find(observations.imager_frame_id());
-          if (cip == runner_.model().camera_info_map().m().end()) {
+          const auto &kp = k_map.find(observations.imager_frame_id());
+          if (kp == k_map.end()) {
             continue;
           }
-          auto &camera_info = cip->second;
-          const auto K = gtsam::Cal3_S2::shared_ptr(new gtsam::Cal3_S2(camera_info.to<gtsam::Cal3_S2>()));
 
           // For each observation of a marker
           for (auto &observation : observations.v()) {
@@ -102,15 +112,17 @@ namespace camsim
             for (std::size_t i = 0; i < observation.corners_f_image().size(); i += 1) {
 
               // Maybe the imager is offset from the camera
-              auto body_P_sensor = camera_info.t_camera_imager().is_valid() ?
-                                   boost::optional<gtsam::Pose3>(camera_info.t_camera_imager().to<gtsam::Pose3>()) :
-                                   boost::none;
+              auto body_P_sensor =
+                kp->second.camera_info_.t_camera_imager().is_valid() ?
+                boost::optional<gtsam::Pose3>(kp->second.camera_info_.t_camera_imager().to<gtsam::Pose3>()) :
+                boost::none;
 
               // Add a projection factor for each corner of every marker viewed by an imager
-              graph.emplace_shared<gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
+              graph.emplace_shared<gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2>>(
                 observation.corners_f_image()[i].to<gtsam::Point2>(),
                 measurement_noise, camera_key,
-                fvlam::ModelKey::corner(fvlam::ModelKey::marker(observation.id()), i), K,
+                fvlam::ModelKey::corner(fvlam::ModelKey::marker(observation.id()), i),
+                kp->second.cal3ds2_,
                 body_P_sensor);
             }
           }
@@ -161,6 +173,12 @@ namespace camsim
       return check_corners(result);
     }
 
+    int do_sfm_isam(Cal3DS2Map &k_map,
+                    gtsam::SharedNoiseModel measurement_noise)
+    {
+      return 0;
+    }
+
   public:
     using Maker = std::function<SfmSmartFactorTest(fvlam::MarkerModelRunner &)>;
 
@@ -171,8 +189,13 @@ namespace camsim
 
     bool operator()()
     {
-      // Define the camera calibration parameters
-      auto K = std::make_shared<gtsam::Cal3DS2>(runner_.model().camera_info_map().first().to<gtsam::Cal3DS2>());
+      auto k_map = Cal3DS2Map{};
+      for (auto &cip : runner_.model().camera_info_map().m()) {
+        k_map.emplace(cip.first, CalInfo{
+          boost::make_shared<gtsam::Cal3DS2>(cip.second.to<gtsam::Cal3DS2>()),
+          cip.second});
+      }
+
 
       // Define the camera observation noise model
       auto measurementNoise =
@@ -181,9 +204,9 @@ namespace camsim
       switch (cfg_.sfm_algoriithm_) {
         default:
         case 0:
-          return do_sfm(K, measurementNoise);
+          return do_sfm(k_map, measurementNoise);
         case 1:
-          return do_sfm_isam(K, measurementNoise);
+          return do_sfm_isam(k_map, measurementNoise);
       }
     }
   };
