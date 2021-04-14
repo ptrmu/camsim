@@ -92,13 +92,13 @@ namespace camsim
         // Get a camera key.
         auto camera_key = fvlam::ModelKey::camera(marker_observations.camera_index());
 
-        // Add an initial value for each camera
-        initial.insert(camera_key, marker_observations.t_map_camera().to<gtsam::Pose3>());
+        // Add an initial perturbed value for each camera
+        gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+        initial.insert(camera_key, marker_observations.t_map_camera().to<gtsam::Pose3>().compose(delta));
 
         // For each imager's observations
         for (auto &observations : marker_observations.observations_synced().v()) {
 
-          // Could create fewer Ks.
           // Find the camera_info and K
           const auto &kp = k_map.find(observations.imager_frame_id());
           if (kp == k_map.end()) {
@@ -179,6 +179,72 @@ namespace camsim
       return 0;
     }
 
+    int do_sfm_smart(Cal3DS2Map &k_map,
+                     gtsam::SharedNoiseModel measurement_noise)
+    {
+#if 0
+
+      // Create a factor graph
+      gtsam::NonlinearFactorGraph graph;
+      gtsam::Values initial;
+
+      // For each marker
+      for (auto &marker : runner_.model().targets()) {
+
+        // For each corner of that marker
+        for (size_t i_corner = 0; i_corner < fvlam::Marker::ArraySize; i_corner += 1) {
+
+          // every landmark represent a single landmark, we use shared pointer to init the factor, and then insert measurements.
+          SmartFactor::shared_ptr smartfactor(new SmartFactor(measurement_noise, K));
+
+          // For each camera.
+          for (auto &marker_observations : runner_.model().target_observations_list()) {
+
+            // Get a camera key.
+            auto camera_key = fvlam::ModelKey::camera(marker_observations.camera_index());
+
+            // Add an initial perturbed value for each camera
+            gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+            initial.insert(camera_key, marker_observations.t_map_camera().to<gtsam::Pose3>().compose(delta));
+
+            // For each imager's observations
+            for (auto &observations : marker_observations.observations_synced().v()) {
+
+              // Find the camera_info and K
+              const auto &kp = k_map.find(observations.imager_frame_id());
+              if (kp == k_map.end()) {
+                continue;
+              }
+
+              // For each observation of a marker
+              for (auto &observation : observations.v()) {
+
+                // For each corner of a marker
+                for (std::size_t i = 0; i < observation.corners_f_image().size(); i += 1) {
+
+                  // Maybe the imager is offset from the camera
+                  auto body_P_sensor =
+                    kp->second.camera_info_.t_camera_imager().is_valid() ?
+                    boost::optional<gtsam::Pose3>(kp->second.camera_info_.t_camera_imager().to<gtsam::Pose3>()) :
+                    boost::none;
+
+                  // Add a projection factor for each corner of every marker viewed by an imager
+                  graph.emplace_shared<gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3DS2>>(
+                    observation.corners_f_image()[i].to<gtsam::Point2>(),
+                    measurement_noise, camera_key,
+                    fvlam::ModelKey::corner(fvlam::ModelKey::marker(observation.id()), i),
+                    kp->second.cal3ds2_,
+                    body_P_sensor);
+                }
+              }
+            }
+          }
+        }
+      }
+#endif
+      return 0;
+    }
+
   public:
     using Maker = std::function<SfmSmartFactorTest(fvlam::MarkerModelRunner &)>;
 
@@ -189,13 +255,13 @@ namespace camsim
 
     bool operator()()
     {
+      // Create a map of calibrations and camera_infos
       auto k_map = Cal3DS2Map{};
       for (auto &cip : runner_.model().camera_info_map().m()) {
         k_map.emplace(cip.first, CalInfo{
           boost::make_shared<gtsam::Cal3DS2>(cip.second.to<gtsam::Cal3DS2>()),
           cip.second});
       }
-
 
       // Define the camera observation noise model
       auto measurementNoise =
@@ -207,6 +273,8 @@ namespace camsim
           return do_sfm(k_map, measurementNoise);
         case 1:
           return do_sfm_isam(k_map, measurementNoise);
+        case 2:
+          return do_sfm_smart(k_map, measurementNoise);
       }
     }
   };
@@ -221,8 +289,8 @@ namespace camsim
 
     auto marker_runner = fvlam::MarkerModelRunner(runner_config,
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
-//                                                  fvlam::MarkerModelGen::DualParallelGrid());
-                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
+                                                  fvlam::MarkerModelGen::DualParallelGrid());
+//                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
 
     auto test_maker = [&smf_test_config](fvlam::MarkerModelRunner &runner) -> SfmSmartFactorTest
     {
