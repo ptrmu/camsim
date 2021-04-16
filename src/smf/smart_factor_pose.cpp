@@ -25,7 +25,7 @@ namespace camsim
   public:
     struct Config
     {
-      int sfm_algoriithm_ = 0; // 0 - sfm, 1 - sfm isam, 2 - sfm, smart, 3 sfm, smart, isam
+      int sfm_algoriithm_ = 2; // 0 - sfm, 1 - sfm isam, 2 - sfm, smart, 3 sfm, smart, isam
     };
 
     struct CalInfo
@@ -190,6 +190,11 @@ namespace camsim
     int do_sfm_smart(Cal3DS2Map &k_map,
                      gtsam::SharedNoiseModel measurement_noise)
     {
+      // Need at least two cameras
+      if (runner_.model().target_observations_list().size() < 2) {
+        return 1;
+      }
+
       auto num_imagers = runner_.model().camera_info_map().size();
 
       // Create a factor graph
@@ -258,7 +263,25 @@ namespace camsim
         }
       }
 
-      return 0;
+      // Add a prior on pose x0. This indirectly specifies where the origin is.
+      // 30cm std on x,y,z 0.1 rad on roll,pitch,yaw
+      auto noise = gtsam::noiseModel::Diagonal::Sigmas(
+        (gtsam::Vector(6) << gtsam::Vector3::Constant(0.1), gtsam::Vector3::Constant(0.3)).finished());
+      auto &cal_info0 = k_map.begin()->second;
+      auto &to_list = runner_.model().target_observations_list();
+      graph.addPrior(make_smart_camera_key(to_list[0], cal_info0, num_imagers),
+                     to_list[0].t_map_camera().to<gtsam::Pose3>(),
+                     noise);
+
+      // Because the structure-from-motion problem has a scale ambiguity, the problem is
+      // still under-constrained. Here we add a prior on the second pose x1, so this will
+      // fix the scale by indicating the distance between x0 and x1.
+      // Because these two are fixed, the rest of the poses will be also be fixed.
+      graph.addPrior(make_smart_camera_key(to_list[1], cal_info0, num_imagers),
+                     to_list[1].t_map_camera().to<gtsam::Pose3>(),
+                     noise);
+
+      return 1;
     }
 
   public:
