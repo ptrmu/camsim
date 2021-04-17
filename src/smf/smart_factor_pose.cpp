@@ -32,9 +32,11 @@ namespace camsim
     {
       boost::shared_ptr<gtsam::Cal3DS2> cal3ds2_;
       const fvlam::CameraInfo &camera_info_;
-      const int imager_index_;
+      const std::size_t imager_index_;
 
-      CalInfo(boost::shared_ptr<gtsam::Cal3DS2> cal3ds2, const fvlam::CameraInfo &camera_info, int imager_index) :
+      CalInfo(boost::shared_ptr<gtsam::Cal3DS2> cal3ds2,
+              const fvlam::CameraInfo &camera_info,
+              std::size_t imager_index) :
         cal3ds2_{std::move(cal3ds2)}, camera_info_{camera_info}, imager_index_{imager_index}
       {}
     };
@@ -181,10 +183,10 @@ namespace camsim
     }
 
     static std::uint64_t make_smart_camera_key(const fvlam::MarkerObservations &marker_observations,
-                                               const CalInfo &cal_info,
+                                               std::size_t imager_index,
                                                std::size_t num_imagers)
     {
-      return fvlam::ModelKey::camera(marker_observations.camera_index() * num_imagers + cal_info.imager_index_);
+      return fvlam::ModelKey::camera(marker_observations.camera_index() * num_imagers + imager_index);
     }
 
     int do_sfm_smart(Cal3DS2Map &k_map,
@@ -251,7 +253,7 @@ namespace camsim
               auto &observation = *o_it;
 
               // Get a camera key.
-              auto smart_camera_key = make_smart_camera_key(marker_observations, cal_info, num_imagers);
+              auto smart_camera_key = make_smart_camera_key(marker_observations, cal_info.imager_index_, num_imagers);
 
               auto measurement = observation.corners_f_image()[i_corner].to<gtsam::Point2>();
               smart_factor->add(measurement, smart_camera_key);
@@ -267,9 +269,8 @@ namespace camsim
       // 30cm std on x,y,z 0.1 rad on roll,pitch,yaw
       auto noise = gtsam::noiseModel::Diagonal::Sigmas(
         (gtsam::Vector(6) << gtsam::Vector3::Constant(0.1), gtsam::Vector3::Constant(0.3)).finished());
-      auto &cal_info0 = k_map.begin()->second;
       auto &to_list = runner_.model().target_observations_list();
-      graph.addPrior(make_smart_camera_key(to_list[0], cal_info0, num_imagers),
+      graph.addPrior(make_smart_camera_key(to_list[0], 0, num_imagers),
                      to_list[0].t_map_camera().to<gtsam::Pose3>(),
                      noise);
 
@@ -277,9 +278,24 @@ namespace camsim
       // still under-constrained. Here we add a prior on the second pose x1, so this will
       // fix the scale by indicating the distance between x0 and x1.
       // Because these two are fixed, the rest of the poses will be also be fixed.
-      graph.addPrior(make_smart_camera_key(to_list[1], cal_info0, num_imagers),
+      graph.addPrior(make_smart_camera_key(to_list[1], 0, num_imagers),
                      to_list[1].t_map_camera().to<gtsam::Pose3>(),
                      noise);
+
+      // Create the initial estimate to the solution
+      // Intentionally initialize the variables off from the ground truth
+      gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+      for (auto &marker_observations : runner_.model().target_observations_list()) {
+        for (size_t i = 0; i < num_imagers; ++i) {
+          initial.insert(make_smart_camera_key(marker_observations, i, num_imagers),
+                         marker_observations.t_map_camera().to<gtsam::Pose3>().compose(delta));
+        }
+      }
+
+      // Optimize the graph and print results
+      gtsam::LevenbergMarquardtOptimizer optimizer(graph, initial);
+      auto result = optimizer.optimize();
+      result.print("Final results:\n");
 
       return 1;
     }
@@ -296,7 +312,7 @@ namespace camsim
     {
       // Create a map of calibrations and camera_infos
       auto k_map = Cal3DS2Map{};
-      int imager_index = 0;
+      std::size_t imager_index = 0;
       for (auto &cip : runner_.model().camera_info_map().m()) {
         k_map.emplace(cip.first, CalInfo{
           boost::make_shared<gtsam::Cal3DS2>(cip.second.to<gtsam::Cal3DS2>()),
