@@ -53,29 +53,29 @@ namespace camsim
                                                 marker_model.corners_f_world_[i]);
     }
 
-    /* 3. Create an initial estimate for the camera pose */
+    /* 3. Create an initial estimate for the marker pose */
     auto &cfw = marker_model.corners_f_world_;
     auto t = (cfw[0] + cfw[1] + cfw[2] + cfw[3]) / 4.;
     auto x_axis = ((cfw[1] + cfw[2]) / 2. - t).normalized();
     auto z_axis = x_axis.cross(cfw[1] - t).normalized();
     auto y_axis = z_axis.cross(x_axis);
     auto r = gtsam::Rot3{(gtsam::Matrix3{} << x_axis, y_axis, z_axis).finished()};
-    auto camera_f_world_initial = gtsam::Pose3{r, t};
-    initial.insert(X(1), camera_f_world_initial);
+    auto marker_f_world_initial = gtsam::Pose3{r, t};
+    initial.insert(X(1), marker_f_world_initial);
 
     /* 4. Optimize the graph using Levenberg-Marquardt*/
     auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();
 
-    auto camera_f_world = result.at<gtsam::Pose3>(X(1));
+    auto marker_f_world = result.at<gtsam::Pose3>(X(1));
 
     gtsam::Marginals marginals(graph, result);
-    gtsam::Matrix6 camera_f_world_covariance = marginals.marginalCovariance(X(1));
+    gtsam::Matrix6 marker_f_world_covariance = marginals.marginalCovariance(X(1));
 
     std::cout << "Marker " << marker_model.index() << std::endl;
     std::cout << "Truth " << PoseWithCovariance::to_str(marker_model.marker_f_world_) << std::endl;
-    std::cout << "Init  " << PoseWithCovariance::to_str(camera_f_world_initial) << std::endl;
-    std::cout << "Found " << PoseWithCovariance::to_str(camera_f_world) << std::endl;
-    std::cout << PoseWithCovariance::to_matrix_str(camera_f_world_covariance, true) << std::endl;
+    std::cout << "Init  " << PoseWithCovariance::to_str(marker_f_world_initial) << std::endl;
+    std::cout << "Found " << PoseWithCovariance::to_str(marker_f_world) << std::endl;
+    std::cout << PoseWithCovariance::to_matrix_str(marker_f_world_covariance, true) << std::endl;
   }
 
   int pfp_marker_pose_from_corners()

@@ -1,4 +1,5 @@
 #pragma once
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
 
 #include "fvlam/camera_info.hpp"
 #include "fvlam/logger.hpp"
@@ -153,7 +154,7 @@ namespace fvlam
   {
     static std::uint64_t camera(std::size_t idx); //
     static std::uint64_t marker(std::size_t idx); //
-    static std::uint64_t corner(std::uint64_t marker_key, int corner_idx); //
+    static std::uint64_t corner(std::uint64_t marker_key, std::size_t corner_idx); //
     static std::uint64_t marker_from_corner(std::uint64_t corner_key); //
   };
 

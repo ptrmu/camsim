@@ -265,7 +265,7 @@ namespace fvlam
     return gtsam::Symbol{'m', idx}.key();
   }
 
-  std::uint64_t ModelKey::corner(std::uint64_t marker_key, int corner_idx)
+  std::uint64_t ModelKey::corner(std::uint64_t marker_key, std::size_t corner_idx)
   {
     static char codes[] = {'i', 'j', 'k', 'l'};
     auto marker_index = gtsam::Symbol{marker_key}.index();

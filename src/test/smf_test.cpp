@@ -6,16 +6,16 @@
 
 TEST_CASE("sfm_example_smart_factor - run - zero", "[.][all]")
 {
-  REQUIRE(sfm_example_smart_factor() == 0);
+  REQUIRE(0 == sfm_example_smart_factor());
 }
 
 TEST_CASE("isam2_example_smart_factor - run - zero", "[.][all]")
 {
-  REQUIRE(isam2_example_smart_factor() == 0);
+  REQUIRE(0 == isam2_example_smart_factor());
 }
 
 TEST_CASE("smart_factor_pose_simple - run - zero", "[all]")
 {
-  REQUIRE(camsim::smart_factor_pose_simple() == 0);
+  REQUIRE(0 == camsim::smart_factor_pose_simple());
 }
 

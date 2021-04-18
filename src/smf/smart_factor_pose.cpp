@@ -1,5 +1,10 @@
+#pragma ide diagnostic ignored "modernize-use-nodiscard"
 
 #include "smf_run.hpp"
+
+#define ENABLE_TIMING
+
+#include <gtsam/base/timing.h>
 
 #include "fvlam/model.hpp"
 #include <gtsam/geometry/Cal3DS2.h>
@@ -11,13 +16,45 @@
 
 namespace camsim
 {
-
-
-// Make the typename short so it looks much cleaner
+  // Make the typename short so it looks much cleaner
   typedef gtsam::SmartProjectionPoseFactor<gtsam::Cal3DS2> SmartFactor;
 
-// create a typedef to the camera type
+  // create a typedef to the camera type
   typedef gtsam::PinholePose<gtsam::Cal3DS2> Camera;
+
+  class MarkerCornerFactor : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Point3>
+  {
+    typedef gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Point3> Base;
+    typedef MarkerCornerFactor This;
+
+    const gtsam::Point3 corner_f_marker_;
+
+  public:
+
+    MarkerCornerFactor(const gtsam::Key &key_pose, const gtsam::Key &key_point,
+                       gtsam::Point3 corner_f_marker,
+                       const gtsam::SharedNoiseModel &model) :
+      Base(model, key_pose, key_point), corner_f_marker_{std::move(corner_f_marker)}
+    {}
+
+    gtsam::Vector evaluateError(const gtsam::Pose3 &pose,
+                                const gtsam::Point3 &corner_f_world,
+                                boost::optional<gtsam::Matrix &> H1,
+                                boost::optional<gtsam::Matrix &> H2) const override
+    {
+      if (H2) {
+        (*H2) = -1.0 * gtsam::I_3x3;
+      }
+      return pose.transformFrom(corner_f_marker_, H1) - corner_f_world;
+    }
+
+    /// @return a deep copy of this factor
+    gtsam::NonlinearFactor::shared_ptr clone() const override
+    {
+      return boost::static_pointer_cast<gtsam::NonlinearFactor>(
+        gtsam::NonlinearFactor::shared_ptr(new This(*this)));
+    }
+  };
 
 
   class SfmSmartFactorTest
@@ -25,7 +62,7 @@ namespace camsim
   public:
     struct Config
     {
-      int sfm_algoriithm_ = 2; // 0 - sfm, 1 - sfm isam, 2 - sfm, smart, 3 sfm, smart, isam
+      int sfm_algoriithm_ = 1; // 0 - sfm, 1 - sfm marker, 2 - sfm, smart, 3 sfm, smart, isam
     };
 
     struct CalInfo
@@ -57,7 +94,8 @@ namespace camsim
 
         // Test the camera pose
         auto t_world_camera = result.at<gtsam::Pose3>(camera_key);
-        if (!marker_observations.t_map_camera().equals(fvlam::Transform3::from(t_world_camera))) {
+        if (!marker_observations.t_map_camera().equals(fvlam::Transform3::from(t_world_camera),
+                                                       runner_.cfg().equals_tolerance_)) {
           return 1;
         }
       }
@@ -70,10 +108,11 @@ namespace camsim
           runner_.model().environment().marker_length());
 
         // For each corner of a marker
-        for (std::size_t i = 0; i < marker.ArraySize; i += 1) {
+        for (std::size_t i = 0; i < fvlam::Marker::ArraySize; i += 1) {
 
           auto corner_f_image = result.at<gtsam::Point3>(fvlam::ModelKey::corner(marker_key, i));
-          if (!corners_f_world[i].equals(fvlam::Translate3::from<gtsam::Point3>(corner_f_image))) {
+          if (!corners_f_world[i].equals(fvlam::Translate3::from<gtsam::Point3>(corner_f_image),
+                                         runner_.cfg().equals_tolerance_)) {
             return 1;
           }
         }
@@ -81,23 +120,16 @@ namespace camsim
       return 0;
     }
 
-    int do_sfm(Cal3DS2Map &k_map,
-               gtsam::SharedNoiseModel measurement_noise)
+    void do_sfm_graph_emplace(Cal3DS2Map &k_map,
+                              gtsam::SharedNoiseModel measurement_noise,
+                              gtsam::NonlinearFactorGraph &graph)
     {
-
-      // Create a factor graph
-      gtsam::NonlinearFactorGraph graph;
-      gtsam::Values initial;
 
       // For each camera.
       for (auto &marker_observations : runner_.model().target_observations_list()) {
 
         // Get a camera key.
         auto camera_key = fvlam::ModelKey::camera(marker_observations.camera_index());
-
-        // Add an initial perturbed value for each camera
-        gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
-        initial.insert(camera_key, marker_observations.t_map_camera().to<gtsam::Pose3>().compose(delta));
 
         // For each imager's observations
         for (auto &observations : marker_observations.observations_synced().v()) {
@@ -132,6 +164,34 @@ namespace camsim
         }
       }
 
+      // Add a prior for each corner of the first marker.
+      auto pointNoise = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
+      auto marker0_key = fvlam::ModelKey::marker(runner_.model().targets()[0].id());
+      auto corners0_f_world = runner_.model().targets()[0]
+        .corners_f_world<std::vector<gtsam::Point3>>(runner_.model().environment().marker_length());
+      for (std::size_t i = 0; i < corners0_f_world.size(); i += 1) {
+
+        graph.emplace_shared<gtsam::PriorFactor<gtsam::Point3> >(
+          fvlam::ModelKey::corner(marker0_key, i), corners0_f_world[i], pointNoise);
+      }
+
+//      graph.print("graph\n");
+    }
+
+    void do_sfm_initial_insert(Cal3DS2Map &k_map,
+                               gtsam::Values &initial)
+    {
+      // For each camera.
+      for (auto &marker_observations : runner_.model().target_observations_list()) {
+
+        // Get a camera key.
+        auto camera_key = fvlam::ModelKey::camera(marker_observations.camera_index());
+
+        // Add an initial perturbed value for each camera
+        gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+        initial.insert(camera_key, marker_observations.t_map_camera().to<gtsam::Pose3>().compose(delta));
+      }
+
       // Add an initial value for the location of each corner of each marker
       for (auto &marker : runner_.model().targets()) {
 
@@ -146,26 +206,18 @@ namespace camsim
           initial.insert(fvlam::ModelKey::corner(marker_key, i), corner_perturbed);
         }
       }
+    }
 
-      // Add a prior for each corner of the first marker.
-      auto pointNoise = gtsam::noiseModel::Isotropic::Sigma(3, 0.1);
-      auto marker0_key = fvlam::ModelKey::marker(runner_.model().targets()[0].id());
-      auto corners0_f_world = runner_.model().targets()[0]
-        .corners_f_world<std::vector<gtsam::Point3>>(runner_.model().environment().marker_length());
-      for (std::size_t i = 0; i < corners0_f_world.size(); i += 1) {
-
-        graph.emplace_shared<gtsam::PriorFactor<gtsam::Point3> >(
-          fvlam::ModelKey::corner(marker0_key, i), corners0_f_world[i], pointNoise);
-      }
-
-//      graph.print("graph\n");
-
+    auto do_sfm_optimize(gtsam::NonlinearFactorGraph &graph,
+                         gtsam::Values &initial)
+    {
       /* Optimize the graph and print results */
       auto params = gtsam::LevenbergMarquardtParams();
       params.setVerbosityLM("TERMINATION");
       params.setVerbosity("TERMINATION");
-      params.setRelativeErrorTol(1e-8);
-      params.setAbsoluteErrorTol(1e-8);
+      params.setRelativeErrorTol(1e-12);
+      params.setAbsoluteErrorTol(1e-12);
+      params.setMaxIterations(2024);
 
       auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
       std::cout << "initial error = " << graph.error(initial) << std::endl;
@@ -173,13 +225,67 @@ namespace camsim
 
 //      result.print("result\n");
 
+      return result;
+    }
+
+    int do_sfm(Cal3DS2Map &k_map,
+               gtsam::SharedNoiseModel measurement_noise)
+    {
+      // Create a factor graph
+      gtsam::NonlinearFactorGraph graph;
+      gtsam::Values initial;
+
+      gttic(do_sfm);
+
+      do_sfm_graph_emplace(k_map, measurement_noise, graph);
+
+      do_sfm_initial_insert(k_map, initial);
+
+      auto result = do_sfm_optimize(graph, initial);
+
+      gttoc(do_sfm);
+      gtsam::tictoc_print();
+      gtsam::tictoc_reset_();
+
       return check_corners(result);
     }
 
-    int do_sfm_isam(Cal3DS2Map &k_map,
-                    gtsam::SharedNoiseModel measurement_noise)
+    int do_sfm_marker(Cal3DS2Map &k_map,
+                      gtsam::SharedNoiseModel measurement_noise)
     {
-      return 0;
+      // Create a factor graph
+      gtsam::NonlinearFactorGraph graph;
+      gtsam::Values initial;
+
+      do_sfm_graph_emplace(k_map, measurement_noise, graph);
+
+      do_sfm_initial_insert(k_map, initial);
+
+      // Add marker pose variables and constraints between the corners
+      // and the pose of the marker.
+      auto corner_location_noise = gtsam::noiseModel::Isotropic::Sigma(3, 0.1); //
+      for (auto &marker : runner_.model().targets()) {
+
+        auto marker_key = fvlam::ModelKey::marker(marker.id());
+
+        // Add the initial value for the marker pose.
+        gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+        initial.insert(marker_key, marker.t_map_marker().tf().to<gtsam::Pose3>().compose(delta));
+
+        // For each corner of a marker add a constraint between the marker pose and the corner location.
+        for (std::size_t i = 0; i < marker.ArraySize; i += 1) {
+          graph.emplace_shared<MarkerCornerFactor>(
+            marker_key, fvlam::ModelKey::corner(marker_key, i),
+            marker.corners_f_marker<std::vector<gtsam::Point3>>(runner_.model().environment().marker_length())[i],
+            corner_location_noise);
+        }
+      }
+
+      auto result = do_sfm_optimize(graph, initial);
+
+//      result.print("result\n");
+
+      return check_corners(result);
     }
 
     static std::uint64_t make_smart_camera_key(const fvlam::MarkerObservations &marker_observations,
@@ -198,6 +304,8 @@ namespace camsim
       }
 
       auto num_imagers = runner_.model().camera_info_map().size();
+
+      gttic(do_sfm_smart);
 
       // Create a factor graph
       gtsam::NonlinearFactorGraph graph;
@@ -270,17 +378,21 @@ namespace camsim
       auto noise = gtsam::noiseModel::Diagonal::Sigmas(
         (gtsam::Vector(6) << gtsam::Vector3::Constant(0.1), gtsam::Vector3::Constant(0.3)).finished());
       auto &to_list = runner_.model().target_observations_list();
-      graph.addPrior(make_smart_camera_key(to_list[0], 0, num_imagers),
-                     to_list[0].t_map_camera().to<gtsam::Pose3>(),
-                     noise);
+      for (std::size_t i = 0; i < num_imagers; i += 1) {
+        graph.addPrior(make_smart_camera_key(to_list[0], i, num_imagers),
+                       to_list[0].t_map_camera().to<gtsam::Pose3>(),
+                       noise);
 
-      // Because the structure-from-motion problem has a scale ambiguity, the problem is
-      // still under-constrained. Here we add a prior on the second pose x1, so this will
-      // fix the scale by indicating the distance between x0 and x1.
-      // Because these two are fixed, the rest of the poses will be also be fixed.
-      graph.addPrior(make_smart_camera_key(to_list[1], 0, num_imagers),
-                     to_list[1].t_map_camera().to<gtsam::Pose3>(),
-                     noise);
+        // Because the structure-from-motion problem has a scale ambiguity, the problem is
+        // still under-constrained. Here we add a prior on the second pose x1, so this will
+        // fix the scale by indicating the distance between x0 and x1.
+        // Because these two are fixed, the rest of the poses will be also be fixed.
+        graph.addPrior(make_smart_camera_key(to_list[1], i, num_imagers),
+                       to_list[1].t_map_camera().to<gtsam::Pose3>(),
+                       noise);
+      }
+
+//      graph.print("graph\n");
 
       // Create the initial estimate to the solution
       // Intentionally initialize the variables off from the ground truth
@@ -293,9 +405,19 @@ namespace camsim
       }
 
       // Optimize the graph and print results
-      gtsam::LevenbergMarquardtOptimizer optimizer(graph, initial);
+      auto params = gtsam::LevenbergMarquardtParams();
+      params.setVerbosityLM("TERMINATION");
+      params.setVerbosity("TERMINATION");
+      params.setRelativeErrorTol(1e-12);
+      params.setAbsoluteErrorTol(1e-12);
+
+      gtsam::LevenbergMarquardtOptimizer optimizer(graph, initial, params);
       auto result = optimizer.optimize();
-      result.print("Final results:\n");
+//      result.print("Final results:\n");
+
+      gttoc(do_sfm_smart);
+      gtsam::tictoc_print();
+      gtsam::tictoc_reset_();
 
       return 1;
     }
@@ -328,7 +450,7 @@ namespace camsim
         case 0:
           return do_sfm(k_map, measurementNoise);
         case 1:
-          return do_sfm_isam(k_map, measurementNoise);
+          return do_sfm_marker(k_map, measurementNoise);
         case 2:
           return do_sfm_smart(k_map, measurementNoise);
       }
@@ -345,7 +467,8 @@ namespace camsim
 
     auto marker_runner = fvlam::MarkerModelRunner(runner_config,
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
-                                                  fvlam::MarkerModelGen::DualParallelGrid());
+//                                                  fvlam::MarkerModelGen::DualParallelGrid());
+                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
 //                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
 
     auto test_maker = [&smf_test_config](fvlam::MarkerModelRunner &runner) -> SfmSmartFactorTest
@@ -353,6 +476,20 @@ namespace camsim
       return SfmSmartFactorTest(smf_test_config, runner);
     };
 
-    return marker_runner.run<SfmSmartFactorTest::Maker>(test_maker);
+    bool ret = 0;
+
+    smf_test_config.sfm_algoriithm_ = 0;
+    ret = marker_runner.run<SfmSmartFactorTest::Maker>(test_maker);
+//    if (ret != 0) {
+//      return ret;
+//    }
+
+    smf_test_config.sfm_algoriithm_ = 2;
+    ret = marker_runner.run<SfmSmartFactorTest::Maker>(test_maker);
+    if (ret != 0) {
+      return ret;
+    }
+
+    return ret;
   }
 }
