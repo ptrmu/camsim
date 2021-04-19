@@ -253,6 +253,8 @@ namespace camsim
     int do_sfm_marker(Cal3DS2Map &k_map,
                       gtsam::SharedNoiseModel measurement_noise)
     {
+      gttic(do_sfm_marker);
+
       // Create a factor graph
       gtsam::NonlinearFactorGraph graph;
       gtsam::Values initial;
@@ -284,6 +286,10 @@ namespace camsim
       auto result = do_sfm_optimize(graph, initial);
 
 //      result.print("result\n");
+
+      gttoc(do_sfm_marker);
+      gtsam::tictoc_print();
+      gtsam::tictoc_reset_();
 
       return check_corners(result);
     }
@@ -468,8 +474,9 @@ namespace camsim
     auto marker_runner = fvlam::MarkerModelRunner(runner_config,
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
 //                                                  fvlam::MarkerModelGen::DualParallelGrid());
-                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
+//                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
 //                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
+                                                  fvlam::MarkerModelGen::MonoParallelCircles());
 
     auto test_maker = [&smf_test_config](fvlam::MarkerModelRunner &runner) -> SfmSmartFactorTest
     {
@@ -480,12 +487,21 @@ namespace camsim
 
     smf_test_config.sfm_algoriithm_ = 0;
     ret = marker_runner.run<SfmSmartFactorTest::Maker>(test_maker);
+    marker_runner.logger().warn() << "sfm_algoriithm_ 0 " << ret;
+//    if (ret != 0) {
+//      return ret;
+//    }
+
+    smf_test_config.sfm_algoriithm_ = 1;
+    ret = marker_runner.run<SfmSmartFactorTest::Maker>(test_maker);
+    marker_runner.logger().warn() << "sfm_algoriithm_ 1 " << ret;
 //    if (ret != 0) {
 //      return ret;
 //    }
 
     smf_test_config.sfm_algoriithm_ = 2;
     ret = marker_runner.run<SfmSmartFactorTest::Maker>(test_maker);
+    marker_runner.logger().warn() << "sfm_algoriithm_ 2 " << ret;
     if (ret != 0) {
       return ret;
     }

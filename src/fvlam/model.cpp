@@ -221,12 +221,15 @@ namespace fvlam
   {
     return []() -> fvlam::MarkerModel
     {
+      int n_cameras = 64;
+      int n_markers = 64;
+      double z = 2.0;
       return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
                                 fvlam::CameraInfoMapGen::Simulation(),
                                 fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 2.0, false),
+                                  n_cameras, 1.0, z, false),
                                 fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 0.0, true));
+                                  n_markers, 1.0, 0.0, true));
     };
   }
 
@@ -234,12 +237,15 @@ namespace fvlam
   {
     return []() -> fvlam::MarkerModel
     {
+      int n_cameras = 32;
+      int n_markers = 32;
+      double z = 2.0;
       return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
                                 fvlam::CameraInfoMapGen::Dual(),
                                 fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 2.0, false),
+                                  n_cameras, 1.0, z, false),
                                 fvlam::MarkersGen::CircleInXYPlaneFacingAlongZ(
-                                  8, 1.0, 0.0, true));
+                                  n_markers, 1.0, 0.0, true));
     };
   }
 
