@@ -202,16 +202,18 @@ add_executable(smf_run
   src/fvlam/model.cpp
   src/fvlam/to_string.cpp
   src/fvlam/transform3_with_covariance.cpp
+  src/smf/FixedLagSmootherExample.cpp
   src/smf/ISAM2Example_SmartFactor
   src/smf/SFMExample_SmartFactor.cpp
+  src/smf/smart_factor_pose.cpp
   src/smf/smf_run.cpp
   src/test/camsim_test.cpp
   src/test/smf_test.cpp
-  src/smf/smart_factor_pose.cpp
   )
 
 target_link_libraries(smf_run
   PRIVATE gtsam
+  PRIVATE gtsam_unstable
   PRIVATE opencv_core
   PRIVATE opencv_calib3d
   )
@@ -247,7 +249,6 @@ add_executable(camsim_test
   src/model.cpp
   src/gtsam_resection.cpp
   src/opencv_resection.cpp
-  src/test/map_test.cpp
   src/map/map_solver_marker_marker.cpp
   src/map/map_solver_project_between.cpp
   src/test/pfm_test.cpp
@@ -265,7 +266,6 @@ add_executable(camsim_test
   src/sfm/sfm_resectioning.cpp
   src/sfm/sfm_isam2_example.cpp
   src/sfm/sfm_isam2.cpp
-  src/test/pfp_test.cpp
   src/pfp/pfp_run.cpp
   src/pfp/pfp_odometry_example_3d.cpp
   src/pfp/pfp_pose_unit_test.cpp
@@ -277,11 +277,12 @@ add_executable(camsim_test
   src/cal/cal_solver_runner.cpp
   src/cal/cal_solver_project_calibrate.cpp
   src/cal/cal_solver_homography.cpp
-  src/test/sho_test.cpp
   src/sho/sho_run.cpp
   src/sho/sho_inter_marker_rotation.cpp
+  src/smf/FixedLagSmootherExample.cpp
   src/smf/ISAM2Example_SmartFactor
   src/smf/SFMExample_SmartFactor.cpp
+  src/smf/smart_factor_pose.cpp
   src/smf/smf_run.cpp
   src/fvlam/build_marker_map_recorder.cpp
   src/fvlam/build_marker_map_tmm.cpp
@@ -293,14 +294,19 @@ add_executable(camsim_test
   src/fvlam/to_string.cpp
   src/fvlam/transform3_with_covariance.cpp
   src/build_marker_map_runner.cpp
-  src/test/tmm_test.cpp
   src/test/file_storage_test.cpp
+  src/test/map_test.cpp
+  src/test/pfp_test.cpp
+  src/test/sho_test.cpp
+  src/test/smf_test.cpp
+  src/test/tmm_test.cpp
   src/fvlam/model.cpp
   )
 
 
 target_link_libraries(camsim_test
   PRIVATE gtsam
+  PRIVATE gtsam_unstable
   PRIVATE opencv_core
   PRIVATE opencv_calib3d
   PRIVATE opencv_aruco

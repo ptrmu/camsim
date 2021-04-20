@@ -221,8 +221,8 @@ namespace fvlam
   {
     return []() -> fvlam::MarkerModel
     {
-      int n_cameras = 64;
-      int n_markers = 64;
+      int n_cameras = 256;
+      int n_markers = 8;
       double z = 2.0;
       return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
                                 fvlam::CameraInfoMapGen::Simulation(),
