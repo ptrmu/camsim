@@ -224,11 +224,10 @@ namespace fvlam
 // ResectioningFactor class
 // ==============================================================================
 
-
   class ResectioningFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
   {
-    const gtsam::Point2 point_f_image;
     gtsam::Key key_camera_;
+    const gtsam::Point2 point_f_image;
     const gtsam::Point3 point_f_world;
     std::shared_ptr<const gtsam::Cal3DS2> cal3ds2_;
     Logger &logger_;
@@ -236,16 +235,16 @@ namespace fvlam
 
   public:
     /// Construct factor given known point P and its projection p
-    ResectioningFactor(gtsam::Point2 point_f_image,
+    ResectioningFactor(gtsam::Key key_camera,
+                       gtsam::Point2 point_f_image,
                        const gtsam::SharedNoiseModel &model,
-                       gtsam::Key key_camera,
                        gtsam::Point3 point_f_world,
                        std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
                        Logger &logger,
                        bool throwCheirality = false) :
       NoiseModelFactor1<gtsam::Pose3>(model, key_camera),
-      point_f_image{std::move(point_f_image)},
       key_camera_{key_camera},
+      point_f_image{std::move(point_f_image)},
       point_f_world{std::move(point_f_world)},
       cal3ds2_{cal3ds2},
       logger_{logger},

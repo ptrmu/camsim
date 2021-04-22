@@ -60,6 +60,7 @@ namespace camsim
   {
     using Base = gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>;
     using This = Imager0Imager1Factor;
+    using shared_ptr = boost::shared_ptr<This>;
 
     gtsam::Key key_t_w_i0_;
     gtsam::Key key_t_i0_i1_;
@@ -73,7 +74,7 @@ namespace camsim
   public:
     Imager0Imager1Factor(const gtsam::Key &key_t_w_i0, const gtsam::Key &key_t_i0_i1,
                          gtsam::Point2 point_f_image,
-                       const gtsam::SharedNoiseModel &model,
+                         const gtsam::SharedNoiseModel &model,
                          gtsam::Point3 point_f_marker,
                          std::shared_ptr<const gtsam::Cal3DS2> cal3ds2,
                          fvlam::Logger &logger,
@@ -84,9 +85,6 @@ namespace camsim
       cal3ds2_{cal3ds2}, logger_{logger},
       throwCheirality_{throwCheirality}
     {}
-
-    /// shorthand for a smart pointer to a factor
-    typedef boost::shared_ptr<This> shared_ptr;
 
     /// @return a deep copy of this factor
     gtsam::NonlinearFactor::shared_ptr clone() const override
@@ -140,15 +138,35 @@ namespace camsim
       }
       return gtsam::Vector2{2.0 * cal3ds2_->px(), 2.0 * cal3ds2_->py()};
     }
-
-    /// @return a deep copy of this factor
-    gtsam::NonlinearFactor::shared_ptr clone() const override
-    {
-      return boost::static_pointer_cast<gtsam::NonlinearFactor>(
-        gtsam::NonlinearFactor::shared_ptr(new This(*this)));
-    }
   };
 
+
+  struct CalInfo
+  {
+    using Map = std::map<std::string, CalInfo>;
+
+    boost::shared_ptr<gtsam::Cal3DS2> cal3ds2_;
+    const fvlam::CameraInfo &camera_info_;
+    const std::size_t imager_index_;
+
+    CalInfo(boost::shared_ptr<gtsam::Cal3DS2> cal3ds2,
+            const fvlam::CameraInfo &camera_info,
+            std::size_t imager_index) :
+      cal3ds2_{std::move(cal3ds2)}, camera_info_{camera_info}, imager_index_{imager_index}
+    {}
+
+    static Map MakeMap(const fvlam::MarkerModelRunner &runner)
+    {
+      auto map = Map{};
+      std::size_t imager_index = 0;
+      for (auto &cip : runner.model().camera_info_map().m()) {
+        map.emplace(cip.first, CalInfo{
+          boost::make_shared<gtsam::Cal3DS2>(cip.second.to<gtsam::Cal3DS2>()),
+          cip.second, imager_index++});
+      }
+      return map;
+    }
+  };
 
   class SfmSmartFactorTest
   {
@@ -157,21 +175,6 @@ namespace camsim
     {
       int sfm_algoriithm_ = 1; // 0 - sfm, 1 - sfm marker, 2 - sfm, smart, 3 sfm, smart, isam
     };
-
-    struct CalInfo
-    {
-      boost::shared_ptr<gtsam::Cal3DS2> cal3ds2_;
-      const fvlam::CameraInfo &camera_info_;
-      const std::size_t imager_index_;
-
-      CalInfo(boost::shared_ptr<gtsam::Cal3DS2> cal3ds2,
-              const fvlam::CameraInfo &camera_info,
-              std::size_t imager_index) :
-        cal3ds2_{std::move(cal3ds2)}, camera_info_{camera_info}, imager_index_{imager_index}
-      {}
-    };
-
-    using Cal3DS2Map = std::map<std::string, CalInfo>;
 
   private:
     const Config cfg_;
@@ -213,7 +216,7 @@ namespace camsim
       return 0;
     }
 
-    void do_sfm_graph_emplace(Cal3DS2Map &k_map,
+    void do_sfm_graph_emplace(CalInfo::Map &k_map,
                               gtsam::SharedNoiseModel measurement_noise,
                               gtsam::NonlinearFactorGraph &graph)
     {
@@ -271,7 +274,7 @@ namespace camsim
 //      graph.print("graph\n");
     }
 
-    void do_sfm_initial_insert(Cal3DS2Map &k_map,
+    void do_sfm_initial_insert(CalInfo::Map &k_map,
                                gtsam::Values &initial)
     {
       // For each camera.
@@ -321,7 +324,7 @@ namespace camsim
       return result;
     }
 
-    int do_sfm(Cal3DS2Map &k_map,
+    int do_sfm(CalInfo::Map &k_map,
                gtsam::SharedNoiseModel measurement_noise)
     {
       // Create a factor graph
@@ -343,7 +346,7 @@ namespace camsim
       return check_corners(result);
     }
 
-    int do_sfm_marker(Cal3DS2Map &k_map,
+    int do_sfm_marker(CalInfo::Map &k_map,
                       gtsam::SharedNoiseModel measurement_noise)
     {
       gttic(do_sfm_marker);
@@ -394,7 +397,7 @@ namespace camsim
       return fvlam::ModelKey::camera(marker_observations.camera_index() * num_imagers + imager_index);
     }
 
-    int do_sfm_smart(Cal3DS2Map &k_map,
+    int do_sfm_smart(CalInfo::Map &k_map,
                      gtsam::SharedNoiseModel measurement_noise)
     {
       // Need at least two cameras
@@ -532,17 +535,10 @@ namespace camsim
     bool operator()()
     {
       // Create a map of calibrations and camera_infos
-      auto k_map = Cal3DS2Map{};
-      std::size_t imager_index = 0;
-      for (auto &cip : runner_.model().camera_info_map().m()) {
-        k_map.emplace(cip.first, CalInfo{
-          boost::make_shared<gtsam::Cal3DS2>(cip.second.to<gtsam::Cal3DS2>()),
-          cip.second, imager_index++});
-      }
+      auto k_map = CalInfo::MakeMap(runner_);
 
       // Define the camera observation noise model
-      auto measurementNoise =
-        gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
+      auto measurementNoise = gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
 
       switch (cfg_.sfm_algoriithm_) {
         default:
@@ -600,5 +596,85 @@ namespace camsim
     }
 
     return ret;
+  }
+
+// ==============================================================================
+// ImagerRelativePoseTest class
+// ==============================================================================
+
+  class ImagerRelativePoseTest
+  {
+  public:
+    using This = ImagerRelativePoseTest;
+    using Maker = std::function<This(fvlam::MarkerModelRunner &)>;
+
+  private:
+    fvlam::MarkerModelRunner &runner_;
+
+  public:
+    ImagerRelativePoseTest(fvlam::MarkerModelRunner &runner) :
+      runner_{runner}
+    {}
+
+    bool operator()()
+    {
+      auto k_map = CalInfo::MakeMap(runner_);
+
+      // Define the camera observation noise model
+      auto measurementNoise = gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
+
+      auto camera_key = fvlam::ModelKey::camera(0);
+
+      // For each camera.
+      for (auto &marker_observations : runner_.model().target_observations_list()) {
+
+        // for each marker
+        for (auto &marker : runner_.model().targets()) {
+
+          // Create a factor graph
+          gtsam::NonlinearFactorGraph graph;
+          gtsam::Values initial;
+          int num_observations = 0;
+
+
+
+          /* Optimize the graph and print results */
+          auto params = gtsam::LevenbergMarquardtParams();
+          params.setVerbosityLM("TERMINATION");
+          params.setVerbosity("TERMINATION");
+          params.setRelativeErrorTol(1e-12);
+          params.setAbsoluteErrorTol(1e-12);
+          params.setMaxIterations(2024);
+
+          auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
+          std::cout << "initial error = " << graph.error(initial) << std::endl;
+          std::cout << "final error = " << graph.error(result) << std::endl;
+        }
+      }
+
+      return 1;
+    }
+  };
+
+  int imager_relative_pose(void)
+  {
+    auto runner_config = fvlam::MarkerModelRunner::Config();
+    auto smf_test_config = SfmSmartFactorTest::Config();
+
+    fvlam::LoggerCout logger{runner_config.logger_level_};
+
+    auto marker_runner = fvlam::MarkerModelRunner(runner_config,
+//                                                  fvlam::MarkerModelGen::MonoParallelGrid());
+//                                                  fvlam::MarkerModelGen::DualParallelGrid());
+//                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
+//                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
+                                                  fvlam::MarkerModelGen::MonoParallelCircles());
+
+    auto test_maker = [&smf_test_config](fvlam::MarkerModelRunner &runner) -> ImagerRelativePoseTest
+    {
+      return ImagerRelativePoseTest(runner);
+    };
+
+    return marker_runner.run<ImagerRelativePoseTest::Maker>(test_maker);
   }
 }

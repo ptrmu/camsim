@@ -540,7 +540,7 @@ namespace camsim
       auto corners_f_world = f_marker.corners_f_world<std::vector<gtsam::Point3>>(marker_length);
       auto corners_f_marker = fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(marker_length);
 
-      auto factor = fvlam::ResectioningFactor(corners_f_image[0], measurement_noise, 0,
+      auto factor = fvlam::ResectioningFactor(0, corners_f_image[0], measurement_noise,
                                               corners_f_world[0], cal3ds2_ptr, logger);
 
       gtsam::Matrix d_point2_wrt_camera;
