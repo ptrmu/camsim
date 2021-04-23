@@ -6,6 +6,7 @@
 
 #include <gtsam/base/timing.h>
 
+#include "fvlam/factors_gtsam.hpp"
 #include "fvlam/model.hpp"
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/PinholeCamera.h>
@@ -146,13 +147,15 @@ namespace camsim
     using Map = std::map<std::string, CalInfo>;
 
     boost::shared_ptr<gtsam::Cal3DS2> cal3ds2_;
+    std::shared_ptr<const gtsam::Cal3DS2> std_cal3ds2_;
     const fvlam::CameraInfo &camera_info_;
     const std::size_t imager_index_;
 
     CalInfo(boost::shared_ptr<gtsam::Cal3DS2> cal3ds2,
             const fvlam::CameraInfo &camera_info,
             std::size_t imager_index) :
-      cal3ds2_{std::move(cal3ds2)}, camera_info_{camera_info}, imager_index_{imager_index}
+      cal3ds2_{std::move(cal3ds2)}, std_cal3ds2_{std::make_shared<const gtsam::Cal3DS2>(*cal3ds2)},
+      camera_info_{camera_info}, imager_index_{imager_index}
     {}
 
     static Map MakeMap(const fvlam::MarkerModelRunner &runner)
@@ -621,9 +624,12 @@ namespace camsim
       auto k_map = CalInfo::MakeMap(runner_);
 
       // Define the camera observation noise model
-      auto measurementNoise = gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
+      auto measurement_noise = gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
 
-      auto camera_key = fvlam::ModelKey::camera(0);
+      auto camera_0_key = fvlam::ModelKey::camera(0);
+
+      auto corners_f_marker = fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(
+        runner_.model().environment().marker_length());
 
       // For each camera.
       for (auto &marker_observations : runner_.model().target_observations_list()) {
@@ -636,6 +642,52 @@ namespace camsim
           gtsam::Values initial;
           int num_observations = 0;
 
+          // For each imager's observations
+          for (auto &observations : marker_observations.observations_synced().v()) {
+
+            // Find the camera_info and K
+            const auto &kp = k_map.find(observations.imager_frame_id());
+            if (kp == k_map.end()) {
+              continue;
+            }
+            auto &cal_info = kp->second;
+
+            // For each observation of a marker
+            for (auto &observation : observations.v()) {
+
+              // If this is not the marker we are interested in then continue to search
+              if (observation.id() != marker.id()) {
+                continue;
+              }
+              num_observations += 1;
+
+              // For each corner of a marker
+              for (std::size_t i = 0; i < observation.corners_f_image().size(); i += 1) {
+
+                if (cal_info.imager_index_ == 0) {
+
+                  // imager 0 just does resection to figure its pose
+                  graph.emplace_shared<fvlam::ResectioningFactor>(
+                    camera_0_key,
+                    observation.corners_f_image()[i].to<gtsam::Point2>(),
+                    measurement_noise,
+                    corners_f_marker[i],
+                    cal_info.std_cal3ds2_,
+                    runner_.logger(), true);
+                } else {
+
+                  // imager n uses a factor relative to imager 0
+                  graph.emplace_shared<Imager0Imager1Factor>(
+                    camera_0_key, fvlam::ModelKey::camera(cal_info.imager_index_),
+                    observation.corners_f_image()[i].to<gtsam::Point2>(),
+                    measurement_noise,
+                    corners_f_marker[i],
+                    cal_info.std_cal3ds2_,
+                    runner_.logger(), true);
+                }
+              }
+            }
+          }
 
 
           /* Optimize the graph and print results */
@@ -665,10 +717,10 @@ namespace camsim
 
     auto marker_runner = fvlam::MarkerModelRunner(runner_config,
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
-//                                                  fvlam::MarkerModelGen::DualParallelGrid());
+                                                  fvlam::MarkerModelGen::DualParallelGrid());
 //                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
 //                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
-                                                  fvlam::MarkerModelGen::MonoParallelCircles());
+//                                                  fvlam::MarkerModelGen::MonoParallelCircles());
 
     auto test_maker = [&smf_test_config](fvlam::MarkerModelRunner &runner) -> ImagerRelativePoseTest
     {

@@ -4,6 +4,7 @@
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 
 #include "fvlam/logger.hpp"
+#include "fvlam/transform3_with_covariance.hpp"
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/PinholeCamera.h>
 #include <gtsam/geometry/Point3.h>
