@@ -687,6 +687,15 @@ namespace camsim
                 }
               }
             }
+
+            gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+            initial.insert(camera_0_key, marker_observations.t_map_camera().to<gtsam::Pose3>().compose(delta));
+
+            if (cal_info.imager_index_ != 0) {
+
+              gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+              initial.insert(camera_0_key, marker_observations.t_map_camera().to<gtsam::Pose3>().compose(delta));
+            }
           }
 
 
