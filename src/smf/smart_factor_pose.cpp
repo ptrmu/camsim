@@ -154,7 +154,7 @@ namespace camsim
     CalInfo(boost::shared_ptr<gtsam::Cal3DS2> cal3ds2,
             const fvlam::CameraInfo &camera_info,
             std::size_t imager_index) :
-      cal3ds2_{std::move(cal3ds2)}, std_cal3ds2_{std::make_shared<const gtsam::Cal3DS2>(*cal3ds2)},
+      cal3ds2_{cal3ds2}, std_cal3ds2_{std::make_shared<const gtsam::Cal3DS2>(*cal3ds2)},
       camera_info_{camera_info}, imager_index_{imager_index}
     {}
 
@@ -163,9 +163,8 @@ namespace camsim
       auto map = Map{};
       std::size_t imager_index = 0;
       for (auto &cip : runner.model().camera_info_map().m()) {
-        map.emplace(cip.first, CalInfo{
-          boost::make_shared<gtsam::Cal3DS2>(cip.second.to<gtsam::Cal3DS2>()),
-          cip.second, imager_index++});
+        auto cal3ds2 = boost::shared_ptr<gtsam::Cal3DS2>(new gtsam::Cal3DS2(cip.second.to<gtsam::Cal3DS2>()));
+        map.emplace(cip.first, CalInfo{cal3ds2, cip.second, imager_index++});
       }
       return map;
     }
@@ -535,7 +534,7 @@ namespace camsim
       cfg_{cfg}, runner_{runner}
     {}
 
-    bool operator()()
+    int operator()()
     {
       // Create a map of calibrations and camera_infos
       auto k_map = CalInfo::MakeMap(runner_);
@@ -619,7 +618,7 @@ namespace camsim
       runner_{runner}
     {}
 
-    bool operator()()
+    int operator()()
     {
       auto k_map = CalInfo::MakeMap(runner_);
 
@@ -630,6 +629,18 @@ namespace camsim
 
       auto corners_f_marker = fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(
         runner_.model().environment().marker_length());
+
+      // Find the relative pose of the imagers to the zero'th imager. Used for initial.
+      std::vector<fvlam::Transform3> t_imager0_imagerN{k_map.size()};
+      for (auto &kp : k_map) {
+        t_imager0_imagerN[kp.second.imager_index_] = kp.second.camera_info_.t_camera_imager();
+      }
+      if (t_imager0_imagerN.size() < 2 || !t_imager0_imagerN[0].is_valid()) {
+        return false;
+      }
+      for (std::size_t i = 1; i < t_imager0_imagerN.size(); i += 1) {
+        t_imager0_imagerN[i] = t_imager0_imagerN[0].inverse() * t_imager0_imagerN[i];
+      }
 
       // For each camera.
       for (auto &marker_observations : runner_.model().target_observations_list()) {
@@ -689,12 +700,15 @@ namespace camsim
             }
 
             gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
-            initial.insert(camera_0_key, marker_observations.t_map_camera().to<gtsam::Pose3>().compose(delta));
+            if (cal_info.imager_index_ == 0) {
 
-            if (cal_info.imager_index_ != 0) {
+              auto t_marker_camera = marker.t_map_marker().tf().inverse() * marker_observations.t_map_camera();
+              initial.insert(camera_0_key, t_marker_camera.to<gtsam::Pose3>().compose(delta));
 
-              gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
-              initial.insert(camera_0_key, marker_observations.t_map_camera().to<gtsam::Pose3>().compose(delta));
+            } else {
+
+              initial.insert(fvlam::ModelKey::camera(cal_info.imager_index_),
+                             t_imager0_imagerN[cal_info.imager_index_].to<gtsam::Pose3>().compose(delta));
             }
           }
 
@@ -710,6 +724,8 @@ namespace camsim
           auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
           std::cout << "initial error = " << graph.error(initial) << std::endl;
           std::cout << "final error = " << graph.error(result) << std::endl;
+
+//          result.print("");
         }
       }
 
