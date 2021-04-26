@@ -712,24 +712,38 @@ namespace camsim
             }
           }
 
+          if (num_observations < 2) {
+            continue;
+          }
 
           /* Optimize the graph and print results */
           auto params = gtsam::LevenbergMarquardtParams();
-          params.setVerbosityLM("TERMINATION");
-          params.setVerbosity("TERMINATION");
+//          params.setVerbosityLM("TERMINATION");
+//          params.setVerbosity("TERMINATION");
           params.setRelativeErrorTol(1e-12);
           params.setAbsoluteErrorTol(1e-12);
-          params.setMaxIterations(2024);
+          params.setMaxIterations(2048);
+
+//          graph.print("graph\n");
+//          initial.print("initial\n");
 
           auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
-          std::cout << "initial error = " << graph.error(initial) << std::endl;
-          std::cout << "final error = " << graph.error(result) << std::endl;
-
+//          std::cout << "initial error = " << graph.error(initial) << std::endl;
+//          std::cout << "final error = " << graph.error(result) << std::endl;
 //          result.print("");
+
+
+          for (std::size_t i = 1; i < t_imager0_imagerN.size(); i += 1) {
+            auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::camera(i));
+            auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
+            if (!t_imager0_imagerN[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
+              return 1;
+            }
+          }
         }
       }
 
-      return 1;
+      return 0;
     }
   };
 
