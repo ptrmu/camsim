@@ -707,8 +707,9 @@ namespace camsim
 
             } else {
 
-              initial.insert(fvlam::ModelKey::camera(cal_info.imager_index_),
-                             t_imager0_imagerN[cal_info.imager_index_].to<gtsam::Pose3>().compose(delta));
+//              initial.insert(fvlam::ModelKey::camera(cal_info.imager_index_),
+//                             t_imager0_imagerN[cal_info.imager_index_].to<gtsam::Pose3>().compose(delta));
+              initial.insert(fvlam::ModelKey::camera(cal_info.imager_index_), gtsam::Pose3{});
             }
           }
 
