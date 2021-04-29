@@ -17,18 +17,24 @@ namespace camsim
 // ImagerRelativePoseTest class
 // ==============================================================================
 
-  class ImagerRelativePoseTest
+  class InterImagerPoseTest
   {
   public:
-    using This = ImagerRelativePoseTest;
+    using This = InterImagerPoseTest;
     using Maker = std::function<This(fvlam::MarkerModelRunner &)>;
 
+    struct Config
+    {
+      int algoriithm_ = 1; // 0 - single marker, 1 - multiple markers
+    };
+
   private:
+    Config cfg_;
     fvlam::MarkerModelRunner &runner_;
 
   public:
-    ImagerRelativePoseTest(fvlam::MarkerModelRunner &runner) :
-      runner_{runner}
+    InterImagerPoseTest(Config cfg, fvlam::MarkerModelRunner &runner) :
+      cfg_{cfg}, runner_{runner}
     {}
 
     int operator()()
@@ -164,6 +170,7 @@ namespace camsim
   int imager_relative_pose(void)
   {
     auto runner_config = fvlam::MarkerModelRunner::Config();
+    auto iip_config = InterImagerPoseTest::Config();
 
     fvlam::LoggerCout logger{runner_config.logger_level_};
 
@@ -174,12 +181,12 @@ namespace camsim
 //                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
 //                                                  fvlam::MarkerModelGen::MonoParallelCircles());
 
-    auto test_maker = [](fvlam::MarkerModelRunner &runner) -> ImagerRelativePoseTest
+    auto test_maker = [&iip_config](fvlam::MarkerModelRunner &runner) -> InterImagerPoseTest
     {
-      return ImagerRelativePoseTest(runner);
+      return InterImagerPoseTest(iip_config, runner);
     };
 
-    return marker_runner.run<ImagerRelativePoseTest::Maker>(test_maker);
+    return marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
   }
 
 }
