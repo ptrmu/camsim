@@ -25,7 +25,7 @@ namespace camsim
 
     struct Config
     {
-      int algoriithm_ = 1; // 0 - single marker, 1 - multiple markers
+      int algorithm_ = 1; // 0 - single marker, 1 - multiple markers
     };
 
   private:
@@ -37,7 +37,7 @@ namespace camsim
       cfg_{cfg}, runner_{runner}
     {}
 
-    int operator()()
+    int single_marker_inter_imager_pose()
     {
       auto k_map = CalInfo::MakeMap(runner_);
 
@@ -165,6 +165,23 @@ namespace camsim
 
       return 0;
     }
+
+    int multi_marker_inter_imager_pose()
+    {
+      return 0;
+    }
+
+    int operator()()
+    {
+      switch (cfg_.algorithm_) {
+        default:
+        case 0:
+          return single_marker_inter_imager_pose();
+
+        case 1:
+          return multi_marker_inter_imager_pose();
+      }
+    }
   };
 
   int imager_relative_pose(void)
@@ -186,7 +203,22 @@ namespace camsim
       return InterImagerPoseTest(iip_config, runner);
     };
 
-    return marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
-  }
+    bool ret = 0;
 
+    iip_config.algorithm_ = 0;
+    ret = marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
+    if (ret != 0) {
+      marker_runner.logger().warn() << "algorithm_ 0 " << ret;
+      return ret;
+    }
+
+    iip_config.algorithm_ = 1;
+    ret = marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
+    if (ret != 0) {
+      marker_runner.logger().warn() << "algorithm_ 1 " << ret;
+      return ret;
+    }
+
+    return ret;
+  }
 }

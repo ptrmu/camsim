@@ -25,7 +25,7 @@ namespace camsim
   public:
     struct Config
     {
-      int sfm_algoriithm_ = 1; // 0 - sfm, 1 - sfm marker, 2 - sfm, smart, 3 sfm, smart, isam
+      int sfm_algorithm_ = 1; // 0 - sfm, 1 - sfm marker, 2 - sfm, smart, 3 sfm, smart, isam
     };
 
   private:
@@ -392,7 +392,7 @@ namespace camsim
       // Define the camera observation noise model
       auto measurementNoise = gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
 
-      switch (cfg_.sfm_algoriithm_) {
+      switch (cfg_.sfm_algorithm_) {
         default:
         case 0:
           return do_sfm(k_map, measurementNoise);
@@ -426,21 +426,21 @@ namespace camsim
 
     bool ret = 0;
 
-    smf_test_config.sfm_algoriithm_ = 0;
+    smf_test_config.sfm_algorithm_ = 0;
     ret = marker_runner.run<SfmSmartFactorTest::Maker>(test_maker);
     marker_runner.logger().warn() << "sfm_algoriithm_ 0 " << ret;
 //    if (ret != 0) {
 //      return ret;
 //    }
 
-    smf_test_config.sfm_algoriithm_ = 1;
+    smf_test_config.sfm_algorithm_ = 1;
     ret = marker_runner.run<SfmSmartFactorTest::Maker>(test_maker);
     marker_runner.logger().warn() << "sfm_algoriithm_ 1 " << ret;
 //    if (ret != 0) {
 //      return ret;
 //    }
 
-    smf_test_config.sfm_algoriithm_ = 2;
+    smf_test_config.sfm_algorithm_ = 2;
     ret = marker_runner.run<SfmSmartFactorTest::Maker>(test_maker);
     marker_runner.logger().warn() << "sfm_algoriithm_ 2 " << ret;
     if (ret != 0) {
