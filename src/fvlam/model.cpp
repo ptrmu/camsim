@@ -261,6 +261,11 @@ namespace fvlam
     };
   }
 
+  std::uint64_t ModelKey::value(std::size_t value_idx)
+  {
+    return gtsam::Symbol{'a', value_idx}.key();
+  }
+
   std::uint64_t ModelKey::camera(std::size_t camera_idx)
   {
     return gtsam::Symbol{'c', camera_idx}.key();

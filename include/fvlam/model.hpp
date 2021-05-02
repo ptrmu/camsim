@@ -152,6 +152,7 @@ namespace fvlam
 
   struct ModelKey
   {
+    static std::uint64_t value(std::size_t value_idx); // Generic variable
     static std::uint64_t camera(std::size_t camera_idx); //
     static std::uint64_t marker(std::size_t marker_idx); //
     static std::uint64_t camera_marker(std::size_t camera_idx, std::size_t marker_idx); //

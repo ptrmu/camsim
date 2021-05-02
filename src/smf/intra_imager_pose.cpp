@@ -166,8 +166,18 @@ namespace camsim
       return 0;
     }
 
+    void per_camera_inter_imager_pose(const CalInfo::Map &k_map,
+                                      const fvlam::MarkerObservations &observations,
+                                      gtsam::NonlinearFactorGraph &graph,
+                                      gtsam::Values &initial)
+    {
+
+    }
+
     int multi_marker_inter_imager_pose()
     {
+      auto k_map = CalInfo::MakeMap(runner_);
+
       return 0;
     }
 
