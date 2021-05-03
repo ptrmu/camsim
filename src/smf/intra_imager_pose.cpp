@@ -40,6 +40,10 @@ namespace camsim
     int single_marker_inter_imager_pose()
     {
       auto k_map = CalInfo::MakeMap(runner_);
+      auto t_imager0_imagerNs = CalInfo::make_t_imager0_imagerNs(k_map);
+      if (t_imager0_imagerNs.empty()) {
+        return 1;
+      }
 
       // Define the camera observation noise model
       auto measurement_noise = gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
@@ -48,18 +52,6 @@ namespace camsim
 
       auto corners_f_marker = fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(
         runner_.model().environment().marker_length());
-
-      // Find the relative pose of the imagers to the zero'th imager. Used for initial.
-      std::vector<fvlam::Transform3> t_imager0_imagerN{k_map.size()};
-      for (auto &kp : k_map) {
-        t_imager0_imagerN[kp.second.imager_index_] = kp.second.camera_info_.t_camera_imager();
-      }
-      if (t_imager0_imagerN.size() < 2 || !t_imager0_imagerN[0].is_valid()) {
-        return false;
-      }
-      for (std::size_t i = 1; i < t_imager0_imagerN.size(); i += 1) {
-        t_imager0_imagerN[i] = t_imager0_imagerN[0].inverse() * t_imager0_imagerN[i];
-      }
 
       // For each camera.
       for (auto &marker_observations : runner_.model().target_observations_list()) {
@@ -153,10 +145,10 @@ namespace camsim
 //          result.print("");
 
 
-          for (std::size_t i = 1; i < t_imager0_imagerN.size(); i += 1) {
+          for (std::size_t i = 1; i < t_imager0_imagerNs.size(); i += 1) {
             auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::camera(i));
             auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
-            if (!t_imager0_imagerN[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
+            if (!t_imager0_imagerNs[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
               return 1;
             }
           }
@@ -166,17 +158,28 @@ namespace camsim
       return 0;
     }
 
-    void per_camera_inter_imager_pose(const CalInfo::Map &k_map,
-                                      const fvlam::MarkerObservations &observations,
-                                      gtsam::NonlinearFactorGraph &graph,
-                                      gtsam::Values &initial)
+    int per_camera_inter_imager_pose(const fvlam::MarkerObservations &observations,
+                                     const CalInfo::Map &k_map,
+                                     const std::vector<fvlam::Transform3> &t_imager0_imagerNs)
     {
-
+      return 0;
     }
 
     int multi_marker_inter_imager_pose()
     {
       auto k_map = CalInfo::MakeMap(runner_);
+      auto t_imager0_imagerNs = CalInfo::make_t_imager0_imagerNs(k_map);
+      if (t_imager0_imagerNs.empty()) {
+        return 1;
+      }
+
+      // For each camera.
+      for (auto &marker_observations : runner_.model().target_observations_list()) {
+        auto ret = per_camera_inter_imager_pose(marker_observations, k_map, t_imager0_imagerNs);
+        if (ret != 0) {
+          return ret;
+        }
+      }
 
       return 0;
     }
@@ -194,7 +197,7 @@ namespace camsim
     }
   };
 
-  int imager_relative_pose(void)
+  int imager_relative_pose()
   {
     auto runner_config = fvlam::MarkerModelRunner::Config();
     auto iip_config = InterImagerPoseTest::Config();

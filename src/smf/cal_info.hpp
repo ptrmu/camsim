@@ -157,6 +157,21 @@ namespace camsim
       }
       return map;
     }
+
+    static std::vector<fvlam::Transform3> make_t_imager0_imagerNs(const Map &k_map)
+    {
+      std::vector<fvlam::Transform3> t_imager0_imagerNs{k_map.size()};
+      for (auto &kp : k_map) {
+        t_imager0_imagerNs[kp.second.imager_index_] = kp.second.camera_info_.t_camera_imager();
+      }
+      if (t_imager0_imagerNs.size() < 2 || !t_imager0_imagerNs[0].is_valid()) {
+        return std::vector<fvlam::Transform3>{};
+      }
+      for (std::size_t i = 1; i < t_imager0_imagerNs.size(); i += 1) {
+        t_imager0_imagerNs[i] = t_imager0_imagerNs[0].inverse() * t_imager0_imagerNs[i];
+      }
+      return t_imager0_imagerNs;
+    }
   };
 
 }
