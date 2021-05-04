@@ -158,10 +158,129 @@ namespace camsim
       return 0;
     }
 
-    int per_camera_inter_imager_pose(const fvlam::MarkerObservations &observations,
+    int per_camera_inter_imager_pose(const fvlam::MarkerObservations &marker_observations,
                                      const CalInfo::Map &k_map,
                                      const std::vector<fvlam::Transform3> &t_imager0_imagerNs)
     {
+      // Find the CalInfo with index zero
+      std::string base_imager_frame_id{};
+      for (auto &cal_info : k_map) {
+        if (cal_info.second.imager_index_ == 0) {
+          base_imager_frame_id = cal_info.second.camera_info_.imager_frame_id();
+          break;
+        }
+      }
+      if (base_imager_frame_id.empty()) {
+        return 1;
+      }
+
+      // Create a map of all marker id's that are observed by the base_imager.
+      std::set<std::uint64_t> observed_ids{};
+      for (auto &observations : marker_observations.observations_synced().v()) {
+        if (observations.imager_frame_id() == base_imager_frame_id) {
+          for (auto &observation : observations.v()) {
+            observed_ids.emplace(observation.id());
+          }
+          break;
+        }
+      }
+      if (observed_ids.empty()) {
+        return 1;
+      }
+
+        // Create a factor graph
+      gtsam::NonlinearFactorGraph graph;
+      gtsam::Values initial;
+      int num_observations = 0;
+
+      // For each imager's observations
+      for (auto &observations : marker_observations.observations_synced().v()) {
+
+        // Find the camera_info and K
+        const auto &kp = k_map.find(observations.imager_frame_id());
+        if (kp == k_map.end()) {
+          continue;
+        }
+        auto &cal_info = kp->second;
+
+        // For each observation of a marker
+        for (auto &observation : observations.v()) {
+
+          // If this is not the marker we are interested in then continue to search
+          if (observed_ids.find(observation.id()) == observed_ids.end()) {
+            continue;
+          }
+          num_observations += 1;
+
+          // For each corner of a marker
+          for (std::size_t i = 0; i < observation.corners_f_image().size(); i += 1) {
+
+            if (cal_info.imager_index_ == 0) {
+
+              // imager 0 just does resection to figure its pose
+              graph.emplace_shared<fvlam::ResectioningFactor>(
+                camera_0_key,
+                observation.corners_f_image()[i].to<gtsam::Point2>(),
+                measurement_noise,
+                corners_f_marker[i],
+                cal_info.std_cal3ds2_,
+                runner_.logger(), true);
+            } else {
+
+              // imager n uses a factor relative to imager 0
+              graph.emplace_shared<Imager0Imager1Factor>(
+                camera_0_key, fvlam::ModelKey::camera(cal_info.imager_index_),
+                observation.corners_f_image()[i].to<gtsam::Point2>(),
+                measurement_noise,
+                corners_f_marker[i],
+                cal_info.std_cal3ds2_,
+                runner_.logger(), true);
+            }
+          }
+        }
+
+        gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+        if (cal_info.imager_index_ == 0) {
+
+          auto t_marker_camera = marker.t_map_marker().tf().inverse() * marker_observations.t_map_camera();
+          initial.insert(camera_0_key, t_marker_camera.to<gtsam::Pose3>().compose(delta));
+
+        } else {
+
+//              initial.insert(fvlam::ModelKey::camera(cal_info.imager_index_),
+//                             t_imager0_imagerN[cal_info.imager_index_].to<gtsam::Pose3>().compose(delta));
+          initial.insert(fvlam::ModelKey::camera(cal_info.imager_index_), gtsam::Pose3{});
+        }
+      }
+
+      if (num_observations < 2) {
+        return 1;
+      }
+
+      /* Optimize the graph and print results */
+      auto params = gtsam::LevenbergMarquardtParams();
+//          params.setVerbosityLM("TERMINATION");
+//          params.setVerbosity("TERMINATION");
+      params.setRelativeErrorTol(1e-12);
+      params.setAbsoluteErrorTol(1e-12);
+      params.setMaxIterations(2048);
+
+//          graph.print("graph\n");
+//          initial.print("initial\n");
+
+      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
+//          std::cout << "initial error = " << graph.error(initial) << std::endl;
+//          std::cout << "final error = " << graph.error(result) << std::endl;
+//          result.print("");
+
+
+      for (std::size_t i = 1; i < t_imager0_imagerNs.size(); i += 1) {
+        auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::camera(i));
+        auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
+        if (!t_imager0_imagerNs[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
+          return 1;
+        }
+      }
       return 0;
     }
 
