@@ -175,11 +175,16 @@ namespace camsim
       }
 
       // Create a map of all marker id's that are observed by the base_imager.
-      std::set<std::uint64_t> observed_ids{};
+      std::map<std::uint64_t, fvlam::Transform3> observed_ids{};
       for (auto &observations : marker_observations.observations_synced().v()) {
         if (observations.imager_frame_id() == base_imager_frame_id) {
           for (auto &observation : observations.v()) {
-            observed_ids.emplace(observation.id());
+            for (auto &marker : runner_.model().targets()) {
+              if (marker.id() == observation.id()) {
+                observed_ids.emplace(marker.id(), marker.t_map_marker().tf());
+                break;
+              }
+            }
           }
           break;
         }
@@ -188,10 +193,17 @@ namespace camsim
         return 1;
       }
 
-        // Create a factor graph
+      // Define the camera observation noise model
+      auto measurement_noise = gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
+
+      auto corners_f_marker = fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(
+        runner_.model().environment().marker_length());
+
+      gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+
+      // Create a factor graph
       gtsam::NonlinearFactorGraph graph;
       gtsam::Values initial;
-      int num_observations = 0;
 
       // For each imager's observations
       for (auto &observations : marker_observations.observations_synced().v()) {
@@ -206,11 +218,17 @@ namespace camsim
         // For each observation of a marker
         for (auto &observation : observations.v()) {
 
-          // If this is not the marker we are interested in then continue to search
-          if (observed_ids.find(observation.id()) == observed_ids.end()) {
+          // If this marker is not seen by the base imager, then don't add its factor.
+          // If a marker is only seen by the base imager and not by others, its factor
+          // will get added to the graph. This is OK - inefficient but the optimization
+          // will not fail
+          auto observed_marker = observed_ids.find(observation.id());
+          if (observed_marker == observed_ids.end()) {
             continue;
           }
-          num_observations += 1;
+          auto &t_map_marker = observed_marker->second;
+
+          auto camera_0_key = fvlam::ModelKey::camera_marker(0, observation.id());
 
           // For each corner of a marker
           for (std::size_t i = 0; i < observation.corners_f_image().size(); i += 1) {
@@ -225,53 +243,48 @@ namespace camsim
                 corners_f_marker[i],
                 cal_info.std_cal3ds2_,
                 runner_.logger(), true);
+
+              if (!initial.exists(camera_0_key)) {
+                auto t_marker_camera = t_map_marker.inverse() * marker_observations.t_map_camera();
+                initial.insert(camera_0_key, t_marker_camera.to<gtsam::Pose3>().compose(delta));
+              }
+
             } else {
+
+              auto relative_imager_key = fvlam::ModelKey::value(cal_info.imager_index_);
 
               // imager n uses a factor relative to imager 0
               graph.emplace_shared<Imager0Imager1Factor>(
-                camera_0_key, fvlam::ModelKey::camera(cal_info.imager_index_),
+                camera_0_key, relative_imager_key,
                 observation.corners_f_image()[i].to<gtsam::Point2>(),
                 measurement_noise,
                 corners_f_marker[i],
                 cal_info.std_cal3ds2_,
                 runner_.logger(), true);
+
+              if (!initial.exists(relative_imager_key)) {
+                initial.insert(relative_imager_key, gtsam::Pose3{});
+              }
             }
           }
         }
-
-        gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
-        if (cal_info.imager_index_ == 0) {
-
-          auto t_marker_camera = marker.t_map_marker().tf().inverse() * marker_observations.t_map_camera();
-          initial.insert(camera_0_key, t_marker_camera.to<gtsam::Pose3>().compose(delta));
-
-        } else {
-
-//              initial.insert(fvlam::ModelKey::camera(cal_info.imager_index_),
-//                             t_imager0_imagerN[cal_info.imager_index_].to<gtsam::Pose3>().compose(delta));
-          initial.insert(fvlam::ModelKey::camera(cal_info.imager_index_), gtsam::Pose3{});
-        }
-      }
-
-      if (num_observations < 2) {
-        return 1;
       }
 
       /* Optimize the graph and print results */
       auto params = gtsam::LevenbergMarquardtParams();
-//          params.setVerbosityLM("TERMINATION");
-//          params.setVerbosity("TERMINATION");
+      params.setVerbosityLM("TERMINATION");
+      params.setVerbosity("TERMINATION");
       params.setRelativeErrorTol(1e-12);
       params.setAbsoluteErrorTol(1e-12);
       params.setMaxIterations(2048);
 
-//          graph.print("graph\n");
-//          initial.print("initial\n");
+      graph.print("graph\n");
+      initial.print("initial\n");
 
       auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
-//          std::cout << "initial error = " << graph.error(initial) << std::endl;
-//          std::cout << "final error = " << graph.error(result) << std::endl;
-//          result.print("");
+      std::cout << "initial error = " << graph.error(initial) << std::endl;
+      std::cout << "final error = " << graph.error(result) << std::endl;
+      result.print("");
 
 
       for (std::size_t i = 1; i < t_imager0_imagerNs.size(); i += 1) {

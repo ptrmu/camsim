@@ -240,14 +240,14 @@ namespace fvlam
                        gtsam::Point2 point_f_image,
                        const gtsam::SharedNoiseModel &model,
                        gtsam::Point3 point_f_world,
-                       std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
+                       std::shared_ptr<const gtsam::Cal3DS2> cal3ds2,
                        Logger &logger,
                        bool throwCheirality = false) :
       NoiseModelFactor1<gtsam::Pose3>(model, key_camera),
       key_camera_{key_camera},
       point_f_image{std::move(point_f_image)},
       point_f_world{std::move(point_f_world)},
-      cal3ds2_{cal3ds2},
+      cal3ds2_{std::move(cal3ds2)},
       logger_{logger},
       throwCheirality_{throwCheirality}
     {}
