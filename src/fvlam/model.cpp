@@ -282,7 +282,7 @@ namespace fvlam
 
   std::uint64_t ModelKey::camera_marker(std::size_t camera_idx, std::size_t marker_idx)
   {
-    return gtsam::Symbol{'d', camera_idx * camera_marker_stride * marker_idx}.key();
+    return gtsam::Symbol{'d', camera_idx * camera_marker_stride + marker_idx}.key();
   }
 
   std::uint64_t ModelKey::corner(std::uint64_t marker_key, std::size_t corner_idx)

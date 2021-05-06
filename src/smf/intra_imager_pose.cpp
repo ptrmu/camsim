@@ -228,7 +228,8 @@ namespace camsim
           }
           auto &t_map_marker = observed_marker->second;
 
-          auto camera_0_key = fvlam::ModelKey::camera_marker(0, observation.id());
+          auto camera_n_key = fvlam::ModelKey::camera_marker(
+            marker_observations.camera_index(), observation.id());
 
           // For each corner of a marker
           for (std::size_t i = 0; i < observation.corners_f_image().size(); i += 1) {
@@ -237,16 +238,16 @@ namespace camsim
 
               // imager 0 just does resection to figure its pose
               graph.emplace_shared<fvlam::ResectioningFactor>(
-                camera_0_key,
+                camera_n_key,
                 observation.corners_f_image()[i].to<gtsam::Point2>(),
                 measurement_noise,
                 corners_f_marker[i],
                 cal_info.std_cal3ds2_,
                 runner_.logger(), true);
 
-              if (!initial.exists(camera_0_key)) {
+              if (!initial.exists(camera_n_key)) {
                 auto t_marker_camera = t_map_marker.inverse() * marker_observations.t_map_camera();
-                initial.insert(camera_0_key, t_marker_camera.to<gtsam::Pose3>().compose(delta));
+                initial.insert(camera_n_key, t_marker_camera.to<gtsam::Pose3>().compose(delta));
               }
 
             } else {
@@ -255,7 +256,7 @@ namespace camsim
 
               // imager n uses a factor relative to imager 0
               graph.emplace_shared<Imager0Imager1Factor>(
-                camera_0_key, relative_imager_key,
+                camera_n_key, relative_imager_key,
                 observation.corners_f_image()[i].to<gtsam::Point2>(),
                 measurement_noise,
                 corners_f_marker[i],
@@ -272,23 +273,23 @@ namespace camsim
 
       /* Optimize the graph and print results */
       auto params = gtsam::LevenbergMarquardtParams();
-      params.setVerbosityLM("TERMINATION");
-      params.setVerbosity("TERMINATION");
+//      params.setVerbosityLM("TERMINATION");
+//      params.setVerbosity("TERMINATION");
       params.setRelativeErrorTol(1e-12);
       params.setAbsoluteErrorTol(1e-12);
       params.setMaxIterations(2048);
 
-      graph.print("graph\n");
-      initial.print("initial\n");
+//      graph.print("graph\n");
+//      initial.print("initial\n");
 
       auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
-      std::cout << "initial error = " << graph.error(initial) << std::endl;
-      std::cout << "final error = " << graph.error(result) << std::endl;
-      result.print("");
+//      std::cout << "initial error = " << graph.error(initial) << std::endl;
+//      std::cout << "final error = " << graph.error(result) << std::endl;
+//      result.print("");
 
 
       for (std::size_t i = 1; i < t_imager0_imagerNs.size(); i += 1) {
-        auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::camera(i));
+        auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::value(i));
         auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
         if (!t_imager0_imagerNs[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
           return 1;
@@ -338,9 +339,9 @@ namespace camsim
 
     auto marker_runner = fvlam::MarkerModelRunner(runner_config,
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
-                                                  fvlam::MarkerModelGen::DualParallelGrid());
+//                                                  fvlam::MarkerModelGen::DualParallelGrid());
 //                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
-//                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
+                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
 //                                                  fvlam::MarkerModelGen::MonoParallelCircles());
 
     auto test_maker = [&iip_config](fvlam::MarkerModelRunner &runner) -> InterImagerPoseTest
