@@ -269,32 +269,11 @@ namespace camsim
         return 1;
       }
 
-      // Create a map of all marker id's that are observed by the base_imager.
-      std::map<std::uint64_t, fvlam::Transform3> observed_ids{};
-      for (auto &observations : marker_observations.observations_synced().v()) {
-        if (observations.imager_frame_id() == base_imager_frame_id) {
-          for (auto &observation : observations.v()) {
-            for (auto &marker : runner_.model().targets()) {
-              if (marker.id() == observation.id()) {
-                observed_ids.emplace(marker.id(), marker.t_map_marker().tf());
-                break;
-              }
-            }
-          }
-          break;
-        }
-      }
-      if (observed_ids.empty()) {
-        return 1;
-      }
-
       // Define the camera observation noise model
       auto measurement_noise = gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
 
       auto corners_f_marker = fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(
         runner_.model().environment().marker_length());
-
-      gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
 
       // Create a factor graph
       gtsam::NonlinearFactorGraph graph;
