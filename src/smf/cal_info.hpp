@@ -172,6 +172,19 @@ namespace camsim
       }
       return t_imager0_imagerNs;
     }
+
+    static std::string make_base_imager_frame_id(const Map &k_map)
+    {
+      // Find the CalInfo with index zero
+      std::string base_imager_frame_id{};
+      for (auto &cal_info : k_map) {
+        if (cal_info.second.imager_index_ == 0) {
+          base_imager_frame_id = cal_info.second.camera_info_.imager_frame_id();
+          break;
+        }
+      }
+      return base_imager_frame_id;
+    }
   };
 
 }
