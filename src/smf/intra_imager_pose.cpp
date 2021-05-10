@@ -305,7 +305,8 @@ namespace camsim
       gtsam::NonlinearFactorGraph graph;
       gtsam::Values initial;
 
-      for (auto &marker_observations : runner_.model().target_observations_list()) {
+//      for (auto &marker_observations : runner_.model().target_observations_list()) {
+      for (auto &marker_observations : runner_.marker_observations_list_perturbed()) {
         load_per_camera_inter_imager_factors(
           marker_observations,
           graph, initial);
@@ -338,6 +339,11 @@ namespace camsim
       return 0;
     }
 
+    int fixed_lag_inter_imager_pose()
+    {
+      return 1;
+    }
+
     int operator()()
     {
       switch (cfg_.algorithm_) {
@@ -350,6 +356,9 @@ namespace camsim
 
         case 2:
           return multi_camera_marker_inter_imager_pose();
+
+        case 3:
+          return fixed_lag_inter_imager_pose();
       }
     }
   };
@@ -357,6 +366,7 @@ namespace camsim
   int imager_relative_pose()
   {
     auto runner_config = fvlam::MarkerModelRunner::Config();
+    runner_config.u_sampler_sigma_ = 0.1;
     auto iip_config = InterImagerPoseTest::Config();
 
     fvlam::LoggerCout logger{runner_config.logger_level_};
