@@ -54,7 +54,7 @@ namespace camsim
       auto camera_0_key = fvlam::ModelKey::camera(0);
 
       // For each camera.
-      for (auto &marker_observations : runner_.model().target_observations_list()) {
+      for (auto &marker_observations : runner_.marker_observations_list_perturbed()) {
 
         // for each marker
         for (auto &marker : runner_.model().targets()) {
@@ -289,7 +289,7 @@ namespace camsim
     int multi_marker_inter_imager_pose()
     {
       // For each camera.
-      for (auto &marker_observations : runner_.model().target_observations_list()) {
+      for (auto &marker_observations : runner_.marker_observations_list_perturbed()) {
         auto ret = per_camera_inter_imager_pose(marker_observations);
         if (ret != 0) {
           return ret;
@@ -366,43 +366,50 @@ namespace camsim
   int imager_relative_pose()
   {
     auto runner_config = fvlam::MarkerModelRunner::Config();
-    runner_config.u_sampler_sigma_ = 0.1;
     auto iip_config = InterImagerPoseTest::Config();
 
     fvlam::LoggerCout logger{runner_config.logger_level_};
 
-    auto marker_runner = fvlam::MarkerModelRunner(runner_config,
+    auto runner_run = [&runner_config, &iip_config] () -> int
+    {
+      auto marker_runner = fvlam::MarkerModelRunner(runner_config,
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
 //                                                  fvlam::MarkerModelGen::DualParallelGrid());
 //                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
-                                                  fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
+                                                    fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
 //                                                  fvlam::MarkerModelGen::MonoParallelCircles());
 
-    auto test_maker = [&iip_config](fvlam::MarkerModelRunner &runner) -> InterImagerPoseTest
-    {
-      return InterImagerPoseTest(iip_config, runner);
+      auto test_maker = [&iip_config](fvlam::MarkerModelRunner &runner) -> InterImagerPoseTest
+      {
+        return InterImagerPoseTest(iip_config, runner);
+      };
+
+      return marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
     };
 
     bool ret = 0;
 
+    runner_config.u_sampler_sigma_ = 1.e-5;
     iip_config.algorithm_ = 0;
-    ret = marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
+    ret = runner_run();
     if (ret != 0) {
-      marker_runner.logger().warn() << "algorithm_ 0 " << ret;
+      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
       return ret;
     }
 
+    runner_config.u_sampler_sigma_ = 1.e-3;
     iip_config.algorithm_ = 1;
-    ret = marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
+    ret = runner_run();
     if (ret != 0) {
-      marker_runner.logger().warn() << "algorithm_ 1 " << ret;
+      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
       return ret;
     }
 
+    runner_config.u_sampler_sigma_ = 1.e-1;
     iip_config.algorithm_ = 2;
-    ret = marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
+    ret = runner_run();
     if (ret != 0) {
-      marker_runner.logger().warn() << "algorithm_ 2 " << ret;
+      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
       return ret;
     }
 
