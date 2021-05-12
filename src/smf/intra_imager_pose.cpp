@@ -9,6 +9,7 @@
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/slam/ProjectionFactor.h>
+#include <gtsam_unstable/nonlinear/BatchFixedLagSmoother.h>
 
 namespace camsim
 {
@@ -263,9 +264,9 @@ namespace camsim
       auto params = gtsam::LevenbergMarquardtParams();
 //      params.setVerbosityLM("TERMINATION");
 //      params.setVerbosity("TERMINATION");
-      params.setRelativeErrorTol(1e-12);
-      params.setAbsoluteErrorTol(1e-12);
-      params.setMaxIterations(2048);
+//      params.setRelativeErrorTol(1e-12);
+//      params.setAbsoluteErrorTol(1e-12);
+//      params.setMaxIterations(2048);
 
 //      graph.print("graph\n");
 //      initial.print("initial\n");
@@ -316,9 +317,9 @@ namespace camsim
       auto params = gtsam::LevenbergMarquardtParams();
 //      params.setVerbosityLM("TERMINATION");
 //      params.setVerbosity("TERMINATION");
-      params.setRelativeErrorTol(1e-12);
-      params.setAbsoluteErrorTol(1e-12);
-      params.setMaxIterations(2048);
+//      params.setRelativeErrorTol(1e-12);
+//      params.setAbsoluteErrorTol(1e-12);
+//      params.setMaxIterations(2048);
 
 //      graph.print("graph\n");
 //      initial.print("initial\n");
@@ -341,6 +342,23 @@ namespace camsim
 
     int fixed_lag_inter_imager_pose()
     {
+
+      // Define the smoother lag (in seconds)
+      double lag = 2.0;
+
+      // Create a fixed lag smoother
+      // The Batch version uses Levenberg-Marquardt to perform the nonlinear optimization
+      gtsam::BatchFixedLagSmoother smootherBatch(lag);
+
+      // Create containers to store the factors and linearization points that
+      // will be sent to the smoothers
+      gtsam::NonlinearFactorGraph newFactors;
+      gtsam::Values newValues;
+      gtsam::FixedLagSmoother::KeyTimestampMap newTimestamps;
+
+      for (std::size_t i_camera = 0; i_camera < runner_.marker_observations_list_perturbed().size(); i_camera += 1) {
+      }
+
       return 1;
     }
 
@@ -370,7 +388,7 @@ namespace camsim
 
     fvlam::LoggerCout logger{runner_config.logger_level_};
 
-    auto runner_run = [&runner_config, &iip_config] () -> int
+    auto runner_run = [&runner_config, &iip_config]() -> int
     {
       auto marker_runner = fvlam::MarkerModelRunner(runner_config,
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
