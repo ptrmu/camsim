@@ -356,7 +356,34 @@ namespace camsim
       gtsam::Values newValues;
       gtsam::FixedLagSmoother::KeyTimestampMap newTimestamps;
 
+      // Add the relative imager pose initial values. Set the time as greater than the number of camera positions.
+      for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
+        auto t_i0_iN_key = fvlam::ModelKey::value(i);
+        newValues.insert(t_i0_iN_key, gtsam::Pose3{});
+        newTimestamps[t_i0_iN_key] = runner_.marker_observations_list_perturbed().size();
+      }
+
       for (std::size_t i_camera = 0; i_camera < runner_.marker_observations_list_perturbed().size(); i_camera += 1) {
+
+        // Add the measurements
+
+        // Update and printer the current value
+        if (i_camera >= 1) {
+          smootherBatch.update(newFactors, newValues, newTimestamps);
+
+          // Print the optimized current pose
+          runner_.logger().info() << std::setprecision(5) << "Timestamp = " << i_camera;
+          for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
+            auto t_i0_iN = smootherBatch.calculateEstimate<gtsam::Pose3>(fvlam::ModelKey::value(i));
+            auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
+            runner_.logger().info() << "t_i0_i" << i << ": " << t_i0_iN_fvlam.to_string();
+          }
+
+          // Clear containers for the next iteration
+          newTimestamps.clear();
+          newValues.clear();
+          newFactors.resize(0);
+        }
       }
 
       return 1;
@@ -392,9 +419,9 @@ namespace camsim
     {
       auto marker_runner = fvlam::MarkerModelRunner(runner_config,
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
-//                                                  fvlam::MarkerModelGen::DualParallelGrid());
+                                                  fvlam::MarkerModelGen::DualParallelGrid());
 //                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
-                                                    fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
+//                                                    fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
 //                                                  fvlam::MarkerModelGen::MonoParallelCircles());
 
       auto test_maker = [&iip_config](fvlam::MarkerModelRunner &runner) -> InterImagerPoseTest
@@ -425,6 +452,15 @@ namespace camsim
 
     runner_config.u_sampler_sigma_ = 1.e-1;
     iip_config.algorithm_ = 2;
+    ret = runner_run();
+    if (ret != 0) {
+      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
+      return ret;
+    }
+
+    runner_config.u_sampler_sigma_ = 1.e-7;
+    runner_config.logger_level_ = fvlam::Logger::Levels::level_info;
+    iip_config.algorithm_ = 3;
     ret = runner_run();
     if (ret != 0) {
       logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
