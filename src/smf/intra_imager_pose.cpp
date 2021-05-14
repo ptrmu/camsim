@@ -161,7 +161,8 @@ namespace camsim
 
     void load_per_camera_inter_imager_factors(const fvlam::MarkerObservations &marker_observations,
                                               gtsam::NonlinearFactorGraph &graph,
-                                              gtsam::Values &initial)
+                                              gtsam::Values &initial,
+                                              gtsam::FixedLagSmoother::KeyTimestampMap *new_timestamps)
     {
       // Create a map of all marker id's that are observed by the base_imager.
       std::map<std::uint64_t, fvlam::Transform3> observed_ids{};
