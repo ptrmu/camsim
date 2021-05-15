@@ -259,7 +259,7 @@ namespace camsim
 
       load_per_camera_inter_imager_factors(
         marker_observations,
-        graph, initial);
+        graph, initial, nullptr);
 
       /* Optimize the graph and print results */
       auto params = gtsam::LevenbergMarquardtParams();
@@ -311,7 +311,7 @@ namespace camsim
       for (auto &marker_observations : runner_.marker_observations_list_perturbed()) {
         load_per_camera_inter_imager_factors(
           marker_observations,
-          graph, initial);
+          graph, initial, nullptr);
       }
 
       /* Optimize the graph and print results */
