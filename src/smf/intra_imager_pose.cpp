@@ -209,6 +209,10 @@ namespace camsim
           auto camera_n_key = fvlam::ModelKey::camera_marker(
             marker_observations.camera_index(), observation.id());
 
+          if (new_timestamps != nullptr) {
+            (*new_timestamps)[camera_n_key] = marker_observations.camera_index();
+          }
+
           // For each corner of a marker
           for (std::size_t i = 0; i < observation.corners_f_image().size(); i += 1) {
 
@@ -242,7 +246,7 @@ namespace camsim
                 cal_info.std_cal3ds2_,
                 runner_.logger(), true);
 
-              if (!initial.exists(relative_imager_key)) {
+              if (!initial.exists(relative_imager_key) && new_timestamps == nullptr) {
                 initial.insert(relative_imager_key, gtsam::Pose3{});
               }
             }
@@ -345,7 +349,7 @@ namespace camsim
     {
 
       // Define the smoother lag (in seconds)
-      double lag = 2.0;
+      double lag = 100.0;
 
       // Create a fixed lag smoother
       // The Batch version uses Levenberg-Marquardt to perform the nonlinear optimization
@@ -353,24 +357,28 @@ namespace camsim
 
       // Create containers to store the factors and linearization points that
       // will be sent to the smoothers
-      gtsam::NonlinearFactorGraph newFactors;
-      gtsam::Values newValues;
-      gtsam::FixedLagSmoother::KeyTimestampMap newTimestamps;
+      gtsam::NonlinearFactorGraph new_factors;
+      gtsam::Values new_values;
+      gtsam::FixedLagSmoother::KeyTimestampMap new_timestamps;
 
       // Add the relative imager pose initial values. Set the time as greater than the number of camera positions.
       for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
         auto t_i0_iN_key = fvlam::ModelKey::value(i);
-        newValues.insert(t_i0_iN_key, gtsam::Pose3{});
-        newTimestamps[t_i0_iN_key] = runner_.marker_observations_list_perturbed().size();
+        new_values.insert(t_i0_iN_key, t_imager0_imagerNs_[i].to<gtsam::Pose3>());
+        new_timestamps[t_i0_iN_key] = runner_.marker_observations_list_perturbed().size();
       }
 
       for (std::size_t i_camera = 0; i_camera < runner_.marker_observations_list_perturbed().size(); i_camera += 1) {
 
         // Add the measurements
+        load_per_camera_inter_imager_factors(
+          runner_.marker_observations_list_perturbed()[i_camera],
+          new_factors, new_values, &new_timestamps);
 
         // Update and printer the current value
-        if (i_camera >= 1) {
-          smootherBatch.update(newFactors, newValues, newTimestamps);
+        if (i_camera >= 0) {
+//          new_values.print("\nnew values");
+          smootherBatch.update(new_factors, new_values, new_timestamps);
 
           // Print the optimized current pose
           runner_.logger().info() << std::setprecision(5) << "Timestamp = " << i_camera;
@@ -381,9 +389,9 @@ namespace camsim
           }
 
           // Clear containers for the next iteration
-          newTimestamps.clear();
-          newValues.clear();
-          newFactors.resize(0);
+          new_timestamps.clear();
+          new_values.clear();
+          new_factors.resize(0);
         }
       }
 
@@ -420,7 +428,7 @@ namespace camsim
     {
       auto marker_runner = fvlam::MarkerModelRunner(runner_config,
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
-                                                  fvlam::MarkerModelGen::DualParallelGrid());
+                                                    fvlam::MarkerModelGen::DualParallelGrid());
 //                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
 //                                                    fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
 //                                                  fvlam::MarkerModelGen::MonoParallelCircles());
@@ -459,7 +467,7 @@ namespace camsim
       return ret;
     }
 
-    runner_config.u_sampler_sigma_ = 1.e-7;
+    runner_config.u_sampler_sigma_ = 1.e-3;
     runner_config.logger_level_ = fvlam::Logger::Levels::level_info;
     iip_config.algorithm_ = 3;
     ret = runner_run();
