@@ -467,7 +467,7 @@ namespace camsim
       return ret;
     }
 
-    runner_config.u_sampler_sigma_ = 1.e-3;
+    runner_config.u_sampler_sigma_ = 1.e-9;
     runner_config.logger_level_ = fvlam::Logger::Levels::level_info;
     iip_config.algorithm_ = 3;
     ret = runner_run();
