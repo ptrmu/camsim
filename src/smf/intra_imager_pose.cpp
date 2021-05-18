@@ -269,9 +269,9 @@ namespace camsim
       auto params = gtsam::LevenbergMarquardtParams();
 //      params.setVerbosityLM("TERMINATION");
 //      params.setVerbosity("TERMINATION");
-//      params.setRelativeErrorTol(1e-12);
-//      params.setAbsoluteErrorTol(1e-12);
-//      params.setMaxIterations(2048);
+      params.setRelativeErrorTol(1e-12);
+      params.setAbsoluteErrorTol(1e-12);
+      params.setMaxIterations(2048);
 
 //      graph.print("graph\n");
 //      initial.print("initial\n");
@@ -285,6 +285,7 @@ namespace camsim
       for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
         auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::value(i));
         auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
+        runner_.logger().info() << "t_i0_i" << i << ": " << t_i0_iN_fvlam.to_string();
         if (!t_imager0_imagerNs_[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
           return 1;
         }
@@ -443,6 +444,7 @@ namespace camsim
 
     bool ret = 0;
 
+#if 0
     runner_config.u_sampler_sigma_ = 1.e-5;
     iip_config.algorithm_ = 0;
     ret = runner_run();
@@ -450,8 +452,10 @@ namespace camsim
       logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
       return ret;
     }
+#endif
 
-    runner_config.u_sampler_sigma_ = 1.e-3;
+    runner_config.u_sampler_sigma_ = 1.e-1;
+    runner_config.logger_level_ = fvlam::Logger::Levels::level_info;
     iip_config.algorithm_ = 1;
     ret = runner_run();
     if (ret != 0) {
@@ -459,6 +463,7 @@ namespace camsim
       return ret;
     }
 
+#if 0
     runner_config.u_sampler_sigma_ = 1.e-1;
     iip_config.algorithm_ = 2;
     ret = runner_run();
@@ -475,6 +480,7 @@ namespace camsim
       logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
       return ret;
     }
+#endif
 
     return ret;
   }
