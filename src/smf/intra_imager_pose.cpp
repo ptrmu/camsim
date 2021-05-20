@@ -351,7 +351,7 @@ namespace camsim
     {
 
       // Define the smoother lag (in seconds)
-      double lag = 100.0;
+      double lag = 2.0;
 
       // Create a fixed lag smoother
       // The Batch version uses Levenberg-Marquardt to perform the nonlinear optimization
@@ -387,6 +387,8 @@ namespace camsim
         if (i_camera >= 0) {
 //          new_values.print("\nnew values");
           smootherBatch.update(new_factors, new_values, new_timestamps);
+
+          smootherBatch.getFactors().print();
 
           // Print the optimized current pose
           runner_.logger().info() << std::setprecision(5) << "Timestamp = " << i_camera;
@@ -438,7 +440,9 @@ namespace camsim
     {
       auto marker_runner = fvlam::MarkerModelRunner(runner_config,
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
-                                                    fvlam::MarkerModelGen::DualParallelGrid());
+//                                                    fvlam::MarkerModelGen::DualParallelGrid());
+//                                                    fvlam::MarkerModelGen::DualWideSingleCamera());
+                                                    fvlam::MarkerModelGen::DualWideSingleMarker());
 //                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
 //                                                    fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
 //                                                  fvlam::MarkerModelGen::MonoParallelCircles());
@@ -463,8 +467,8 @@ namespace camsim
     }
 #endif
 
-    runner_config.u_sampler_sigma_ = 1.e-1;
-    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
+    runner_config.u_sampler_sigma_ = 1.e-3;
+    runner_config.logger_level_ = fvlam::Logger::Levels::level_debug;
     iip_config.algorithm_ = 1;
     ret = runner_run();
     if (ret != 0) {
@@ -482,8 +486,8 @@ namespace camsim
     }
 #endif
 
-    runner_config.u_sampler_sigma_ = 1.e-1;
-    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
+    runner_config.u_sampler_sigma_ = 1.e-3;
+    runner_config.logger_level_ = fvlam::Logger::Levels::level_debug;
     iip_config.algorithm_ = 3;
     ret = runner_run();
     if (ret != 0) {

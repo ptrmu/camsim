@@ -148,6 +148,7 @@ namespace fvlam
     static MarkerModel::Maker MonoParallelCircles(); //
     static MarkerModel::Maker DualParallelCircles(); //
     static MarkerModel::Maker DualWideSingleCamera(); //
+    static MarkerModel::Maker DualWideSingleMarker(); //
   };
 
   struct ModelKey

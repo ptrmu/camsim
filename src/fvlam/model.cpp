@@ -261,6 +261,18 @@ namespace fvlam
     };
   }
 
+  MarkerModel::Maker MarkerModelGen::DualWideSingleMarker()
+  {
+    return []() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::DualWideAngle(),
+                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                  8, 1.0, 2.0, false),
+                                fvlam::MarkersGen::OriginLookingUp());
+    };
+  }
+
   std::uint64_t ModelKey::value(std::size_t value_idx)
   {
     return gtsam::Symbol{'a', value_idx}.key();
@@ -354,13 +366,13 @@ namespace fvlam
     marker_observations_list_perturbed_{
       gen_marker_observations_list_perturbed(model_, cfg.r_sampler_sigma_, cfg.t_sampler_sigma_, cfg.u_sampler_sigma_)}
   {
-    logger_.info() << "Model Markers:";
-    for (auto &marker : model_.targets()) {
+    logger_.info() << "Model Markers Perturbed:";
+    for (auto &marker : markers_perturbed_) {
       logger_.info() << marker.to_string();
     }
 
-    logger_.debug() << "Model Observations:";
-    for (auto &to : model_.target_observations_list()) {
+    logger_.debug() << "Model Observations Perturbed:";
+    for (auto &to : marker_observations_list_perturbed_) {
       logger_.debug() << "ObservationsSynced " << to.camera_index() << " "
                       << to.t_map_camera().to_string();
       for (auto &os : to.observations_synced().v()) {
