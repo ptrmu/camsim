@@ -10,6 +10,7 @@
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam_unstable/nonlinear/BatchFixedLagSmoother.h>
+#include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
 
 namespace camsim
 {
@@ -363,6 +364,12 @@ namespace camsim
       params.setMaxIterations(2048);
       gtsam::BatchFixedLagSmoother smootherBatch(lag, params);
 
+      // The Incremental version uses iSAM2 to perform the nonlinear optimization
+      gtsam::ISAM2Params parameters;
+      parameters.relinearizeThreshold = 0.0; // Set the relin threshold to zero such that the batch estimate is recovered
+      parameters.relinearizeSkip = 1; // Relinearize every time
+      gtsam::IncrementalFixedLagSmoother smootherISAM2(lag, parameters);
+
       // Create containers to store the factors and linearization points that
       // will be sent to the smoothers
       gtsam::NonlinearFactorGraph new_factors;
@@ -383,21 +390,26 @@ namespace camsim
           runner_.marker_observations_list_perturbed()[i_camera],
           new_factors, new_values, &new_timestamps);
 
-        // Update and printer the current value
+        // Update and print the current value
         if (i_camera >= 0) {
-//          new_values.print("\nnew values");
+          new_factors.print("\nnew factors");
+          new_values.print("\nnew values");
           smootherBatch.update(new_factors, new_values, new_timestamps);
+          smootherISAM2.update(new_factors, new_values, new_timestamps);
 
-          smootherBatch.getFactors().print();
+//          smootherBatch.getFactors().print();
 
           // Print the optimized current pose
           runner_.logger().info() << std::setprecision(5) << "Timestamp = " << i_camera;
           for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
             auto t_i0_iN = smootherBatch.calculateEstimate<gtsam::Pose3>(fvlam::ModelKey::value(i));
             auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
-            runner_.logger().warn() << i_camera << " "
+            auto t_i0_iN_isam = smootherISAM2.calculateEstimate<gtsam::Pose3>(fvlam::ModelKey::value(i));
+            auto t_i0_iN_isam_fvlam = fvlam::Transform3::from(t_i0_iN_isam);
+            runner_.logger().warn() << i_camera << " batch "
                                     << "t_i0_i" << i << ": "
-                                    << t_i0_iN_fvlam.to_string();
+                                    << t_i0_iN_fvlam.to_string() << " "
+                                    << t_i0_iN_isam_fvlam.to_string();
           }
 
           // Clear containers for the next iteration
