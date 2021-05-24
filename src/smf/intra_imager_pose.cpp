@@ -4,6 +4,7 @@
 #include "cal_info.hpp"
 #include "fvlam/factors_gtsam.hpp"
 #include "fvlam/model.hpp"
+#include "gtsam/base/debug.h"
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/PinholeCamera.h>
 #include <gtsam/geometry/Point3.h>
@@ -350,6 +351,9 @@ namespace camsim
 
     int fixed_lag_inter_imager_pose()
     {
+      gtsam::guardedSetDebug("IncrementalFixedLagSmoother update", true);
+//      assert(gtsam::isDebugVersion());
+
 
       // Define the smoother lag (in seconds)
       double lag = 2.0;
