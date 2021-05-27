@@ -342,6 +342,7 @@ namespace camsim
       for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
         auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::value(i));
         auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
+        runner_.logger().warn() << "t_i0_i" << i << ": " << t_i0_iN_fvlam.to_string();
         if (!t_imager0_imagerNs_[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
           return 1;
         }
@@ -351,12 +352,14 @@ namespace camsim
 
     int fixed_lag_inter_imager_pose()
     {
-      gtsam::guardedSetDebug("IncrementalFixedLagSmoother update", true);
+      if (runner_.logger().output_debug()) {
+        gtsam::guardedSetDebug("IncrementalFixedLagSmoother update", true);
 //      assert(gtsam::isDebugVersion());
+      }
 
 
       // Define the smoother lag (in seconds)
-      double lag = 3.0;
+      double lag = 1000.0;
 
       // Create a fixed lag smoother
       // The Batch version uses Levenberg-Marquardt to perform the nonlinear optimization
@@ -384,7 +387,7 @@ namespace camsim
       for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
         auto t_i0_iN_key = fvlam::ModelKey::value(i);
         new_values.insert(t_i0_iN_key, t_imager0_imagerNs_[i].to<gtsam::Pose3>());
-        new_timestamps[t_i0_iN_key] = runner_.marker_observations_list_perturbed().size();
+//        new_timestamps[t_i0_iN_key] = runner_.marker_observations_list_perturbed().size();
       }
 
       for (std::size_t i_camera = 0; i_camera < runner_.marker_observations_list_perturbed().size(); i_camera += 1) {
@@ -396,26 +399,31 @@ namespace camsim
 
         // Update and print the current value
         if (i_camera >= 0) {
-          new_factors.print("\nnew factors");
-          new_values.print("\nnew values");
-//          smootherBatch.update(new_factors, new_values, new_timestamps);
-          smootherISAM2.update(new_factors, new_values, new_timestamps);
+          if (runner_.logger().output_debug()) {
+            new_factors.print("\nnew factors");
+            new_values.print("\nnew values");
+          }
 
-          smootherBatch.getFactors().print();
-          smootherBatch.getLinearizationPoint().print("Linearization Points\n");
-          smootherBatch.getDelta().print("Delta\n");
+          smootherBatch.update(new_factors, new_values, new_timestamps);
+//          smootherISAM2.update(new_factors, new_values, new_timestamps);
+
+          if (runner_.logger().output_debug()) {
+            smootherBatch.getFactors().print();
+            smootherBatch.getLinearizationPoint().print("Linearization Points\n");
+            smootherBatch.getDelta().print("Delta\n");
+          }
 
           // Print the optimized current pose
           runner_.logger().info() << std::setprecision(5) << "Timestamp = " << i_camera;
           for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
-//            auto t_i0_iN = smootherBatch.calculateEstimate<gtsam::Pose3>(fvlam::ModelKey::value(i));
-//            auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
-            auto t_i0_iN_isam = smootherISAM2.calculateEstimate<gtsam::Pose3>(fvlam::ModelKey::value(i));
-            auto t_i0_iN_isam_fvlam = fvlam::Transform3::from(t_i0_iN_isam);
+            auto t_i0_iN = smootherBatch.calculateEstimate<gtsam::Pose3>(fvlam::ModelKey::value(i));
+            auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
+//            auto t_i0_iN_isam = smootherISAM2.calculateEstimate<gtsam::Pose3>(fvlam::ModelKey::value(i));
+//            auto t_i0_iN_isam_fvlam = fvlam::Transform3::from(t_i0_iN_isam);
             runner_.logger().warn() << i_camera << " batch "
                                     << "t_i0_i" << i << ": "
-//                                    << t_i0_iN_fvlam.to_string() << " "
-                                    << t_i0_iN_isam_fvlam.to_string();
+                                    << t_i0_iN_fvlam.to_string() << " "
+                                    /*<< t_i0_iN_isam_fvlam.to_string()*/;
           }
 
           // Clear containers for the next iteration
@@ -460,9 +468,9 @@ namespace camsim
 //                                                  fvlam::MarkerModelGen::MonoParallelGrid());
 //                                                    fvlam::MarkerModelGen::DualParallelGrid());
 //                                                    fvlam::MarkerModelGen::DualWideSingleCamera());
-                                                    fvlam::MarkerModelGen::DualWideSingleMarker());
+//                                                    fvlam::MarkerModelGen::DualWideSingleMarker());
 //                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
-//                                                    fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
+                                                    fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
 //                                                  fvlam::MarkerModelGen::MonoParallelCircles());
 
       auto test_maker = [&iip_config](fvlam::MarkerModelRunner &runner) -> InterImagerPoseTest
@@ -484,10 +492,9 @@ namespace camsim
       return ret;
     }
 #endif
-#if 0
 
     runner_config.u_sampler_sigma_ = 1.e-3;
-    runner_config.logger_level_ = fvlam::Logger::Levels::level_debug;
+    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
     iip_config.algorithm_ = 1;
     ret = runner_run();
     if (ret != 0) {
@@ -495,7 +502,9 @@ namespace camsim
       return ret;
     }
 
-    runner_config.u_sampler_sigma_ = 1.e-1;
+#if 1
+    runner_config.u_sampler_sigma_ = 1.e-3;
+    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
     iip_config.algorithm_ = 2;
     ret = runner_run();
     if (ret != 0) {
@@ -505,7 +514,7 @@ namespace camsim
 #endif
 
     runner_config.u_sampler_sigma_ = 1.e-3;
-    runner_config.logger_level_ = fvlam::Logger::Levels::level_debug;
+    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
     iip_config.algorithm_ = 3;
     ret = runner_run();
     if (ret != 0) {
