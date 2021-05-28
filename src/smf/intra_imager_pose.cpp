@@ -406,6 +406,8 @@ namespace camsim
 
           smootherBatch.update(new_factors, new_values, new_timestamps);
 //          smootherISAM2.update(new_factors, new_values, new_timestamps);
+//          smootherISAM2.update();
+//          smootherISAM2.update();
 
           if (runner_.logger().output_debug()) {
             smootherBatch.getFactors().print();
