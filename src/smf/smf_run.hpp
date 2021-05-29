@@ -4,6 +4,7 @@
 int sfm_example_smart_factor(void); //
 int isam2_example_smart_factor(void); //
 int fixed_lag_smoother_example(void); //
+int concurrent_filtering_and_smoothing_example(void); //
 
 namespace camsim
 {

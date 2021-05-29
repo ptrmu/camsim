@@ -202,6 +202,7 @@ add_executable(smf_run
   src/fvlam/model.cpp
   src/fvlam/to_string.cpp
   src/fvlam/transform3_with_covariance.cpp
+  src/smf/ConcurrentFilteringAndSmoothingExample.cpp
   src/smf/FixedLagSmootherExample.cpp
   src/smf/ISAM2Example_SmartFactor
   src/smf/SFMExample_SmartFactor.cpp
