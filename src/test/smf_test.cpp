@@ -19,7 +19,7 @@ TEST_CASE("fixed_lag_smoother_example - run - zero", "[.][all]")
   REQUIRE(0 == fixed_lag_smoother_example());
 }
 
-TEST_CASE("concurrent_filtering_and_smoothing_example - run - zero", "[all]")
+TEST_CASE("concurrent_filtering_and_smoothing_example - run - zero", "[.][all]")
 {
   REQUIRE(0 == concurrent_filtering_and_smoothing_example());
 }
@@ -29,7 +29,7 @@ TEST_CASE("smart_factor_pose_simple - run - zero", "[.][all]")
   REQUIRE(0 == camsim::smart_factor_pose_simple());
 }
 
-TEST_CASE("imager_relative_pose - run - zero", "[.][all]")
+TEST_CASE("imager_relative_pose - run - zero", "[all]")
 {
   REQUIRE(0 == camsim::imager_relative_pose());
 }

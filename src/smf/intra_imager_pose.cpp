@@ -1,10 +1,13 @@
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 
+#define ENABLE_TIMING
+
 #include "smf_run.hpp"
 #include "cal_info.hpp"
 #include "fvlam/factors_gtsam.hpp"
 #include "fvlam/model.hpp"
 #include "gtsam/base/debug.h"
+#include <gtsam/base/timing.h>
 #include <gtsam/geometry/Cal3DS2.h>
 #include <gtsam/geometry/PinholeCamera.h>
 #include <gtsam/geometry/Point3.h>
@@ -311,9 +314,12 @@ namespace camsim
 
     int multi_camera_marker_inter_imager_pose()
     {
+
       // Create a factor graph
       gtsam::NonlinearFactorGraph graph;
       gtsam::Values initial;
+
+      gttic(multi_camera_marker_inter_imager_pose);
 
 //      for (auto &marker_observations : runner_.model().target_observations_list()) {
       for (auto &marker_observations : runner_.marker_observations_list_perturbed()) {
@@ -338,6 +344,7 @@ namespace camsim
 //      std::cout << "final error = " << graph.error(result) << std::endl;
 //      result.print("");
 
+      gttoc(multi_camera_marker_inter_imager_pose);
 
       for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
         auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::value(i));
@@ -359,7 +366,7 @@ namespace camsim
 
 
       // Define the smoother lag (in seconds)
-      double lag = 1000.0;
+      double lag = 3.0;
 
       // Create a fixed lag smoother
       // The Batch version uses Levenberg-Marquardt to perform the nonlinear optimization
@@ -392,6 +399,8 @@ namespace camsim
 
       for (std::size_t i_camera = 0; i_camera < runner_.marker_observations_list_perturbed().size(); i_camera += 1) {
 
+        gttic(fixed_lag_inter_imager_pose);
+
         // Add the measurements
         load_per_camera_inter_imager_factors(
           runner_.marker_observations_list_perturbed()[i_camera],
@@ -408,6 +417,8 @@ namespace camsim
 //          smootherISAM2.update(new_factors, new_values, new_timestamps);
 //          smootherISAM2.update();
 //          smootherISAM2.update();
+
+          gttoc(fixed_lag_inter_imager_pose);
 
           if (runner_.logger().output_debug()) {
             smootherBatch.getFactors().print();
@@ -480,7 +491,14 @@ namespace camsim
         return InterImagerPoseTest(iip_config, runner);
       };
 
-      return marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
+      auto ret0 = marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
+
+#ifdef ENABLE_TIMING
+      gtsam::tictoc_print();
+#endif
+      gtsam::tictoc_reset_();
+
+      return ret0;
     };
 
     bool ret = 0;
