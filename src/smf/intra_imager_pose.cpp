@@ -301,6 +301,8 @@ namespace camsim
 
     int multi_marker_inter_imager_pose()
     {
+      gttic(multi_marker_inter_imager_pose);
+
       // For each camera.
       for (auto &marker_observations : runner_.marker_observations_list_perturbed()) {
         auto ret = per_camera_inter_imager_pose(marker_observations);
@@ -364,7 +366,6 @@ namespace camsim
 //      assert(gtsam::isDebugVersion());
       }
 
-
       // Define the smoother lag (in seconds)
       double lag = 3.0;
 
@@ -399,7 +400,7 @@ namespace camsim
 
       for (std::size_t i_camera = 0; i_camera < runner_.marker_observations_list_perturbed().size(); i_camera += 1) {
 
-        gttic(fixed_lag_inter_imager_pose);
+        gttic(fixed_lag_inter_imager_pose_loop);
 
         // Add the measurements
         load_per_camera_inter_imager_factors(
@@ -418,7 +419,7 @@ namespace camsim
 //          smootherISAM2.update();
 //          smootherISAM2.update();
 
-          gttoc(fixed_lag_inter_imager_pose);
+          gttoc(fixed_lag_inter_imager_pose_loop);
 
           if (runner_.logger().output_debug()) {
             smootherBatch.getFactors().print();
@@ -438,6 +439,11 @@ namespace camsim
                                     << t_i0_iN_fvlam.to_string() << " "
                                     /*<< t_i0_iN_isam_fvlam.to_string()*/;
           }
+
+#ifdef ENABLE_TIMING
+          gtsam::tictoc_print();
+          gtsam::tictoc_reset();
+#endif
 
           // Clear containers for the next iteration
           new_timestamps.clear();
@@ -494,7 +500,7 @@ namespace camsim
       auto ret0 = marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
 
 #ifdef ENABLE_TIMING
-      gtsam::tictoc_print();
+      gtsam::tictoc_print2_();
 #endif
       gtsam::tictoc_reset_();
 
