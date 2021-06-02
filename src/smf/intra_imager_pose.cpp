@@ -539,6 +539,7 @@ namespace camsim
     }
 #endif
 
+#if 0
     runner_config.u_sampler_sigma_ = 1.e-3;
     runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
     iip_config.algorithm_ = 3;
@@ -547,6 +548,7 @@ namespace camsim
       logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
       return ret;
     }
+#endif
 
     return ret;
   }
