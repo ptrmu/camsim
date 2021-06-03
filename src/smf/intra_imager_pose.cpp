@@ -470,6 +470,9 @@ namespace camsim
 
         case 3:
           return fixed_lag_inter_imager_pose();
+//
+//        case 4:
+//          return test_imager0_imager1_factor();
       }
     }
   };
@@ -519,6 +522,7 @@ namespace camsim
     }
 #endif
 
+#if 0
     runner_config.u_sampler_sigma_ = 1.e-3;
     runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
     iip_config.algorithm_ = 1;
@@ -527,8 +531,9 @@ namespace camsim
       logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
       return ret;
     }
+#endif
 
-#if 1
+#if 0
     runner_config.u_sampler_sigma_ = 1.e-3;
     runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
     iip_config.algorithm_ = 2;
@@ -543,6 +548,17 @@ namespace camsim
     runner_config.u_sampler_sigma_ = 1.e-3;
     runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
     iip_config.algorithm_ = 3;
+    ret = runner_run();
+    if (ret != 0) {
+      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
+      return ret;
+    }
+#endif
+
+#if 1
+    runner_config.u_sampler_sigma_ = 1.e-3;
+    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
+    iip_config.algorithm_ = 4;
     ret = runner_run();
     if (ret != 0) {
       logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
