@@ -29,8 +29,13 @@ TEST_CASE("smart_factor_pose_simple - run - zero", "[.][all]")
   REQUIRE(0 == camsim::smart_factor_pose_simple());
 }
 
-TEST_CASE("imager_relative_pose - run - zero", "[all]")
+TEST_CASE("imager_relative_pose - run - zero", "[.][all]")
 {
   REQUIRE(0 == camsim::imager_relative_pose());
+}
+
+TEST_CASE("factors_gtsam_test - run - zero", "[all]")
+{
+  REQUIRE(0 == camsim::factors_gtsam_test());
 }
 

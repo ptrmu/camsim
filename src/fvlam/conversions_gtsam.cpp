@@ -152,6 +152,19 @@ namespace fvlam
   }
 
   template<>
+  std::array<gtsam::Point3, fvlam::Marker::ArraySize>
+  Marker::corners_f_marker<std::array<gtsam::Point3, fvlam::Marker::ArraySize>>(double marker_length)
+  {
+    auto corners_f_marker = calc_corners3_f_marker(marker_length);
+    return {
+      gtsam::Point3{corners_f_marker[0].t()(0), corners_f_marker[0].t()(1), corners_f_marker[0].t()(2)},
+      gtsam::Point3{corners_f_marker[1].t()(0), corners_f_marker[1].t()(1), corners_f_marker[1].t()(2)},
+      gtsam::Point3{corners_f_marker[2].t()(0), corners_f_marker[2].t()(1), corners_f_marker[2].t()(2)},
+      gtsam::Point3{corners_f_marker[3].t()(0), corners_f_marker[3].t()(1), corners_f_marker[3].t()(2)}
+    };
+  }
+
+  template<>
   std::vector<gtsam::Point3> Marker::corners_f_world<std::vector<gtsam::Point3>>(double marker_length) const
   {
     auto corners_f_world = calc_corners3_f_world(marker_length);

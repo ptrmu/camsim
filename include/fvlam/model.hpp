@@ -293,5 +293,10 @@ namespace fvlam
 
     auto &marker_observations_list_perturbed() const
     { return marker_observations_list_perturbed_; }
+
+    int for_each_marker_observations();
+    int for_each_observations();
+    int for_each_observation();
+    int for_each_corner();
   };
 }

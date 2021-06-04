@@ -10,4 +10,5 @@ namespace camsim
 {
   int smart_factor_pose_simple(void); //
   int imager_relative_pose(void); //
+  int factors_gtsam_test(void); //
 }

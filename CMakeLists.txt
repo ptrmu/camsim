@@ -210,7 +210,9 @@ add_executable(smf_run
   src/smf/smf_run.cpp
   src/test/camsim_test.cpp
   src/test/smf_test.cpp
-  src/smf/intra_imager_pose.cpp)
+  src/smf/intra_imager_pose.cpp
+  src/smf/factors_gtsam_test.cpp
+  )
 
 target_link_libraries(smf_run
   PRIVATE gtsam
