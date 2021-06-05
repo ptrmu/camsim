@@ -233,6 +233,7 @@ namespace fvlam
 
     template<class Uut>
     using UutMaker = std::function<Uut(MarkerModelRunner &)>;
+    using This = MarkerModelRunner;
 
   private:
     Config cfg_;
@@ -264,6 +265,15 @@ namespace fvlam
     MarkerModelRunner(Config cfg,
                       MarkerModel::Maker model_maker);
 
+    template<class TestMaker, class UutMaker>
+    bool run(TestMaker test_maker, UutMaker uut_maker)
+    {
+      auto test = test_maker(*this);
+      auto uut = uut_maker(*this);
+      return test(std::move(uut));
+    }
+
+    // For Test class that doesn't have a UnitUnderTest
     template<class TestMaker>
     bool run(TestMaker test_maker)
     {
@@ -271,12 +281,14 @@ namespace fvlam
       return test();
     }
 
-    template<class TestMaker, class UutMaker>
-    bool run(TestMaker test_maker, UutMaker uut_maker)
+    // For Test class that doesn't have a Config or a UnitUnderTest.
+    template<class Test>
+    static int runner_run(const fvlam::MarkerModelRunner::Config &runner_config,
+                          const fvlam::MarkerModel::Maker &model_maker)
     {
-      auto test = test_maker(*this);
-      auto uut = uut_maker(*this);
-      return test(std::move(uut));
+      auto marker_runner = This(runner_config, model_maker);
+      auto test = Test(marker_runner);
+      return test();
     }
 
     auto &cfg() const
@@ -294,9 +306,19 @@ namespace fvlam
     auto &marker_observations_list_perturbed() const
     { return marker_observations_list_perturbed_; }
 
-    int for_each_marker_observations();
-    int for_each_observations();
-    int for_each_observation();
-    int for_each_corner();
+    int for_each_marker_observations(std::function<int(const fvlam::MarkerObservations &)>); //
+    int for_each_observations(std::function<int(const fvlam::MarkerObservations &,
+                                                const fvlam::Observations &,
+                                                const fvlam::CameraInfo &)>); //
+    int for_each_observation(std::function<int(const fvlam::MarkerObservations &,
+                                               const fvlam::Observations &,
+                                               const fvlam::CameraInfo &,
+                                               const fvlam::Observation &)>); //
+    int for_each_corner_f_image(std::function<int(const fvlam::MarkerObservations &,
+                                                  const fvlam::Observations &,
+                                                  const fvlam::CameraInfo &,
+                                                  const fvlam::Observation &,
+                                                  std::size_t corner_index,
+                                                  const fvlam::Translate2)>); //
   };
 }

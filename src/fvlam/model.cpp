@@ -465,4 +465,104 @@ namespace fvlam
   }
 
 
+  int MarkerModelRunner::for_each_marker_observations(std::function<int(const fvlam::MarkerObservations &)> cb)
+  {
+    // For each camera location
+    for (auto &marker_observations : marker_observations_list_perturbed_) {
+
+      auto ret = cb(marker_observations);
+
+      if (ret != 0) {
+        return ret;
+      }
+    }
+    return 0;
+  }
+
+  int MarkerModelRunner::for_each_observations(std::function<int(const fvlam::MarkerObservations &,
+                                                                 const fvlam::Observations &,
+                                                                 const fvlam::CameraInfo &)> cb)
+  {
+    return for_each_marker_observations(
+      [this, &cb](const fvlam::MarkerObservations &marker_observations) -> int
+      {
+        // For each imager's observations
+        for (auto &observations : marker_observations.observations_synced().v()) {
+
+          // Find the camera_info
+          const auto &kp = model_.camera_info_map().m().find(observations.imager_frame_id());
+          if (kp == model_.camera_info_map().m().end()) {
+            continue;
+          }
+
+          auto ret = cb(marker_observations,
+                        observations,
+                        kp->second);
+
+          if (ret != 0) {
+            return ret;
+          }
+        }
+        return 0;
+      });
+  }
+
+  int MarkerModelRunner::for_each_observation(std::function<int(const fvlam::MarkerObservations &,
+                                                                const fvlam::Observations &,
+                                                                const fvlam::CameraInfo &,
+                                                                const fvlam::Observation &)> cb)
+  {
+    return for_each_observations(
+      [&cb](const fvlam::MarkerObservations &marker_observations,
+                  const fvlam::Observations &observations,
+                  const fvlam::CameraInfo &camera_info) -> int
+      {
+        // For each observation of a marker
+        for (auto &observation : observations.v()) {
+
+          auto ret = cb(marker_observations,
+                        observations,
+                        camera_info,
+                        observation);
+
+          if (ret != 0) {
+            return ret;
+          }
+        }
+        return 0;
+      });
+  }
+
+  int MarkerModelRunner::for_each_corner_f_image(std::function<int(const fvlam::MarkerObservations &,
+                                                                   const fvlam::Observations &,
+                                                                   const fvlam::CameraInfo &,
+                                                                   const fvlam::Observation &,
+                                                                   std::size_t,
+                                                                   const fvlam::Translate2)> cb)
+  {
+    return for_each_observation(
+      [&cb](const fvlam::MarkerObservations &marker_observations,
+            const fvlam::Observations &observations,
+            const fvlam::CameraInfo &camera_info,
+            const fvlam::Observation &observation) -> int
+      {
+        auto corners_f_image = observation.corners_f_image();
+
+        // For each corner measurement
+        for (std::size_t i = 0; i < Marker::ArraySize; i += 1) {
+
+          auto ret = cb(marker_observations,
+                        observations,
+                        camera_info,
+                        observation,
+                        i,
+                        corners_f_image[i]);
+
+          if (ret != 0) {
+            return ret;
+          }
+        }
+        return 0;
+      });
+  }
 }
