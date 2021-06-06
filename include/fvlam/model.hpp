@@ -291,6 +291,17 @@ namespace fvlam
       return test();
     }
 
+    // For Test class that has a Config but not a UnitUnderTest.
+    template<class Test>
+    static int runner_run(const fvlam::MarkerModelRunner::Config &runner_config,
+                          const fvlam::MarkerModel::Maker &model_maker,
+                          const typename Test::Config &test_config)
+    {
+      auto marker_runner = This(runner_config, model_maker);
+      auto test = Test(test_config, marker_runner);
+      return test();
+    }
+
     auto &cfg() const
     { return cfg_; }
 

@@ -139,7 +139,7 @@ namespace camsim
   };
 
 // ==============================================================================
-// QuadResectioningFactor class
+// Marker0Marker1Factor class
 // ==============================================================================
 
   class Marker0Marker1Factor : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>
