@@ -3,9 +3,9 @@ project(camsim)
 
 set(CMAKE_CXX_STANDARD 17)
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wno-unknown-pragmas)
-endif()
+endif ()
 
 find_package(GTSAM REQUIRED)
 find_package(OpenCV 4 REQUIRED)
@@ -204,14 +204,14 @@ add_executable(smf_run
   src/fvlam/transform3_with_covariance.cpp
   src/smf/ConcurrentFilteringAndSmoothingExample.cpp
   src/smf/FixedLagSmootherExample.cpp
+  src/smf/intra_imager_pose.cpp
   src/smf/ISAM2Example_SmartFactor
+  src/smf/factors_gtsam_test.cpp
   src/smf/SFMExample_SmartFactor.cpp
   src/smf/smart_factor_pose.cpp
   src/smf/smf_run.cpp
   src/test/camsim_test.cpp
   src/test/smf_test.cpp
-  src/smf/intra_imager_pose.cpp
-  src/smf/factors_gtsam_test.cpp
   )
 
 target_link_libraries(smf_run
@@ -225,12 +225,12 @@ target_link_libraries(smf_run
 add_executable(kal_run
   src/kal/kal_run.cpp
   src/kal/kal_run_main.cpp
-#    src/vtk_line_plot.cpp
-#    src/vtk_rand_dist.cpp
-#    src/vtk_multi_plot.cpp
+  #    src/vtk_line_plot.cpp
+  #    src/vtk_rand_dist.cpp
+  #    src/vtk_multi_plot.cpp
   src/kal/kal_opencv_filter.cpp
   src/kal/kal_kalman_filter_x.cpp
-)
+  )
 
 target_link_libraries(kal_run
   PRIVATE gtsam
@@ -238,7 +238,7 @@ target_link_libraries(kal_run
   PRIVATE opencv_calib3d
   PRIVATE opencv_video
   PRIVATE opencv_highgui
-#  PRIVATE ${VTK_LIBRARIES}
+  #  PRIVATE ${VTK_LIBRARIES}
   )
 
 #vtk_module_autoinit(TARGETS cal_run
@@ -282,8 +282,11 @@ add_executable(camsim_test
   src/cal/cal_solver_homography.cpp
   src/sho/sho_run.cpp
   src/sho/sho_inter_marker_rotation.cpp
+  src/smf/ConcurrentFilteringAndSmoothingExample.cpp
   src/smf/FixedLagSmootherExample.cpp
+  src/smf/intra_imager_pose.cpp
   src/smf/ISAM2Example_SmartFactor
+  src/smf/factors_gtsam_test.cpp
   src/smf/SFMExample_SmartFactor.cpp
   src/smf/smart_factor_pose.cpp
   src/smf/smf_run.cpp
@@ -304,7 +307,7 @@ add_executable(camsim_test
   src/test/smf_test.cpp
   src/test/tmm_test.cpp
   src/fvlam/model.cpp
-  src/smf/intra_imager_pose.cpp)
+  )
 
 
 target_link_libraries(camsim_test

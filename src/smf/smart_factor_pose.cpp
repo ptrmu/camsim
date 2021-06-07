@@ -373,7 +373,7 @@ namespace camsim
       gtsam::tictoc_print();
       gtsam::tictoc_reset_();
 
-      return 1;
+      return 0; // todo add a test of expected and actual
     }
 
   public:

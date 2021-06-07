@@ -1,6 +1,6 @@
 #pragma ide diagnostic ignored "modernize-use-nodiscard"
 
-#define ENABLE_TIMING
+//#define ENABLE_TIMING
 
 #include "smf_run.hpp"
 #include "cal_info.hpp"
@@ -437,7 +437,10 @@ namespace camsim
             runner_.logger().warn() << i_camera << " batch "
                                     << "t_i0_i" << i << ": "
                                     << t_i0_iN_fvlam.to_string() << " "
-                                    /*<< t_i0_iN_isam_fvlam.to_string()*/;
+              /*<< t_i0_iN_isam_fvlam.to_string()*/;
+            if (!t_imager0_imagerNs_[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
+              return 1;
+            }
           }
 
 #ifdef ENABLE_TIMING
@@ -452,7 +455,7 @@ namespace camsim
         }
       }
 
-      return 1;
+      return 0;
     }
 
     int operator()()
@@ -470,9 +473,6 @@ namespace camsim
 
         case 3:
           return fixed_lag_inter_imager_pose();
-//
-//        case 4:
-//          return test_imager0_imager1_factor();
       }
     }
   };
@@ -512,7 +512,7 @@ namespace camsim
 
     bool ret = 0;
 
-#if 0
+#if 1
     runner_config.u_sampler_sigma_ = 1.e-5;
     iip_config.algorithm_ = 0;
     ret = runner_run();
@@ -522,32 +522,10 @@ namespace camsim
     }
 #endif
 
-#if 0
+#if 1
     runner_config.u_sampler_sigma_ = 1.e-3;
-    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
+//    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
     iip_config.algorithm_ = 1;
-    ret = runner_run();
-    if (ret != 0) {
-      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
-      return ret;
-    }
-#endif
-
-#if 0
-    runner_config.u_sampler_sigma_ = 1.e-3;
-    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
-    iip_config.algorithm_ = 2;
-    ret = runner_run();
-    if (ret != 0) {
-      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
-      return ret;
-    }
-#endif
-
-#if 0
-    runner_config.u_sampler_sigma_ = 1.e-3;
-    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
-    iip_config.algorithm_ = 3;
     ret = runner_run();
     if (ret != 0) {
       logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
@@ -557,8 +535,19 @@ namespace camsim
 
 #if 1
     runner_config.u_sampler_sigma_ = 1.e-3;
-    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
-    iip_config.algorithm_ = 4;
+//    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
+    iip_config.algorithm_ = 2;
+    ret = runner_run();
+    if (ret != 0) {
+      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
+      return ret;
+    }
+#endif
+
+#if 1
+    runner_config.u_sampler_sigma_ = 1.e-3;
+//    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
+    iip_config.algorithm_ = 3;
     ret = runner_run();
     if (ret != 0) {
       logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
