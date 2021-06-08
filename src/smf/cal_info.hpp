@@ -103,7 +103,7 @@ namespace camsim
       // Transform the point from the Marker frame to the World frame
       auto t_m_i1 = t_m_i0.compose(
         t_i0_i1,
-        H2 ? gtsam::OptionalJacobian<6, 6>(d_pose3_wrt_pose3) : boost::none);
+        H1 ? gtsam::OptionalJacobian<6, 6>(d_pose3_wrt_pose3) : boost::none);
 
       // Project this point to the camera's image frame. Catch and return a default
       // value on a CheiralityException.
@@ -150,8 +150,8 @@ namespace camsim
 
     gtsam::Key key_t_m0_c_;
     gtsam::Key key_t_m0_m1_;
-    gtsam::Point2 point_f_image_;
-    gtsam::Point3 point_f_marker_;
+    gtsam::Point2 m1_corner_f_image_;
+    gtsam::Point3 m1_corner_f_marker_;
     std::shared_ptr<const gtsam::Cal3DS2> cal3ds2_;
     fvlam::Logger &logger_;
     bool throwCheirality_;     // If true, rethrows Cheirality exceptions (default: false)
@@ -159,15 +159,15 @@ namespace camsim
 
   public:
     Marker0Marker1Factor(const gtsam::Key &key_t_m0_c, const gtsam::Key &key_t_m0_m1,
-                         gtsam::Point2 point_f_image,
+                         gtsam::Point2 m1_corner_f_image,
                          const gtsam::SharedNoiseModel &model,
-                         gtsam::Point3 point_f_marker,
+                         gtsam::Point3 m1_corner_f_marker,
                          std::shared_ptr<const gtsam::Cal3DS2> cal3ds2,
                          fvlam::Logger &logger,
                          bool throwCheirality = false) :
       Base(model, key_t_m0_c, key_t_m0_m1),
       key_t_m0_c_{key_t_m0_c}, key_t_m0_m1_{key_t_m0_m1},
-      point_f_image_{point_f_image}, point_f_marker_{point_f_marker},
+      m1_corner_f_image_{m1_corner_f_image}, m1_corner_f_marker_{m1_corner_f_marker},
       cal3ds2_{cal3ds2}, logger_{logger},
       throwCheirality_{throwCheirality}
     {}
@@ -185,38 +185,46 @@ namespace camsim
                                 boost::optional<gtsam::Matrix &> H1 = boost::none,
                                 boost::optional<gtsam::Matrix &> H2 = boost::none) const override
     {
-      gtsam::Matrix66 d_pose3_wrt_pose3;
-      gtsam::Matrix26 d_point2_wrt_pose3;
+      gtsam::Matrix66 inverse_d_pose3_wrt_pose3;
+      gtsam::Matrix66 compose_d_pose3_wrt_pose3;
+      gtsam::Matrix66 combined_d_pose3_wrt_pose3;
+      gtsam::Matrix26 project_d_point2_wrt_pose3;
 
-      // Transform the point from the Marker frame to the World frame
-      auto t_w_i1 = t_m0_c.compose(
-        t_m0_m1,
-        H2 ? gtsam::OptionalJacobian<6, 6>(d_pose3_wrt_pose3) : boost::none);
+      // Find the inverse
+      auto t_m1_m0 = t_m0_m1.inverse(H1 ? gtsam::OptionalJacobian<6, 6>(inverse_d_pose3_wrt_pose3) : boost::none);
+
+      // find the pose of the camera in marker 1's frame.
+      auto t_m1_c = t_m1_m0.compose(
+        t_m0_c, H1 ? gtsam::OptionalJacobian<6, 6>(compose_d_pose3_wrt_pose3) : boost::none);
+
+      if (H1) {
+        combined_d_pose3_wrt_pose3 = compose_d_pose3_wrt_pose3 * inverse_d_pose3_wrt_pose3;
+      }
 
       // Project this point to the camera's image frame. Catch and return a default
       // value on a CheiralityException.
-      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_w_i1, *cal3ds2_};
+      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m1_c, *cal3ds2_};
       try {
         gtsam::Point2 point_f_image = camera.project(
-          point_f_marker_,
-          (H1 || H2) ? gtsam::OptionalJacobian<2, 6>(d_point2_wrt_pose3) : boost::none);
+          m1_corner_f_marker_,
+          (H1 || H2) ? gtsam::OptionalJacobian<2, 6>(project_d_point2_wrt_pose3) : boost::none);
 
         // Return the Jacobian for each input
         if (H1) {
-          *H1 = d_point2_wrt_pose3;
+          *H1 = project_d_point2_wrt_pose3 * combined_d_pose3_wrt_pose3;
         }
         if (H2) {
-          *H2 = d_point2_wrt_pose3 * d_pose3_wrt_pose3;
+          *H2 = project_d_point2_wrt_pose3;
         }
 
         // Return the error.
-        return point_f_image - point_f_image_;
+        return point_f_image - m1_corner_f_image_;
 
       } catch (gtsam::CheiralityException &e) {
         if (H1) *H1 = gtsam::Matrix26::Zero();
         if (H2) *H2 = gtsam::Matrix26::Zero();
 
-        logger_.error() << e.what() << ": t_w_i0 " << gtsam::DefaultKeyFormatter(key_t_m0_c_) <<
+        logger_.error() << e.what() << ": t_m1_c " << gtsam::DefaultKeyFormatter(key_t_m0_c_) <<
                         " moved behind camera " << gtsam::DefaultKeyFormatter(key_t_m0_m1_) << std::endl;
 
         if (throwCheirality_)
