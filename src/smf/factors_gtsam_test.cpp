@@ -434,6 +434,104 @@ namespace camsim
     }
   };
 
+// ==============================================================================
+// Marker0Marker1FactorTest class
+// ==============================================================================
+
+  class Marker0Marker1FactorTest
+  {
+  public:
+    using This = Marker0Marker1FactorTest;
+    using Maker = std::function<This(fvlam::MarkerModelRunner &)>;
+
+  private:
+    fvlam::MarkerModelRunner &runner_;
+
+  public:
+    Marker0Marker1FactorTest(fvlam::MarkerModelRunner &runner) :
+      runner_{runner}
+    {}
+
+
+    int compare_analytic_to_numerical(
+      const gtsam::Pose3 &t_m0_c,
+      const gtsam::Pose3 &t_m0_m1,
+      const gtsam::Point2 &corner_f_image,
+      const gtsam::Point3 &corner_f_marker,
+      std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
+      gtsam::SharedNoiseModel &measurement_noise)
+    {
+      // Create the factor
+      auto factor = Marker0Marker1Factor(0, 1,
+                                         corner_f_image, measurement_noise,
+                                         corner_f_marker, cal3ds2,
+                                         runner_.logger());
+
+      // Calculate the Jacobean from the factor
+      gtsam::Matrix d_point2_wrt_m0_c_pose;
+      gtsam::Matrix d_point2_wrt_m0_m1_pose;
+      factor.evaluateError(t_m0_c,
+                           t_m0_m1,
+                           d_point2_wrt_m0_c_pose,
+                           d_point2_wrt_m0_m1_pose);
+
+      // Calculate the Jacobean numerically
+      auto numericalH1 = gtsam::numericalDerivative21<gtsam::Point2, gtsam::Pose3, gtsam::Pose3>(
+        [&factor](gtsam::Pose3 t_m0_c, gtsam::Pose3 t_m0_m1) -> gtsam::Point2
+        {
+          return factor.evaluateError(t_m0_c, t_m0_m1);
+        }, t_m0_c, t_m0_m1, 1e-6);
+      auto numericalH2 = gtsam::numericalDerivative22<gtsam::Point2, gtsam::Pose3, gtsam::Pose3>(
+        [&factor](gtsam::Pose3 t_m0_c, gtsam::Pose3 t_m0_m1) -> gtsam::Point2
+        {
+          return factor.evaluateError(t_m0_c, t_m0_m1);
+        }, t_m0_c, t_m0_m1, 1e-6);
+
+      // Test that the analytic and numerical solutions are the same.
+      return (gtsam::assert_equal(numericalH1, d_point2_wrt_m0_c_pose, 1.0e-6) &&
+              gtsam::assert_equal(numericalH2, d_point2_wrt_m0_m1_pose, 1.0e-6)) ? 0 : 1;
+    }
+
+    int operator()()
+    {
+      gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(1.0, 1.0));
+      auto corners_f_marker = fvlam::Marker::corners_f_marker<std::array<gtsam::Point3, fvlam::Marker::ArraySize>>(
+        runner_.model().environment().marker_length());
+
+      return runner_.for_each_corner_f_image(
+        [this, &corners_f_marker, &measurement_noise](
+          const fvlam::MarkerObservations &marker_observations,
+          const fvlam::Observations &observations,
+          const fvlam::CameraInfo &camera_info,
+          const fvlam::Observation &observation,
+          std::size_t corner_index,
+          const fvlam::Translate2 &corner_f_image) -> int
+        {
+          auto cal3ds2 = std::make_shared<const gtsam::Cal3DS2>(camera_info.to<gtsam::Cal3DS2>());
+
+          // Create a fake scenario with two imagers at various offsets from the first
+          for (int i = 0; i < 10; i += 1) {
+            auto imager_offset = 0.2 * i + 0.2;
+            auto t_m0_m1 = fvlam::Transform3{fvlam::Rotate3{}, fvlam::Translate3{imager_offset, 0, 0}};
+            auto c_f_world = marker_observations.t_map_camera();
+            auto m1_f_world = runner_.model().targets()[observation.id()].t_map_marker().tf();
+            auto t_m1_c = m1_f_world.inverse() * c_f_world;
+            auto t_m0_c = t_m0_m1.inverse() * t_m1_c;
+
+            auto ret = compare_analytic_to_numerical(
+              t_m0_c.to<gtsam::Pose3>(), t_m0_m1.to<gtsam::Pose3>(),
+              corner_f_image.to<gtsam::Point2>(), corners_f_marker[corner_index],
+              cal3ds2, measurement_noise);
+            if (ret != 0) {
+              runner_.logger().warn() << "gtsam_factor: MarkerCornerFactorTest compare_analytic_to_numerical ret=" << ret;
+              return ret;
+            }
+          }
+          return 0;
+        });
+    }
+  };
+
   int factors_gtsam_test()
   {
     auto runner_config = fvlam::MarkerModelRunner::Config();
@@ -481,6 +579,13 @@ namespace camsim
     ret = fvlam::MarkerModelRunner::runner_run<Imager0Imager1FactorTest>(runner_config, model_maker);
     if (ret != 0) {
       logger.warn() << "gtsam_factor: Imager0Imager1FactorTest ret=" << ret;
+      return ret;
+    }
+
+    runner_config.u_sampler_sigma_ = 0.;
+    ret = fvlam::MarkerModelRunner::runner_run<Marker0Marker1FactorTest>(runner_config, model_maker);
+    if (ret != 0) {
+      logger.warn() << "gtsam_factor: Marker0Marker1FactorTest ret=" << ret;
       return ret;
     }
 

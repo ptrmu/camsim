@@ -191,15 +191,11 @@ namespace camsim
       gtsam::Matrix26 project_d_point2_wrt_pose3;
 
       // Find the inverse
-      auto t_m1_m0 = t_m0_m1.inverse(H1 ? gtsam::OptionalJacobian<6, 6>(inverse_d_pose3_wrt_pose3) : boost::none);
+      auto t_m1_m0 = t_m0_m1.inverse(H2 ? gtsam::OptionalJacobian<6, 6>(inverse_d_pose3_wrt_pose3) : boost::none);
 
       // find the pose of the camera in marker 1's frame.
       auto t_m1_c = t_m1_m0.compose(
-        t_m0_c, H1 ? gtsam::OptionalJacobian<6, 6>(compose_d_pose3_wrt_pose3) : boost::none);
-
-      if (H1) {
-        combined_d_pose3_wrt_pose3 = compose_d_pose3_wrt_pose3 * inverse_d_pose3_wrt_pose3;
-      }
+        t_m0_c, H2 ? gtsam::OptionalJacobian<6, 6>(compose_d_pose3_wrt_pose3) : boost::none);
 
       // Project this point to the camera's image frame. Catch and return a default
       // value on a CheiralityException.
@@ -211,10 +207,10 @@ namespace camsim
 
         // Return the Jacobian for each input
         if (H1) {
-          *H1 = project_d_point2_wrt_pose3 * combined_d_pose3_wrt_pose3;
+          *H1 = project_d_point2_wrt_pose3;
         }
         if (H2) {
-          *H2 = project_d_point2_wrt_pose3;
+          *H2 = project_d_point2_wrt_pose3 * compose_d_pose3_wrt_pose3 * inverse_d_pose3_wrt_pose3;
         }
 
         // Return the error.
