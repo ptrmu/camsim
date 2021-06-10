@@ -421,6 +421,49 @@ namespace fvlam
     gtsam::Vector evaluateError(const gtsam::Pose3 &pose,
                                 boost::optional<gtsam::Matrix &> H = boost::none) const override
     {
+#if 1
+      gtsam::Matrix66 HT;
+      auto camera_pose = use_transform_ ?
+                         pose.compose(t_camera_imager_, (H) ? gtsam::OptionalJacobian(HT) : boost::none) :
+                         pose;
+
+      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{camera_pose, *cal3ds2_};
+
+      try {
+        gtsam::Matrix26 H0, H1, H2, H3;
+        auto e = (gtsam::Vector8{}
+          << camera.project(points_f_world_[0], (H) ? gtsam::OptionalJacobian(H0) : boost::none) - points_f_image_[0],
+          camera.project(points_f_world_[1], (H) ? gtsam::OptionalJacobian(H1) : boost::none) - points_f_image_[1],
+          camera.project(points_f_world_[2], (H) ? gtsam::OptionalJacobian(H2) : boost::none) - points_f_image_[2],
+          camera.project(points_f_world_[3], (H) ? gtsam::OptionalJacobian(H3) : boost::none) - points_f_image_[3]
+        ).finished();
+
+        if (H) {
+          if (use_transform_) {
+            H0 = H0 * HT;
+            H1 = H1 * HT;
+            H2 = H2 * HT;
+            H3 = H3 * HT;
+          }
+          *H = (gtsam::Matrix86{} << H0, H1, H2, H3).finished();
+        }
+        return e;
+
+    } catch (gtsam::CheiralityException &e) {
+      if (H) *H = gtsam::Matrix86::Zero();
+
+      if (!debug_str_.empty()) {
+        logger_.error() << e.what() << ": " << debug_str_ << " point moved behind camera "
+                        << gtsam::DefaultKeyFormatter(key_camera_) << std::endl;
+      }
+
+      if (throwCheirality_)
+        throw gtsam::CheiralityException(key_camera_);
+    }
+    auto max_e = gtsam::Vector2{2.0 * cal3ds2_->px(), 2.0 * cal3ds2_->py()};
+    return (gtsam::Vector8{} << max_e, max_e, max_e, max_e).finished();
+
+#else
       try {
         if (!use_transform_) {
           auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{pose, *cal3ds2_};
@@ -475,6 +518,7 @@ namespace fvlam
       }
       auto max_e = gtsam::Vector2{2.0 * cal3ds2_->px(), 2.0 * cal3ds2_->py()};
       return (gtsam::Vector8{} << max_e, max_e, max_e, max_e).finished();
+#endif
     }
   };
 }
