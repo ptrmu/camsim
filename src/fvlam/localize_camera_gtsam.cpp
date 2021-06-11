@@ -142,12 +142,12 @@ namespace fvlam
           auto corners_f_map = marker_ptr->corners_f_world<std::vector<gtsam::Point3>>(map.marker_length());
 
           // Add factor to the graph.
-          graph.emplace_shared<QuadResectioningOffsetFactor>(camera_key_, corners_f_image, corner_noise, corners_f_map,
-                                                             camera_info.t_camera_imager().is_valid(),
-                                                             camera_info.t_camera_imager().to<gtsam::Pose3>(),
-                                                             cal3ds2, logger_,
+          graph.emplace_shared<QuadResectioningFactor>(camera_key_, corners_f_image, corner_noise, corners_f_map,
+                                                       camera_info.t_camera_imager().is_valid(),
+                                                       camera_info.t_camera_imager().to<gtsam::Pose3>(),
+                                                       cal3ds2, logger_,
                                                              std::string("m") + std::to_string(marker_ptr->id()),
-                                                             true);
+                                                       true);
         }
       }
     }

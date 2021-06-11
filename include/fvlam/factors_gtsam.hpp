@@ -133,27 +133,27 @@ namespace fvlam
 
   class ProjectBetweenFactor : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>
   {
-    gtsam::Point2 point_f_image_;
+    gtsam::Point2 corner_f_image_;
     gtsam::Key key_marker_;
     gtsam::Key key_camera_;
-    gtsam::Point3 point_f_marker_;
+    gtsam::Point3 corner_f_marker_;
     std::shared_ptr<const gtsam::Cal3DS2> cal3ds2_;
     Logger &logger_;
     bool throwCheirality_;     // If true, rethrows Cheirality exceptions (default: false)
 
   public:
-    ProjectBetweenFactor(gtsam::Point2 point_f_image,
+    ProjectBetweenFactor(gtsam::Point2 corner_f_image,
                          const gtsam::SharedNoiseModel &model,
                          gtsam::Key key_marker,
                          gtsam::Key key_camera,
-                         gtsam::Point3 point_f_marker,
+                         gtsam::Point3 corner_f_marker,
                          std::shared_ptr<const gtsam::Cal3DS2> cal3ds2,
                          Logger &logger,
                          bool throwCheirality = false) :
       NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(model, key_marker, key_camera),
-      point_f_image_{std::move(point_f_image)},
+      corner_f_image_{std::move(corner_f_image)},
       key_marker_{key_marker}, key_camera_{key_camera},
-      point_f_marker_{std::move(point_f_marker)},
+      corner_f_marker_{std::move(corner_f_marker)},
       cal3ds2_{cal3ds2},
       logger_{logger},
       throwCheirality_{throwCheirality}
@@ -184,7 +184,7 @@ namespace fvlam
 
       // Transform the point from the Marker frame to the World frame
       gtsam::Point3 point_f_world = marker_f_world.transformFrom(
-        point_f_marker_,
+        corner_f_marker_,
         H1 ? gtsam::OptionalJacobian<3, 6>(d_point3_wrt_pose3) : boost::none);
 
       // Project this point to the camera's image frame. Catch and return a default
@@ -205,7 +205,7 @@ namespace fvlam
         }
 
         // Return the error.
-        return point_f_image - point_f_image_;
+        return point_f_image - corner_f_image_;
 
       } catch (gtsam::CheiralityException &e) {
         if (H1) *H1 = gtsam::Matrix26::Zero();
@@ -228,8 +228,8 @@ namespace fvlam
   class ResectioningFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
   {
     gtsam::Key key_camera_;
-    const gtsam::Point2 point_f_image;
-    const gtsam::Point3 point_f_world;
+    const gtsam::Point2 corner_f_image;
+    const gtsam::Point3 corner_f_world;
     std::shared_ptr<const gtsam::Cal3DS2> cal3ds2_;
     Logger &logger_;
     bool throwCheirality_;     // If true, rethrows Cheirality exceptions (default: false)
@@ -237,16 +237,16 @@ namespace fvlam
   public:
     /// Construct factor given known point P and its projection p
     ResectioningFactor(gtsam::Key key_camera,
-                       gtsam::Point2 point_f_image,
+                       gtsam::Point2 corner_f_image,
                        const gtsam::SharedNoiseModel &model,
-                       gtsam::Point3 point_f_world,
+                       gtsam::Point3 corner_f_world,
                        std::shared_ptr<const gtsam::Cal3DS2> cal3ds2,
                        Logger &logger,
                        bool throwCheirality = false) :
       NoiseModelFactor1<gtsam::Pose3>(model, key_camera),
       key_camera_{key_camera},
-      point_f_image{std::move(point_f_image)},
-      point_f_world{std::move(point_f_world)},
+      corner_f_image{std::move(corner_f_image)},
+      corner_f_world{std::move(corner_f_world)},
       cal3ds2_{std::move(cal3ds2)},
       logger_{logger},
       throwCheirality_{throwCheirality}
@@ -271,7 +271,7 @@ namespace fvlam
     {
       auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{pose, *cal3ds2_};
       try {
-        return camera.project(point_f_world, H) - point_f_image;
+        return camera.project(corner_f_world, H) - corner_f_image;
       } catch (gtsam::CheiralityException &e) {
         if (H) *H = gtsam::Matrix26::Zero();
 
@@ -366,14 +366,14 @@ namespace fvlam
 #endif
 
 // ==============================================================================
-// QuadResectioningOffsetFactor class
+// QuadResectioningFactor class
 // ==============================================================================
 
-  class QuadResectioningOffsetFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
+  class QuadResectioningFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
   {
     gtsam::Key key_camera_;
-    const std::vector<gtsam::Point2> points_f_image_;
-    const std::vector<gtsam::Point3> points_f_world_;
+    const std::vector<gtsam::Point2> corners_f_image_;
+    const std::vector<gtsam::Point3> corners_f_world_;
     bool use_transform_;
     gtsam::Pose3 t_camera_imager_;
     std::shared_ptr<const gtsam::Cal3DS2> cal3ds2_;
@@ -383,20 +383,20 @@ namespace fvlam
 
   public:
     /// Construct factor given known point P and its projection p
-    QuadResectioningOffsetFactor(gtsam::Key key_camera,
-                                 std::vector<gtsam::Point2> points_f_image,
-                                 const gtsam::SharedNoiseModel &model,
-                                 std::vector<gtsam::Point3> points_f_world,
-                                 bool use_transform,
-                                 gtsam::Pose3 t_camera_imager,
-                                 std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
-                                 Logger &logger,
-                                 std::string debug_str,
-                                 bool throwCheirality = false) :
+    QuadResectioningFactor(gtsam::Key key_camera,
+                           std::vector<gtsam::Point2> corners_f_image,
+                           const gtsam::SharedNoiseModel &model,
+                           std::vector<gtsam::Point3> corners_f_world,
+                           bool use_transform,
+                           gtsam::Pose3 t_camera_imager,
+                           std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
+                           Logger &logger,
+                           std::string debug_str,
+                           bool throwCheirality = false) :
       NoiseModelFactor1<gtsam::Pose3>(model, key_camera),
       key_camera_{key_camera},
-      points_f_image_{std::move(points_f_image)},
-      points_f_world_{std::move(points_f_world)},
+      corners_f_image_{std::move(corners_f_image)},
+      corners_f_world_{std::move(corners_f_world)},
       use_transform_{use_transform},
       t_camera_imager_{std::move(t_camera_imager)},
       cal3ds2_{cal3ds2},
@@ -406,7 +406,7 @@ namespace fvlam
     {}
 
     /// shorthand for this class
-    typedef QuadResectioningOffsetFactor This;
+    typedef QuadResectioningFactor This;
 
     /// shorthand for a smart pointer to a factor
     typedef boost::shared_ptr<This> shared_ptr;
@@ -432,10 +432,10 @@ namespace fvlam
       try {
         gtsam::Matrix26 H0, H1, H2, H3;
         auto e = (gtsam::Vector8{}
-          << camera.project(points_f_world_[0], (H) ? gtsam::OptionalJacobian(H0) : boost::none) - points_f_image_[0],
-          camera.project(points_f_world_[1], (H) ? gtsam::OptionalJacobian(H1) : boost::none) - points_f_image_[1],
-          camera.project(points_f_world_[2], (H) ? gtsam::OptionalJacobian(H2) : boost::none) - points_f_image_[2],
-          camera.project(points_f_world_[3], (H) ? gtsam::OptionalJacobian(H3) : boost::none) - points_f_image_[3]
+          << camera.project(corners_f_world_[0], (H) ? gtsam::OptionalJacobian(H0) : boost::none) - corners_f_image_[0],
+          camera.project(corners_f_world_[1], (H) ? gtsam::OptionalJacobian(H1) : boost::none) - corners_f_image_[1],
+          camera.project(corners_f_world_[2], (H) ? gtsam::OptionalJacobian(H2) : boost::none) - corners_f_image_[2],
+          camera.project(corners_f_world_[3], (H) ? gtsam::OptionalJacobian(H3) : boost::none) - corners_f_image_[3]
         ).finished();
 
         if (H) {
@@ -449,19 +449,19 @@ namespace fvlam
         }
         return e;
 
-    } catch (gtsam::CheiralityException &e) {
-      if (H) *H = gtsam::Matrix86::Zero();
+      } catch (gtsam::CheiralityException &e) {
+        if (H) *H = gtsam::Matrix86::Zero();
 
-      if (!debug_str_.empty()) {
-        logger_.error() << e.what() << ": " << debug_str_ << " point moved behind camera "
-                        << gtsam::DefaultKeyFormatter(key_camera_) << std::endl;
+        if (!debug_str_.empty()) {
+          logger_.error() << e.what() << ": " << debug_str_ << " point moved behind camera "
+                          << gtsam::DefaultKeyFormatter(key_camera_) << std::endl;
+        }
+
+        if (throwCheirality_)
+          throw gtsam::CheiralityException(key_camera_);
       }
-
-      if (throwCheirality_)
-        throw gtsam::CheiralityException(key_camera_);
-    }
-    auto max_e = gtsam::Vector2{2.0 * cal3ds2_->px(), 2.0 * cal3ds2_->py()};
-    return (gtsam::Vector8{} << max_e, max_e, max_e, max_e).finished();
+      auto max_e = gtsam::Vector2{2.0 * cal3ds2_->px(), 2.0 * cal3ds2_->py()};
+      return (gtsam::Vector8{} << max_e, max_e, max_e, max_e).finished();
 
 #else
       try {

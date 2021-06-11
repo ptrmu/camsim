@@ -171,20 +171,20 @@ namespace camsim
   };
 
 // ==============================================================================
-// QuadResectioningOffsetFactorTest class
+// QuadResectioningFactorTest class
 // ==============================================================================
 
-  class QuadResectioningOffsetFactorTest
+  class QuadResectioningFactorTest
   {
   public:
-    using This = QuadResectioningOffsetFactorTest;
+    using This = QuadResectioningFactorTest;
     using Maker = std::function<This(fvlam::MarkerModelRunner &)>;
 
   private:
     fvlam::MarkerModelRunner &runner_;
 
   public:
-    QuadResectioningOffsetFactorTest(fvlam::MarkerModelRunner &runner) :
+    QuadResectioningFactorTest(fvlam::MarkerModelRunner &runner) :
       runner_{runner}
     {}
 
@@ -200,10 +200,10 @@ namespace camsim
     {
 
       // Create the factor
-      auto factor = fvlam::QuadResectioningOffsetFactor(
+      auto factor = fvlam::QuadResectioningFactor(
         0, corners_f_image, measurement_noise,
         corners_f_world, use_transform, t_camera_imager,
-        cal3ds2, runner_.logger(), "QuadResectioningOffsetFactorTest");
+        cal3ds2, runner_.logger(), "QuadResectioningFactorTest");
 
       // Calculate the Jacobean from the factor
       gtsam::Matrix d_point2s_wrt_camera;
@@ -562,9 +562,9 @@ namespace camsim
     }
 
     runner_config.u_sampler_sigma_ = 0.;
-    ret = fvlam::MarkerModelRunner::runner_run<QuadResectioningOffsetFactorTest>(runner_config, model_maker);
+    ret = fvlam::MarkerModelRunner::runner_run<QuadResectioningFactorTest>(runner_config, model_maker);
     if (ret != 0) {
-      logger.warn() << "gtsam_factor: QuadResectioningOffsetFactorTest ret=" << ret;
+      logger.warn() << "gtsam_factor: QuadResectioningFactorTest ret=" << ret;
       return ret;
     }
 
