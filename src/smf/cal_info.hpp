@@ -231,6 +231,108 @@ namespace camsim
   };
 
 // ==============================================================================
+// QuadMarker0Marker1Factor class
+// ==============================================================================
+
+  class QuadMarker0Marker1Factor : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>
+  {
+    using Base = gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>;
+    using This = QuadMarker0Marker1Factor;
+    using shared_ptr = boost::shared_ptr<This>;
+
+    gtsam::Key key_t_m0_c_;
+    gtsam::Key key_t_m0_m1_;
+    std::array<gtsam::Point2, 4> m0_corners_f_image_;
+    std::array<gtsam::Point2, 4> m1_corners_f_image_;
+    std::array<gtsam::Point3, 4> corners_f_marker_;
+    std::optional<gtsam::Pose3> t_camera_imager_;
+    std::shared_ptr<const gtsam::Cal3DS2> cal3ds2_;
+    fvlam::Logger &logger_;
+    std::string debug_str_;
+    bool throwCheirality_;     // If true, rethrows Cheirality exceptions (default: false)
+
+
+  public:
+    QuadMarker0Marker1Factor(const gtsam::Key &key_t_m0_c, const gtsam::Key &key_t_m0_m1,
+                             std::array<gtsam::Point2, 4> m0_corners_f_image,
+                             std::array<gtsam::Point2, 4> m1_corners_f_image,
+                             const gtsam::SharedNoiseModel &model,
+                             std::array<gtsam::Point3, 4> corners_f_marker,
+                             std::optional<gtsam::Pose3> t_camera_imager,
+                             std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
+                             fvlam::Logger &logger,
+                             std::string debug_str = std::string{},
+                             bool throwCheirality = false) :
+      Base(model, key_t_m0_c, key_t_m0_m1),
+      key_t_m0_c_{key_t_m0_c}, key_t_m0_m1_{key_t_m0_m1},
+      m0_corners_f_image_{std::move(m0_corners_f_image)}, m1_corners_f_image_{std::move(m1_corners_f_image)},
+      corners_f_marker_{std::move(corners_f_marker)},
+      t_camera_imager_{t_camera_imager},
+      cal3ds2_{cal3ds2}, logger_{logger},
+      debug_str_{std::move(debug_str)},
+      throwCheirality_{throwCheirality}
+    {}
+
+    /// @return a deep copy of this factor
+    gtsam::NonlinearFactor::shared_ptr clone() const override
+    {
+      return boost::static_pointer_cast<gtsam::NonlinearFactor>(
+        gtsam::NonlinearFactor::shared_ptr(new This(*this)));
+    }
+
+
+    gtsam::Vector evaluateError(const gtsam::Pose3 &t_m0_c,
+                                const gtsam::Pose3 &t_m0_m1,
+                                boost::optional<gtsam::Matrix &> H1 = boost::none,
+                                boost::optional<gtsam::Matrix &> H2 = boost::none) const override
+    {
+      gtsam::Matrix66 inverse_d_pose3_wrt_pose3;
+      gtsam::Matrix66 compose_d_pose3_wrt_pose3;
+      gtsam::Matrix66 combined_d_pose3_wrt_pose3;
+      gtsam::Matrix26 project_d_point2_wrt_pose3;
+
+      // Find the inverse
+      auto t_m1_m0 = t_m0_m1.inverse(H2 ? gtsam::OptionalJacobian<6, 6>(inverse_d_pose3_wrt_pose3) : boost::none);
+
+      // find the pose of the camera in marker 1's frame.
+      auto t_m1_c = t_m1_m0.compose(
+        t_m0_c, H2 ? gtsam::OptionalJacobian<6, 6>(compose_d_pose3_wrt_pose3) : boost::none);
+
+      // Project this point to the camera's image frame. Catch and return a default
+      // value on a CheiralityException.
+      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m1_c, *cal3ds2_};
+      try {
+////        gtsam::Point2 point_f_image = camera.project(
+////          m1_corner_f_marker_,
+////          (H1 || H2) ? gtsam::OptionalJacobian<2, 6>(project_d_point2_wrt_pose3) : boost::none);
+////
+////        // Return the Jacobian for each input
+////        if (H1) {
+////          *H1 = project_d_point2_wrt_pose3;
+////        }
+////        if (H2) {
+////          *H2 = project_d_point2_wrt_pose3 * compose_d_pose3_wrt_pose3 * inverse_d_pose3_wrt_pose3;
+////        }
+////
+//        // Return the error.
+//        return point_f_image - m1_corner_f_image_;
+        return gtsam::Vector{};
+
+      } catch (gtsam::CheiralityException &e) {
+        if (H1) *H1 = gtsam::Matrix26::Zero();
+        if (H2) *H2 = gtsam::Matrix26::Zero();
+
+        logger_.error() << e.what() << ": t_m1_c " << gtsam::DefaultKeyFormatter(key_t_m0_c_) <<
+                        " moved behind camera " << gtsam::DefaultKeyFormatter(key_t_m0_m1_) << std::endl;
+
+        if (throwCheirality_)
+          throw gtsam::CheiralityException(key_t_m0_c_);
+      }
+      return gtsam::Vector2{2.0 * cal3ds2_->px(), 2.0 * cal3ds2_->py()};
+    }
+  };
+
+// ==============================================================================
 // CalInfo class
 // ==============================================================================
 

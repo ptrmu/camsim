@@ -154,7 +154,7 @@ namespace fvlam
       corner_f_image_{std::move(corner_f_image)},
       key_marker_{key_marker}, key_camera_{key_camera},
       corner_f_marker_{std::move(corner_f_marker)},
-      cal3ds2_{cal3ds2},
+      cal3ds2_{std::move(cal3ds2)},
       logger_{logger},
       throwCheirality_{throwCheirality}
     {}
@@ -391,7 +391,7 @@ namespace fvlam
                            gtsam::Pose3 t_camera_imager,
                            std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
                            Logger &logger,
-                           std::string debug_str,
+                           std::string debug_str = std::string{},
                            bool throwCheirality = false) :
       NoiseModelFactor1<gtsam::Pose3>(model, key_camera),
       key_camera_{key_camera},
@@ -401,7 +401,7 @@ namespace fvlam
       t_camera_imager_{std::move(t_camera_imager)},
       cal3ds2_{cal3ds2},
       logger_{logger},
-      debug_str_{debug_str},
+      debug_str_{std::move(debug_str)},
       throwCheirality_{throwCheirality}
     {}
 
