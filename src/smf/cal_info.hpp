@@ -265,7 +265,8 @@ namespace camsim
                              bool throwCheirality = false) :
       Base(model, key_t_m0_c, key_t_m0_m1),
       key_t_m0_c_{key_t_m0_c}, key_t_m0_m1_{key_t_m0_m1},
-      m0_corners_f_image_{std::move(m0_corners_f_image)}, m1_corners_f_image_{std::move(m1_corners_f_image)},
+      m0_corners_f_image_{std::move(m0_corners_f_image)},
+      m1_corners_f_image_{std::move(m1_corners_f_image)},
       corners_f_marker_{std::move(corners_f_marker)},
       t_camera_imager_{t_camera_imager},
       cal3ds2_{cal3ds2}, logger_{logger},
@@ -286,21 +287,28 @@ namespace camsim
                                 boost::optional<gtsam::Matrix &> H1 = boost::none,
                                 boost::optional<gtsam::Matrix &> H2 = boost::none) const override
     {
+      gtsam::Matrix66 imager_d_pose3_wrt_pose3;
       gtsam::Matrix66 inverse_d_pose3_wrt_pose3;
       gtsam::Matrix66 compose_d_pose3_wrt_pose3;
       gtsam::Matrix66 combined_d_pose3_wrt_pose3;
       gtsam::Matrix26 project_d_point2_wrt_pose3;
 
-      // Find the inverse
-      auto t_m1_m0 = t_m0_m1.inverse(H2 ? gtsam::OptionalJacobian<6, 6>(inverse_d_pose3_wrt_pose3) : boost::none);
+      // Find the inverse of the transform from M1 to m0. This is used later to transform the imager
+      // pose into m1's frame.
+      auto t_m1_m0 = t_m0_m1.inverse(H2 ? gtsam::OptionalJacobian(inverse_d_pose3_wrt_pose3) : boost::none);
 
-      // find the pose of the camera in marker 1's frame.
-      auto t_m1_c = t_m1_m0.compose(
-        t_m0_c, H2 ? gtsam::OptionalJacobian<6, 6>(compose_d_pose3_wrt_pose3) : boost::none);
+      // Find the pose of the imager. If t_camera_imager is not optional, then the imager pose is
+      // offset from the camera. Otherwise it is the same as the camera.
+      auto t_m0_i = (t_camera_imager_) ? t_m0_c.compose(
+        (*t_camera_imager_), (H1 || H2) ? gtsam::OptionalJacobian(imager_d_pose3_wrt_pose3) : boost::none) : t_m0_c;
 
-      // Project this point to the camera's image frame. Catch and return a default
-      // value on a CheiralityException.
-      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m1_c, *cal3ds2_};
+      // find the pose of the imager in marker 1's frame.
+      auto t_m1_i = t_m1_m0.compose(
+        t_m0_i, H2 ? gtsam::OptionalJacobian(compose_d_pose3_wrt_pose3) : boost::none);
+
+      // Create two Pinhole Cameras - one in m0's frame and the other in m1's frame..
+      auto m0_imager = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m0_i, *cal3ds2_};
+      auto m1_imager = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m1_i, *cal3ds2_};
       try {
 ////        gtsam::Point2 point_f_image = camera.project(
 ////          m1_corner_f_marker_,
@@ -322,7 +330,7 @@ namespace camsim
         if (H1) *H1 = gtsam::Matrix26::Zero();
         if (H2) *H2 = gtsam::Matrix26::Zero();
 
-        logger_.error() << e.what() << ": t_m1_c " << gtsam::DefaultKeyFormatter(key_t_m0_c_) <<
+        logger_.error() << e.what() << ": " << debug_str_ << gtsam::DefaultKeyFormatter(key_t_m0_c_) <<
                         " moved behind camera " << gtsam::DefaultKeyFormatter(key_t_m0_m1_) << std::endl;
 
         if (throwCheirality_)
