@@ -281,7 +281,6 @@ namespace camsim
         gtsam::NonlinearFactor::shared_ptr(new This(*this)));
     }
 
-
     gtsam::Vector evaluateError(const gtsam::Pose3 &t_m0_c,
                                 const gtsam::Pose3 &t_m0_m1,
                                 boost::optional<gtsam::Matrix &> H1 = boost::none,
@@ -309,7 +308,29 @@ namespace camsim
       // Create two Pinhole Cameras - one in m0's frame and the other in m1's frame..
       auto m0_imager = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m0_i, *cal3ds2_};
       auto m1_imager = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m1_i, *cal3ds2_};
+
       try {
+        bool get_H = H1 || H2;
+        gtsam::Matrix26 H0, H1, H2, H3, H4, H5, H6, H7;
+        auto e = (Eigen::Matrix<double, 16, 1>{}
+          << m0_imager.project(corners_f_marker_[0],
+                               (get_H) ? gtsam::OptionalJacobian(H0) : boost::none) - m0_corners_f_image_[0],
+          m0_imager.project(corners_f_marker_[1],
+                            (get_H) ? gtsam::OptionalJacobian(H1) : boost::none) - m0_corners_f_image_[1],
+          m0_imager.project(corners_f_marker_[2],
+                            (get_H) ? gtsam::OptionalJacobian(H2) : boost::none) - m0_corners_f_image_[2],
+          m0_imager.project(corners_f_marker_[3],
+                            (get_H) ? gtsam::OptionalJacobian(H3) : boost::none) - m0_corners_f_image_[3],
+          m1_imager.project(corners_f_marker_[0],
+                            (get_H) ? gtsam::OptionalJacobian(H4) : boost::none) - m1_corners_f_image_[0],
+          m1_imager.project(corners_f_marker_[1],
+                            (get_H) ? gtsam::OptionalJacobian(H5) : boost::none) - m1_corners_f_image_[1],
+          m1_imager.project(corners_f_marker_[2],
+                            (get_H) ? gtsam::OptionalJacobian(H6) : boost::none) - m1_corners_f_image_[2],
+          m1_imager.project(corners_f_marker_[3],
+                            (get_H) ? gtsam::OptionalJacobian(H7) : boost::none) - m1_corners_f_image_[3]
+        ).finished();
+
 ////        gtsam::Point2 point_f_image = camera.project(
 ////          m1_corner_f_marker_,
 ////          (H1 || H2) ? gtsam::OptionalJacobian<2, 6>(project_d_point2_wrt_pose3) : boost::none);
@@ -324,11 +345,11 @@ namespace camsim
 ////
 //        // Return the error.
 //        return point_f_image - m1_corner_f_image_;
-        return gtsam::Vector{};
+        return e;
 
       } catch (gtsam::CheiralityException &e) {
-        if (H1) *H1 = gtsam::Matrix26::Zero();
-        if (H2) *H2 = gtsam::Matrix26::Zero();
+        if (H1) *H1 = Eigen::Matrix<double, 16, 6>::Zero();
+        if (H2) *H2 = Eigen::Matrix<double, 16, 6>::Zero();
 
         logger_.error() << e.what() << ": " << debug_str_ << gtsam::DefaultKeyFormatter(key_t_m0_c_) <<
                         " moved behind camera " << gtsam::DefaultKeyFormatter(key_t_m0_m1_) << std::endl;
@@ -336,7 +357,7 @@ namespace camsim
         if (throwCheirality_)
           throw gtsam::CheiralityException(key_t_m0_c_);
       }
-      return gtsam::Vector2{2.0 * cal3ds2_->px(), 2.0 * cal3ds2_->py()};
+      return gtsam::Vector2{2.0 * cal3ds2_->px(), 2.0 * cal3ds2_->py()}.replicate<8, 1>();
     }
   };
 
