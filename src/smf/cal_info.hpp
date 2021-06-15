@@ -289,17 +289,15 @@ namespace camsim
       gtsam::Matrix66 imager_d_pose3_wrt_pose3;
       gtsam::Matrix66 inverse_d_pose3_wrt_pose3;
       gtsam::Matrix66 compose_d_pose3_wrt_pose3;
-      gtsam::Matrix66 combined_d_pose3_wrt_pose3;
-      gtsam::Matrix26 project_d_point2_wrt_pose3;
-
-      // Find the inverse of the transform from M1 to m0. This is used later to transform the imager
-      // pose into m1's frame.
-      auto t_m1_m0 = t_m0_m1.inverse(H2 ? gtsam::OptionalJacobian(inverse_d_pose3_wrt_pose3) : boost::none);
 
       // Find the pose of the imager. If t_camera_imager is not optional, then the imager pose is
       // offset from the camera. Otherwise it is the same as the camera.
       auto t_m0_i = (t_camera_imager_) ? t_m0_c.compose(
         (*t_camera_imager_), (H1 || H2) ? gtsam::OptionalJacobian(imager_d_pose3_wrt_pose3) : boost::none) : t_m0_c;
+
+      // Find the inverse of the transform from M1 to m0. This is used later to transform the imager
+      // pose into m1's frame.
+      auto t_m1_m0 = t_m0_m1.inverse(H2 ? gtsam::OptionalJacobian(inverse_d_pose3_wrt_pose3) : boost::none);
 
       // find the pose of the imager in marker 1's frame.
       auto t_m1_i = t_m1_m0.compose(
@@ -311,40 +309,66 @@ namespace camsim
 
       try {
         bool get_H = H1 || H2;
-        gtsam::Matrix26 H0, H1, H2, H3, H4, H5, H6, H7;
+        gtsam::Matrix26 J0, J1, J2, J3, J4, J5, J6, J7;
         auto e = (Eigen::Matrix<double, 16, 1>{}
           << m0_imager.project(corners_f_marker_[0],
-                               (get_H) ? gtsam::OptionalJacobian(H0) : boost::none) - m0_corners_f_image_[0],
+                               (get_H) ? gtsam::OptionalJacobian(J0) : boost::none) - m0_corners_f_image_[0],
           m0_imager.project(corners_f_marker_[1],
-                            (get_H) ? gtsam::OptionalJacobian(H1) : boost::none) - m0_corners_f_image_[1],
+                            (get_H) ? gtsam::OptionalJacobian(J1) : boost::none) - m0_corners_f_image_[1],
           m0_imager.project(corners_f_marker_[2],
-                            (get_H) ? gtsam::OptionalJacobian(H2) : boost::none) - m0_corners_f_image_[2],
+                            (get_H) ? gtsam::OptionalJacobian(J2) : boost::none) - m0_corners_f_image_[2],
           m0_imager.project(corners_f_marker_[3],
-                            (get_H) ? gtsam::OptionalJacobian(H3) : boost::none) - m0_corners_f_image_[3],
+                            (get_H) ? gtsam::OptionalJacobian(J3) : boost::none) - m0_corners_f_image_[3],
           m1_imager.project(corners_f_marker_[0],
-                            (get_H) ? gtsam::OptionalJacobian(H4) : boost::none) - m1_corners_f_image_[0],
+                            (get_H) ? gtsam::OptionalJacobian(J4) : boost::none) - m1_corners_f_image_[0],
           m1_imager.project(corners_f_marker_[1],
-                            (get_H) ? gtsam::OptionalJacobian(H5) : boost::none) - m1_corners_f_image_[1],
+                            (get_H) ? gtsam::OptionalJacobian(J5) : boost::none) - m1_corners_f_image_[1],
           m1_imager.project(corners_f_marker_[2],
-                            (get_H) ? gtsam::OptionalJacobian(H6) : boost::none) - m1_corners_f_image_[2],
+                            (get_H) ? gtsam::OptionalJacobian(J6) : boost::none) - m1_corners_f_image_[2],
           m1_imager.project(corners_f_marker_[3],
-                            (get_H) ? gtsam::OptionalJacobian(H7) : boost::none) - m1_corners_f_image_[3]
+                            (get_H) ? gtsam::OptionalJacobian(J7) : boost::none) - m1_corners_f_image_[3]
         ).finished();
 
-////        gtsam::Point2 point_f_image = camera.project(
-////          m1_corner_f_marker_,
-////          (H1 || H2) ? gtsam::OptionalJacobian<2, 6>(project_d_point2_wrt_pose3) : boost::none);
-////
-////        // Return the Jacobian for each input
-////        if (H1) {
-////          *H1 = project_d_point2_wrt_pose3;
-////        }
-////        if (H2) {
-////          *H2 = project_d_point2_wrt_pose3 * compose_d_pose3_wrt_pose3 * inverse_d_pose3_wrt_pose3;
-////        }
-////
-//        // Return the error.
-//        return point_f_image - m1_corner_f_image_;
+        if (t_camera_imager_) {
+          J0 = J0 * imager_d_pose3_wrt_pose3;
+          J1 = J1 * imager_d_pose3_wrt_pose3;
+          J2 = J2 * imager_d_pose3_wrt_pose3;
+          J3 = J3 * imager_d_pose3_wrt_pose3;
+          J4 = J4 * imager_d_pose3_wrt_pose3;
+          J5 = J5 * imager_d_pose3_wrt_pose3;
+          J6 = J6 * imager_d_pose3_wrt_pose3;
+          J7 = J7 * imager_d_pose3_wrt_pose3;
+        }
+
+        if (H1) {
+          *H1 = (Eigen::Matrix<double, 16, 6>{}
+            <<
+            J0,
+            J1,
+            J2,
+            J3,
+            J4,
+            J5,
+            J6,
+            J7
+          ).finished();
+        }
+
+        if (H2) {
+          gtsam::Matrix66 combined_d_pose3_wrt_pose3 = compose_d_pose3_wrt_pose3 * inverse_d_pose3_wrt_pose3;
+          *H1 = (Eigen::Matrix<double, 16, 6>{}
+            <<
+            J0 * combined_d_pose3_wrt_pose3,
+            J1 * combined_d_pose3_wrt_pose3,
+            J2 * combined_d_pose3_wrt_pose3,
+            J3 * combined_d_pose3_wrt_pose3,
+            J4 * combined_d_pose3_wrt_pose3,
+            J5 * combined_d_pose3_wrt_pose3,
+            J6 * combined_d_pose3_wrt_pose3,
+            J7 * combined_d_pose3_wrt_pose3
+          ).finished();
+        }
+
         return e;
 
       } catch (gtsam::CheiralityException &e) {

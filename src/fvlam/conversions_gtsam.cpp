@@ -191,6 +191,17 @@ namespace fvlam
     };
   }
 
+  template<>
+  std::array<gtsam::Point2, 4> Observation::to<std::array<gtsam::Point2, 4>>() const
+  {
+    return std::array<gtsam::Point2, 4>{
+      gtsam::Point2{corners_f_image_[0].x(), corners_f_image_[0].y()},
+      gtsam::Point2{corners_f_image_[1].x(), corners_f_image_[1].y()},
+      gtsam::Point2{corners_f_image_[2].x(), corners_f_image_[2].y()},
+      gtsam::Point2{corners_f_image_[3].x(), corners_f_image_[3].y()}
+    };
+  }
+
 // ==============================================================================
 // fvlam::Marker conversions that require Observation conversions so
 // have to be after those conversions in the file.
