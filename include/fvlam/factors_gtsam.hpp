@@ -432,7 +432,8 @@ namespace fvlam
       try {
         gtsam::Matrix26 H0, H1, H2, H3;
         auto e = (gtsam::Vector8{}
-          << camera.project(corners_f_world_[0], (H) ? gtsam::OptionalJacobian(H0) : boost::none) - corners_f_image_[0],
+          <<
+          camera.project(corners_f_world_[0], (H) ? gtsam::OptionalJacobian(H0) : boost::none) - corners_f_image_[0],
           camera.project(corners_f_world_[1], (H) ? gtsam::OptionalJacobian(H1) : boost::none) - corners_f_image_[1],
           camera.project(corners_f_world_[2], (H) ? gtsam::OptionalJacobian(H2) : boost::none) - corners_f_image_[2],
           camera.project(corners_f_world_[3], (H) ? gtsam::OptionalJacobian(H3) : boost::none) - corners_f_image_[3]

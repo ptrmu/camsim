@@ -120,19 +120,22 @@ namespace fvlam
   }
 
   template<>
-  std::vector<Marker> MarkersGen::OriginLookingUp()
-  {
-    return markers_from_transform3s(std::vector<Transform3>{Transform3{}}, 0);
-  }
-
-  template<>
-  std::vector<Marker> MarkersGen::OriginLookingUpPlusOne(double x)
+  std::vector<Marker> MarkersGen::OriginLookingUp(double x)
   {
     return markers_from_transform3s(
       std::vector<Transform3>{
-        Transform3{},
         Transform3{Rotate3{}, Translate3{x, 0, 0}}},
-        0);
+      0);
+  }
+
+  template<>
+  std::vector<Marker> MarkersGen::OriginLookingUpPlusOne(double x0, double x1)
+  {
+    return markers_from_transform3s(
+      std::vector<Transform3>{
+        Transform3{Rotate3{}, Translate3{x0, 0, 0}},
+        Transform3{Rotate3{}, Translate3{x1, 0, 0}}},
+      0);
   }
 
   template<>
@@ -279,7 +282,19 @@ namespace fvlam
                                 fvlam::CameraInfoMapGen::DualWideAngle(),
                                 fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
                                   8, 1.0, 2.0, false),
-                                fvlam::MarkersGen::OriginLookingUp());
+                                fvlam::MarkersGen::OriginLookingUp(0.));
+    };
+  }
+
+  MarkerModel::Maker MarkerModelGen::MonoSingleMarker()
+  {
+    return []() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Simulation(),
+                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                  1, 0.0, 2.0, false),
+                                fvlam::MarkersGen::OriginLookingUp(0.1));
     };
   }
 
@@ -291,7 +306,7 @@ namespace fvlam
                                 fvlam::CameraInfoMapGen::Simulation(),
                                 fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
                                   1, 0.0, 2.0, false),
-                                fvlam::MarkersGen::OriginLookingUpPlusOne(1.0));
+                                fvlam::MarkersGen::OriginLookingUpPlusOne(0., 1.));
     };
   }
 
@@ -487,10 +502,13 @@ namespace fvlam
   }
 
 
-  int MarkerModelRunner::for_each_marker_observations(std::function<int(const fvlam::MarkerObservations &)> cb)
+  int MarkerModelRunner::for_each_marker_observations(bool truth_not_perturbed,
+                                                      std::function<int(const fvlam::MarkerObservations &)> cb)
   {
     // For each camera location
-    for (auto &marker_observations : marker_observations_list_perturbed_) {
+    for (auto &marker_observations : truth_not_perturbed ?
+                                     model_.target_observations_list() :
+                                     marker_observations_list_perturbed_) {
 
       auto ret = cb(marker_observations);
 
@@ -501,90 +519,94 @@ namespace fvlam
     return 0;
   }
 
-  int MarkerModelRunner::for_each_observations(std::function<int(const fvlam::MarkerObservations &,
+  int MarkerModelRunner::for_each_observations(bool truth_not_perturbed,
+                                               std::function<int(const fvlam::MarkerObservations &,
                                                                  const fvlam::Observations &,
                                                                  const fvlam::CameraInfo &)> cb)
   {
-    return for_each_marker_observations(
-      [this, &cb](const fvlam::MarkerObservations &marker_observations) -> int
-      {
-        // For each imager's observations
-        for (auto &observations : marker_observations.observations_synced().v()) {
+    return for_each_marker_observations(truth_not_perturbed,
+                                        [this, &cb](const fvlam::MarkerObservations &marker_observations) -> int
+                                        {
+                                          // For each imager's observations
+                                          for (auto &observations : marker_observations.observations_synced().v()) {
 
-          // Find the camera_info
-          const auto &kp = model_.camera_info_map().m().find(observations.imager_frame_id());
-          if (kp == model_.camera_info_map().m().end()) {
-            continue;
-          }
+                                            // Find the camera_info
+                                            const auto &kp = model_.camera_info_map().m().find(
+                                              observations.imager_frame_id());
+                                            if (kp == model_.camera_info_map().m().end()) {
+                                              continue;
+                                            }
 
-          auto ret = cb(marker_observations,
-                        observations,
-                        kp->second);
+                                            auto ret = cb(marker_observations,
+                                                          observations,
+                                                          kp->second);
 
-          if (ret != 0) {
-            return ret;
-          }
-        }
-        return 0;
-      });
+                                            if (ret != 0) {
+                                              return ret;
+                                            }
+                                          }
+                                          return 0;
+                                        });
   }
 
-  int MarkerModelRunner::for_each_observation(std::function<int(const fvlam::MarkerObservations &,
+  int MarkerModelRunner::for_each_observation(bool truth_not_perturbed,
+                                              std::function<int(const fvlam::MarkerObservations &,
                                                                 const fvlam::Observations &,
                                                                 const fvlam::CameraInfo &,
                                                                 const fvlam::Observation &)> cb)
   {
-    return for_each_observations(
-      [&cb](const fvlam::MarkerObservations &marker_observations,
-                  const fvlam::Observations &observations,
-                  const fvlam::CameraInfo &camera_info) -> int
-      {
-        // For each observation of a marker
-        for (auto &observation : observations.v()) {
+    return for_each_observations(truth_not_perturbed,
+                                 [&cb](const fvlam::MarkerObservations &marker_observations,
+                                       const fvlam::Observations &observations,
+                                       const fvlam::CameraInfo &camera_info) -> int
+                                 {
+                                   // For each observation of a marker
+                                   for (auto &observation : observations.v()) {
 
-          auto ret = cb(marker_observations,
-                        observations,
-                        camera_info,
-                        observation);
+                                     auto ret = cb(marker_observations,
+                                                   observations,
+                                                   camera_info,
+                                                   observation);
 
-          if (ret != 0) {
-            return ret;
-          }
-        }
-        return 0;
-      });
+                                     if (ret != 0) {
+                                       return ret;
+                                     }
+                                   }
+                                   return 0;
+                                 });
   }
 
-  int MarkerModelRunner::for_each_corner_f_image(std::function<int(const fvlam::MarkerObservations &,
+  int MarkerModelRunner::for_each_corner_f_image(bool truth_not_perturbed,
+                                                 std::function<int(const fvlam::MarkerObservations &,
                                                                    const fvlam::Observations &,
                                                                    const fvlam::CameraInfo &,
                                                                    const fvlam::Observation &,
                                                                    std::size_t,
                                                                    const fvlam::Translate2)> cb)
   {
-    return for_each_observation(
-      [&cb](const fvlam::MarkerObservations &marker_observations,
-            const fvlam::Observations &observations,
-            const fvlam::CameraInfo &camera_info,
-            const fvlam::Observation &observation) -> int
-      {
-        auto corners_f_image = observation.corners_f_image();
+    return for_each_observation(truth_not_perturbed,
+                                [&cb](const fvlam::MarkerObservations &marker_observations,
+                                      const fvlam::Observations &observations,
+                                      const fvlam::CameraInfo &camera_info,
+                                      const fvlam::Observation &observation) -> int
+                                {
+                                  auto corners_f_image = observation.corners_f_image();
 
-        // For each corner measurement
-        for (std::size_t i = 0; i < Marker::ArraySize; i += 1) {
+                                  // For each corner measurement
+                                  for (std::size_t i = 0; i < Marker::ArraySize; i += 1) {
 
-          auto ret = cb(marker_observations,
-                        observations,
-                        camera_info,
-                        observation,
-                        i,
-                        corners_f_image[i]);
+                                    auto ret = cb(marker_observations,
+                                                  observations,
+                                                  camera_info,
+                                                  observation,
+                                                  i,
+                                                  corners_f_image[i]);
 
-          if (ret != 0) {
-            return ret;
-          }
-        }
-        return 0;
-      });
+                                    if (ret != 0) {
+                                      return ret;
+                                    }
+                                  }
+                                  return 0;
+                                });
   }
 }

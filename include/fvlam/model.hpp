@@ -35,8 +35,8 @@ namespace fvlam
   {
     static std::vector<Target> TargetsFromTransform3s(std::vector<Transform3> transform3s); //
     static std::vector<Target> CircleInXYPlaneFacingOrigin(int n, double radius); //
-    static std::vector<Target> OriginLookingUp(); //
-    static std::vector<Target> OriginLookingUpPlusOne(double x); //
+    static std::vector<Target> OriginLookingUp(double x); //
+    static std::vector<Target> OriginLookingUpPlusOne(double x0, double x1); //
     static std::vector<Target> CircleInXYPlaneFacingAlongZ(int n, double radius, double z_offset,
                                                            bool facing_z_plus_not_z_negative); //
   };
@@ -150,6 +150,7 @@ namespace fvlam
     static MarkerModel::Maker DualParallelCircles(); //
     static MarkerModel::Maker DualWideSingleCamera(); //
     static MarkerModel::Maker DualWideSingleMarker(); //
+    static MarkerModel::Maker MonoSingleMarker(); //
     static MarkerModel::Maker MonoDoubleMarker(); //
   };
 
@@ -319,15 +320,19 @@ namespace fvlam
     auto &marker_observations_list_perturbed() const
     { return marker_observations_list_perturbed_; }
 
-    int for_each_marker_observations(std::function<int(const fvlam::MarkerObservations &)>); //
-    int for_each_observations(std::function<int(const fvlam::MarkerObservations &,
+    int for_each_marker_observations(bool truth_not_perturbed,
+                                     std::function<int(const fvlam::MarkerObservations &)>); //
+    int for_each_observations(bool truth_not_perturbed,
+                              std::function<int(const fvlam::MarkerObservations &,
                                                 const fvlam::Observations &,
                                                 const fvlam::CameraInfo &)>); //
-    int for_each_observation(std::function<int(const fvlam::MarkerObservations &,
+    int for_each_observation(bool truth_not_perturbed,
+                             std::function<int(const fvlam::MarkerObservations &,
                                                const fvlam::Observations &,
                                                const fvlam::CameraInfo &,
                                                const fvlam::Observation &)>); //
-    int for_each_corner_f_image(std::function<int(const fvlam::MarkerObservations &,
+    int for_each_corner_f_image(bool truth_not_perturbed,
+                                std::function<int(const fvlam::MarkerObservations &,
                                                   const fvlam::Observations &,
                                                   const fvlam::CameraInfo &,
                                                   const fvlam::Observation &,
