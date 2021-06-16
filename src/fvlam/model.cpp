@@ -126,6 +126,16 @@ namespace fvlam
   }
 
   template<>
+  std::vector<Marker> MarkersGen::OriginLookingUpPlusOne(double x)
+  {
+    return markers_from_transform3s(
+      std::vector<Transform3>{
+        Transform3{},
+        Transform3{Rotate3{}, Translate3{x, 0, 0}}},
+        0);
+  }
+
+  template<>
   std::vector<Marker> MarkersGen::CircleInXYPlaneFacingAlongZ(int n, double radius, double z_offset,
                                                               bool facing_z_plus_not_z_negative)
   {
@@ -270,6 +280,18 @@ namespace fvlam
                                 fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
                                   8, 1.0, 2.0, false),
                                 fvlam::MarkersGen::OriginLookingUp());
+    };
+  }
+
+  MarkerModel::Maker MarkerModelGen::MonoDoubleMarker()
+  {
+    return []() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Simulation(),
+                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                  1, 0.0, 2.0, false),
+                                fvlam::MarkersGen::OriginLookingUpPlusOne(1.0));
     };
   }
 

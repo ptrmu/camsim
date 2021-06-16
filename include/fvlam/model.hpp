@@ -36,6 +36,7 @@ namespace fvlam
     static std::vector<Target> TargetsFromTransform3s(std::vector<Transform3> transform3s); //
     static std::vector<Target> CircleInXYPlaneFacingOrigin(int n, double radius); //
     static std::vector<Target> OriginLookingUp(); //
+    static std::vector<Target> OriginLookingUpPlusOne(double x); //
     static std::vector<Target> CircleInXYPlaneFacingAlongZ(int n, double radius, double z_offset,
                                                            bool facing_z_plus_not_z_negative); //
   };
@@ -149,6 +150,7 @@ namespace fvlam
     static MarkerModel::Maker DualParallelCircles(); //
     static MarkerModel::Maker DualWideSingleCamera(); //
     static MarkerModel::Maker DualWideSingleMarker(); //
+    static MarkerModel::Maker MonoDoubleMarker(); //
   };
 
   struct ModelKey

@@ -311,8 +311,9 @@ namespace camsim
         bool get_H = H1 || H2;
         gtsam::Matrix26 J0, J1, J2, J3, J4, J5, J6, J7;
         auto e = (Eigen::Matrix<double, 16, 1>{}
-          << m0_imager.project(corners_f_marker_[0],
-                               (get_H) ? gtsam::OptionalJacobian(J0) : boost::none) - m0_corners_f_image_[0],
+          <<
+          m0_imager.project(corners_f_marker_[0],
+                            (get_H) ? gtsam::OptionalJacobian(J0) : boost::none) - m0_corners_f_image_[0],
           m0_imager.project(corners_f_marker_[1],
                             (get_H) ? gtsam::OptionalJacobian(J1) : boost::none) - m0_corners_f_image_[1],
           m0_imager.project(corners_f_marker_[2],

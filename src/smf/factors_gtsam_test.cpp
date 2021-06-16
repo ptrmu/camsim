@@ -46,10 +46,12 @@ namespace camsim
       // Calculate the Jacobean from the factor
       gtsam::Matrix d_point2_wrt_marker;
       gtsam::Matrix d_point2_wrt_camera;
-      factor.evaluateError(marker_f_world,
-                           imager_f_world,
-                           d_point2_wrt_marker,
-                           d_point2_wrt_camera);
+      auto e = factor.evaluateError(marker_f_world,
+                                    imager_f_world,
+                                    d_point2_wrt_marker,
+                                    d_point2_wrt_camera);
+
+      runner_.logger().warn() << e.transpose();
 
       // Calculate the Jacobean numerically
       auto numericalH1 = gtsam::numericalDerivative21<gtsam::Point2, gtsam::Pose3, gtsam::Pose3>(
@@ -129,8 +131,10 @@ namespace camsim
 
       // Calculate the Jacobean from the factor
       gtsam::Matrix d_point2_wrt_camera;
-      factor.evaluateError(imager_f_world,
-                           d_point2_wrt_camera);
+      auto e = factor.evaluateError(imager_f_world,
+                                    d_point2_wrt_camera);
+
+      runner_.logger().warn() << e.transpose();
 
       // Calculate the Jacobean numerically
       auto numericalH = gtsam::numericalDerivative11<gtsam::Point2, gtsam::Pose3>(
@@ -207,8 +211,10 @@ namespace camsim
 
       // Calculate the Jacobean from the factor
       gtsam::Matrix d_point2s_wrt_camera;
-      factor.evaluateError(imager_f_world,
-                           d_point2s_wrt_camera);
+      auto e = factor.evaluateError(imager_f_world,
+                                    d_point2s_wrt_camera);
+
+      runner_.logger().warn() << e.transpose();
 
       // Calculate the Jacobean numerically
       auto numericalH = gtsam::numericalDerivative11<gtsam::Vector, gtsam::Pose3>(
@@ -283,10 +289,12 @@ namespace camsim
       // Calculate the Jacobean from the factor
       gtsam::Matrix d_point2_wrt_pose;
       gtsam::Matrix d_point2_wrt_point3;
-      factor.evaluateError(marker_f_world,
-                           corner_f_world,
-                           d_point2_wrt_pose,
-                           d_point2_wrt_point3);
+      auto e = factor.evaluateError(marker_f_world,
+                                    corner_f_world,
+                                    d_point2_wrt_pose,
+                                    d_point2_wrt_point3);
+
+//      runner_.logger().warn() << e.transpose();
 
       // Calculate the Jacobean numerically
       auto numericalH1 = gtsam::numericalDerivative21<gtsam::Point3, gtsam::Pose3, gtsam::Point3>(
@@ -301,7 +309,8 @@ namespace camsim
         }, marker_f_world, corner_f_world);
 
       // Test that the analytic and numerical solutions are the same.
-      return (gtsam::assert_equal(numericalH1, d_point2_wrt_pose, 1.0e-6) &&
+      return (gtsam::assert_equal(gtsam::Point3::Zero(), e, 1.0e-6) &&
+              gtsam::assert_equal(numericalH1, d_point2_wrt_pose, 1.0e-6) &&
               gtsam::assert_equal(numericalH2, d_point2_wrt_point3, 1.0e-6)) ? 0 : 1;
     }
 
@@ -574,10 +583,13 @@ namespace camsim
       // Calculate the Jacobean from the factor
       gtsam::Matrix d_point2_wrt_m0_c_pose;
       gtsam::Matrix d_point2_wrt_m0_m1_pose;
-      factor.evaluateError(t_m0_c,
-                           t_m0_m1,
-                           d_point2_wrt_m0_c_pose,
-                           d_point2_wrt_m0_m1_pose);
+      auto e = factor.evaluateError(t_m0_c,
+                                    t_m0_m1,
+                                    d_point2_wrt_m0_c_pose,
+                                    d_point2_wrt_m0_m1_pose);
+
+      runner_.logger().warn() << e;
+      runner_.logger().warn() << d_point2_wrt_m0_c_pose;
 
       // Calculate the Jacobean numerically
       auto numericalH1 = gtsam::numericalDerivative21<Eigen::Matrix<double, 16, 1>, gtsam::Pose3, gtsam::Pose3>(
@@ -653,13 +665,14 @@ namespace camsim
     auto runner_config = fvlam::MarkerModelRunner::Config();
     fvlam::LoggerCout logger{runner_config.logger_level_};
 
-    auto model_maker = fvlam::MarkerModelGen::MonoParallelGrid();
+//    auto model_maker = fvlam::MarkerModelGen::MonoParallelGrid();
 //    auto model_maker = fvlam::MarkerModelGen::DualParallelGrid();
 //    auto model_maker = fvlam::MarkerModelGen::DualWideSingleCamera();
 //    auto model_maker = fvlam::MarkerModelGen::DualWideSingleMarker();
 //    auto model_maker = fvlam::MarkerModelGen::MonoSpinCameraAtOrigin();
 //    auto model_maker = fvlam::MarkerModelGen::DualSpinCameraAtOrigin();
 //    auto model_maker = fvlam::MarkerModelGen::MonoParallelCircles();
+    auto model_maker = fvlam::MarkerModelGen::MonoDoubleMarker();
 
     bool ret = 0;
 
