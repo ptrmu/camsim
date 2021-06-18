@@ -149,7 +149,6 @@ namespace camsim
     int compare_analytic_to_numerical(
       bool test_error,
       const gtsam::Pose3 &imager_f_world,
-      const gtsam::Pose3 &marker_f_world,
       const gtsam::Point2 &corner_f_image,
       const gtsam::Point3 &corner_f_world,
       std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
@@ -164,9 +163,6 @@ namespace camsim
       gtsam::Matrix d_point2_wrt_camera;
       auto e = factor.evaluateError(imager_f_world,
                                     d_point2_wrt_camera);
-
-      runner_.logger().warn() << "ResectioningFactorTest " << e.transpose()
-                              << imager_f_world << marker_f_world;
 
       // Calculate the Jacobean numerically
       auto numericalH = gtsam::numericalDerivative11<gtsam::Point2, gtsam::Pose3>(
@@ -191,8 +187,6 @@ namespace camsim
     int operator()()
     {
       gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(1.0, 1.0));
-      auto corners_f_marker = fvlam::Marker::corners_f_marker<std::array<gtsam::Point3, fvlam::Marker::ArraySize>>(
-        runner_.model().environment().marker_length());
 
       bool truth_not_perturbed = false;
       do {
@@ -202,7 +196,7 @@ namespace camsim
           runner_.logger(), "ResectioningFactorTest truth_not_perturbed=" << truth_not_perturbed,
           runner_.for_each_corner_f_image(
             truth_not_perturbed,
-            [this, &corners_f_marker, &measurement_noise, truth_not_perturbed](
+            [this, &measurement_noise, truth_not_perturbed](
               const fvlam::MarkerObservations &marker_observations,
               const fvlam::Observations &observations,
               const fvlam::CameraInfo &camera_info,
@@ -212,13 +206,15 @@ namespace camsim
             {
               auto imager_f_world = (marker_observations.t_map_camera() *
                                      camera_info.t_camera_imager()).to<gtsam::Pose3>();
-              auto marker_f_world = runner_.model().targets()[observation.id()].t_map_marker().tf().to<gtsam::Pose3>();
+              auto &marker = runner_.model().targets()[observation.id()];
+              auto corners_f_world = marker.corners_f_world<std::vector<gtsam::Point3>>(
+                runner_.model().environment().marker_length());
               auto cal3ds2 = std::make_shared<const gtsam::Cal3DS2>(camera_info.to<gtsam::Cal3DS2>());
 
               return compare_analytic_to_numerical(
                 truth_not_perturbed,
-                imager_f_world, marker_f_world,
-                corner_f_image.to<gtsam::Point2>(), corners_f_marker[corner_index],
+                imager_f_world,
+                corner_f_image.to<gtsam::Point2>(), corners_f_world[corner_index],
                 cal3ds2, measurement_noise);
             }));
 
@@ -267,8 +263,6 @@ namespace camsim
       gtsam::Matrix d_point2s_wrt_camera;
       auto e = factor.evaluateError(imager_f_world,
                                     d_point2s_wrt_camera);
-
-      runner_.logger().warn() << "QuadResectioningFactorTest " << e.transpose();
 
       // Calculate the Jacobean numerically
       auto numericalH = gtsam::numericalDerivative11<gtsam::Vector, gtsam::Pose3>(
@@ -498,7 +492,7 @@ namespace camsim
           for (int i = 0; i < 10; i += 1) {
             auto imager_offset = 0.1 * i + 0.1;
             auto t_i0_i1 = fvlam::Transform3{fvlam::Rotate3{}, fvlam::Translate3{imager_offset, 0, 0}};
-            auto camera_f_world = marker_observations.t_map_camera();
+            const auto &camera_f_world = marker_observations.t_map_camera();
             auto marker_f_world = runner_.model().targets()[observation.id()].t_map_marker().tf();
             auto t_m_i1 = marker_f_world.inverse() * camera_f_world;
             auto t_m_i0 = t_m_i1 * t_i0_i1.inverse();
@@ -598,7 +592,7 @@ namespace camsim
           for (int i = 0; i < 10; i += 1) {
             auto imager_offset = 0.2 * i + 0.2;
             auto t_m0_m1 = fvlam::Transform3{fvlam::Rotate3{}, fvlam::Translate3{imager_offset, 0, 0}};
-            auto c_f_world = marker_observations.t_map_camera();
+            const auto &c_f_world = marker_observations.t_map_camera();
             auto m1_f_world = runner_.model().targets()[observation.id()].t_map_marker().tf();
             auto t_m1_c = m1_f_world.inverse() * c_f_world;
             auto t_m0_c = t_m0_m1.inverse() * t_m1_c;
@@ -704,7 +698,7 @@ namespace camsim
               auto m0_corners_f_image = observations.v()[i0].to<std::array<gtsam::Point2, 4>>();
               auto m1_corners_f_image = observations.v()[i1].to<std::array<gtsam::Point2, 4>>();
 
-              auto t_w_c = marker_observations.t_map_camera();
+              const auto &t_w_c = marker_observations.t_map_camera();
               auto t_w_m0 = runner_.model().targets()[observations.v()[i0].id()].t_map_marker().tf();
               auto t_w_m1 = runner_.model().targets()[observations.v()[i1].id()].t_map_marker().tf();
 
@@ -751,50 +745,34 @@ namespace camsim
 //    auto model_maker = fvlam::MarkerModelGen::MonoDoubleMarker();
     auto model_maker = fvlam::MarkerModelGen::MonoSingleMarker();
 
-    int ret = 0;
+    RETURN_IF_NONZERO(
+      logger, "Run ProjectBetweenFactorTest",
+      fvlam::MarkerModelRunner::runner_run<ProjectBetweenFactorTest>(runner_config, model_maker));
 
-    ret = fvlam::MarkerModelRunner::runner_run<ProjectBetweenFactorTest>(runner_config, model_maker);
-    if (ret != 0) {
-      logger.warn() << "gtsam_factor: ProjectBetweenFactorTest ret=" << ret;
-      return ret;
-    }
+    RETURN_IF_NONZERO(
+      logger, "Run ResectioningFactorTest",
+      fvlam::MarkerModelRunner::runner_run<ResectioningFactorTest>(runner_config, model_maker));
 
-//    ret = fvlam::MarkerModelRunner::runner_run<ResectioningFactorTest>(runner_config, model_maker);
-//    if (ret != 0) {
-//      logger.warn() << "gtsam_factor: ResectioningFactorTest ret=" << ret;
-//      return ret;
-//    }
+    RETURN_IF_NONZERO(
+      logger, "Run QuadResectioningFactorTest",
+      fvlam::MarkerModelRunner::runner_run<QuadResectioningFactorTest>(runner_config, model_maker));
 
-    ret = fvlam::MarkerModelRunner::runner_run<QuadResectioningFactorTest>(runner_config, model_maker);
-    if (ret != 0) {
-      logger.warn() << "gtsam_factor: QuadResectioningFactorTest ret=" << ret;
-      return ret;
-    }
+    RETURN_IF_NONZERO(
+      logger, "Run MarkerCornerFactorTest",
+      fvlam::MarkerModelRunner::runner_run<MarkerCornerFactorTest>(runner_config, model_maker));
 
-    ret = fvlam::MarkerModelRunner::runner_run<MarkerCornerFactorTest>(runner_config, model_maker);
-    if (ret != 0) {
-      logger.warn() << "gtsam_factor: MarkerCornerFactorTest ret=" << ret;
-      return ret;
-    }
+    RETURN_IF_NONZERO(
+      logger, "Run Imager0Imager1FactorTest",
+      fvlam::MarkerModelRunner::runner_run<Imager0Imager1FactorTest>(runner_config, model_maker));
 
-    ret = fvlam::MarkerModelRunner::runner_run<Imager0Imager1FactorTest>(runner_config, model_maker);
-    if (ret != 0) {
-      logger.warn() << "gtsam_factor: Imager0Imager1FactorTest ret=" << ret;
-      return ret;
-    }
+    RETURN_IF_NONZERO(
+      logger, "Run Marker0Marker1FactorTest",
+      fvlam::MarkerModelRunner::runner_run<Marker0Marker1FactorTest>(runner_config, model_maker));
 
-    ret = fvlam::MarkerModelRunner::runner_run<Marker0Marker1FactorTest>(runner_config, model_maker);
-    if (ret != 0) {
-      logger.warn() << "gtsam_factor: Marker0Marker1FactorTest ret=" << ret;
-      return ret;
-    }
+//    RETURN_IF_NONZERO(
+//      logger, "Run QuadMarker0Marker1FactorTest",
+//      fvlam::MarkerModelRunner::runner_run<QuadMarker0Marker1FactorTest>(runner_config, model_maker));
 
-    ret = fvlam::MarkerModelRunner::runner_run<QuadMarker0Marker1FactorTest>(runner_config, model_maker);
-    if (ret != 0) {
-      logger.warn() << "gtsam_factor: QuadMarker0Marker1FactorTest ret=" << ret;
-      return ret;
-    }
-
-    return ret;
+    return 0;
   }
 }

@@ -228,8 +228,8 @@ namespace fvlam
   class ResectioningFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
   {
     gtsam::Key key_camera_;
-    const gtsam::Point2 corner_f_image;
-    const gtsam::Point3 corner_f_world;
+    const gtsam::Point2 corner_f_image_;
+    const gtsam::Point3 corner_f_world_;
     std::shared_ptr<const gtsam::Cal3DS2> cal3ds2_;
     Logger &logger_;
     bool throwCheirality_;     // If true, rethrows Cheirality exceptions (default: false)
@@ -245,8 +245,8 @@ namespace fvlam
                        bool throwCheirality = false) :
       NoiseModelFactor1<gtsam::Pose3>(model, key_camera),
       key_camera_{key_camera},
-      corner_f_image{std::move(corner_f_image)},
-      corner_f_world{std::move(corner_f_world)},
+      corner_f_image_{std::move(corner_f_image)},
+      corner_f_world_{std::move(corner_f_world)},
       cal3ds2_{std::move(cal3ds2)},
       logger_{logger},
       throwCheirality_{throwCheirality}
@@ -271,7 +271,8 @@ namespace fvlam
     {
       auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{pose, *cal3ds2_};
       try {
-        return camera.project(corner_f_world, H) - corner_f_image;
+        auto corner_f_image = camera.project(corner_f_world_, H);
+        return corner_f_image - corner_f_image_;
       } catch (gtsam::CheiralityException &e) {
         if (H) *H = gtsam::Matrix26::Zero();
 
