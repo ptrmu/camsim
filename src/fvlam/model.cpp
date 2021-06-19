@@ -294,7 +294,19 @@ namespace fvlam
                                 fvlam::CameraInfoMapGen::Simulation(),
                                 fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
                                   1, 0.0, 2.0, false),
-                                fvlam::MarkersGen::OriginLookingUp(0.1));
+                                fvlam::MarkersGen::OriginLookingUp(0.0));
+    };
+  }
+
+  MarkerModel::Maker MarkerModelGen::DualSingleMarker()
+  {
+    return []() -> fvlam::MarkerModel
+    {
+      return fvlam::MarkerModel(fvlam::MapEnvironmentGen::Default(),
+                                fvlam::CameraInfoMapGen::Dual(),
+                                fvlam::CamerasGen::CircleInXYPlaneFacingAlongZ(
+                                  1, 0.0, 2.0, false),
+                                fvlam::MarkersGen::OriginLookingUp(0.0));
     };
   }
 

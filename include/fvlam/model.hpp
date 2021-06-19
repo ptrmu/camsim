@@ -151,6 +151,7 @@ namespace fvlam
     static MarkerModel::Maker DualWideSingleCamera(); //
     static MarkerModel::Maker DualWideSingleMarker(); //
     static MarkerModel::Maker MonoSingleMarker(); //
+    static MarkerModel::Maker DualSingleMarker(); //
     static MarkerModel::Maker MonoDoubleMarker(); //
   };
 
