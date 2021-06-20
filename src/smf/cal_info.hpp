@@ -151,9 +151,11 @@ namespace camsim
     gtsam::Key key_t_m0_c_;
     gtsam::Key key_t_m0_m1_;
     gtsam::Point2 m1_corner_f_image_;
-    gtsam::Point3 m1_corner_f_marker_;
+    gtsam::Point3 corner_f_marker_;
+    std::optional<gtsam::Pose3> t_camera_imager_;
     std::shared_ptr<const gtsam::Cal3DS2> cal3ds2_;
     fvlam::Logger &logger_;
+    std::string debug_str_;
     bool throwCheirality_;     // If true, rethrows Cheirality exceptions (default: false)
 
 
@@ -161,14 +163,19 @@ namespace camsim
     Marker0Marker1Factor(const gtsam::Key &key_t_m0_c, const gtsam::Key &key_t_m0_m1,
                          gtsam::Point2 m1_corner_f_image,
                          const gtsam::SharedNoiseModel &model,
-                         gtsam::Point3 m1_corner_f_marker,
-                         std::shared_ptr<const gtsam::Cal3DS2> cal3ds2,
+                         gtsam::Point3 corner_f_marker,
+                         std::optional<gtsam::Pose3> t_camera_imager,
+                         std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
                          fvlam::Logger &logger,
+                         std::string debug_str = std::string{},
                          bool throwCheirality = false) :
       Base(model, key_t_m0_c, key_t_m0_m1),
       key_t_m0_c_{key_t_m0_c}, key_t_m0_m1_{key_t_m0_m1},
-      m1_corner_f_image_{m1_corner_f_image}, m1_corner_f_marker_{m1_corner_f_marker},
+      m1_corner_f_image_{std::move(m1_corner_f_image)},
+      corner_f_marker_{std::move(corner_f_marker)},
+      t_camera_imager_{std::move(t_camera_imager)},
       cal3ds2_{cal3ds2}, logger_{logger},
+      debug_str_{std::move(debug_str)},
       throwCheirality_{throwCheirality}
     {}
 
@@ -185,29 +192,42 @@ namespace camsim
                                 boost::optional<gtsam::Matrix &> H1 = boost::none,
                                 boost::optional<gtsam::Matrix &> H2 = boost::none) const override
     {
+      gtsam::Matrix66 imager_d_pose3_wrt_pose3;
       gtsam::Matrix66 inverse_d_pose3_wrt_pose3;
       gtsam::Matrix66 compose_d_pose3_wrt_pose3;
       gtsam::Matrix66 combined_d_pose3_wrt_pose3;
       gtsam::Matrix26 project_d_point2_wrt_pose3;
 
-      // Find the inverse
-      auto t_m1_m0 = t_m0_m1.inverse(H2 ? gtsam::OptionalJacobian<6, 6>(inverse_d_pose3_wrt_pose3) : boost::none);
+      bool get_H = H1 || H2;
+
+      // Find the pose of the imager. If t_camera_imager is not optional, then the imager pose is
+      // offset from the camera. Otherwise it is the same as the camera.
+      auto t_m0_i = (t_camera_imager_) ? t_m0_c.compose(
+        (*t_camera_imager_), get_H ? gtsam::OptionalJacobian(imager_d_pose3_wrt_pose3) : boost::none) : t_m0_c;
+
+      // Find the inverse of the transform from M1 to m0. This is used later to transform the imager
+      // pose into m1's frame.
+      auto t_m1_m0 = t_m0_m1.inverse(get_H ? gtsam::OptionalJacobian(inverse_d_pose3_wrt_pose3) : boost::none);
 
       // find the pose of the camera in marker 1's frame.
-      auto t_m1_c = t_m1_m0.compose(
-        t_m0_c, H2 ? gtsam::OptionalJacobian<6, 6>(compose_d_pose3_wrt_pose3) : boost::none);
+      auto t_m1_i = t_m1_m0.compose(
+        t_m0_i, get_H ? gtsam::OptionalJacobian(compose_d_pose3_wrt_pose3) : boost::none);
+
+      // Create the camera
+      auto m1_imager = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m1_i, *cal3ds2_};
 
       // Project this point to the camera's image frame. Catch and return a default
       // value on a CheiralityException.
-      auto camera = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m1_c, *cal3ds2_};
       try {
-        gtsam::Point2 point_f_image = camera.project(
-          m1_corner_f_marker_,
-          (H1 || H2) ? gtsam::OptionalJacobian<2, 6>(project_d_point2_wrt_pose3) : boost::none);
+        gtsam::Point2 point_f_image = m1_imager.project(
+          corner_f_marker_,
+          get_H ? gtsam::OptionalJacobian(project_d_point2_wrt_pose3) : boost::none);
 
         // Return the Jacobian for each input
         if (H1) {
-          *H1 = project_d_point2_wrt_pose3;
+          *H1 = (t_camera_imager_) ?
+                project_d_point2_wrt_pose3 * imager_d_pose3_wrt_pose3 :
+                project_d_point2_wrt_pose3;
         }
         if (H2) {
           *H2 = project_d_point2_wrt_pose3 * compose_d_pose3_wrt_pose3 * inverse_d_pose3_wrt_pose3;
@@ -220,7 +240,7 @@ namespace camsim
         if (H1) *H1 = gtsam::Matrix26::Zero();
         if (H2) *H2 = gtsam::Matrix26::Zero();
 
-        logger_.error() << e.what() << ": t_m1_c " << gtsam::DefaultKeyFormatter(key_t_m0_c_) <<
+        logger_.error() << e.what() << ": " << debug_str_ << gtsam::DefaultKeyFormatter(key_t_m0_c_) <<
                         " moved behind camera " << gtsam::DefaultKeyFormatter(key_t_m0_m1_) << std::endl;
 
         if (throwCheirality_)
@@ -268,7 +288,7 @@ namespace camsim
       m0_corners_f_image_{std::move(m0_corners_f_image)},
       m1_corners_f_image_{std::move(m1_corners_f_image)},
       corners_f_marker_{std::move(corners_f_marker)},
-      t_camera_imager_{t_camera_imager},
+      t_camera_imager_{std::move(t_camera_imager)},
       cal3ds2_{cal3ds2}, logger_{logger},
       debug_str_{std::move(debug_str)},
       throwCheirality_{throwCheirality}
@@ -290,25 +310,26 @@ namespace camsim
       gtsam::Matrix66 inverse_d_pose3_wrt_pose3;
       gtsam::Matrix66 compose_d_pose3_wrt_pose3;
 
+      bool get_H = H1 || H2;
+
       // Find the pose of the imager. If t_camera_imager is not optional, then the imager pose is
       // offset from the camera. Otherwise it is the same as the camera.
       auto t_m0_i = (t_camera_imager_) ? t_m0_c.compose(
-        (*t_camera_imager_), (H1 || H2) ? gtsam::OptionalJacobian(imager_d_pose3_wrt_pose3) : boost::none) : t_m0_c;
+        (*t_camera_imager_), get_H ? gtsam::OptionalJacobian(imager_d_pose3_wrt_pose3) : boost::none) : t_m0_c;
 
       // Find the inverse of the transform from M1 to m0. This is used later to transform the imager
       // pose into m1's frame.
-      auto t_m1_m0 = t_m0_m1.inverse(H2 ? gtsam::OptionalJacobian(inverse_d_pose3_wrt_pose3) : boost::none);
+      auto t_m1_m0 = t_m0_m1.inverse(get_H ? gtsam::OptionalJacobian(inverse_d_pose3_wrt_pose3) : boost::none);
 
       // find the pose of the imager in marker 1's frame.
       auto t_m1_i = t_m1_m0.compose(
-        t_m0_i, H2 ? gtsam::OptionalJacobian(compose_d_pose3_wrt_pose3) : boost::none);
+        t_m0_i, get_H ? gtsam::OptionalJacobian(compose_d_pose3_wrt_pose3) : boost::none);
 
       // Create two Pinhole Cameras - one in m0's frame and the other in m1's frame..
       auto m0_imager = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m0_i, *cal3ds2_};
       auto m1_imager = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m1_i, *cal3ds2_};
 
       try {
-        bool get_H = H1 || H2;
         gtsam::Matrix26 J0, J1, J2, J3, J4, J5, J6, J7;
         auto e = (Eigen::Matrix<double, 16, 1>{}
           <<
@@ -320,6 +341,7 @@ namespace camsim
                             (get_H) ? gtsam::OptionalJacobian(J2) : boost::none) - m0_corners_f_image_[2],
           m0_imager.project(corners_f_marker_[3],
                             (get_H) ? gtsam::OptionalJacobian(J3) : boost::none) - m0_corners_f_image_[3],
+
           m1_imager.project(corners_f_marker_[0],
                             (get_H) ? gtsam::OptionalJacobian(J4) : boost::none) - m1_corners_f_image_[0],
           m1_imager.project(corners_f_marker_[1],
@@ -329,6 +351,11 @@ namespace camsim
           m1_imager.project(corners_f_marker_[3],
                             (get_H) ? gtsam::OptionalJacobian(J7) : boost::none) - m1_corners_f_image_[3]
         ).finished();
+
+        if (get_H) {
+          logger_.warn() << J0;
+          logger_.warn() << J1;
+        }
 
         if (t_camera_imager_) {
           J0 = J0 * imager_d_pose3_wrt_pose3;
@@ -342,17 +369,24 @@ namespace camsim
         }
 
         if (H1) {
-          *H1 = (Eigen::Matrix<double, 16, 6>{}
-            <<
-            J0,
-            J1,
-            J2,
-            J3,
-            J4,
-            J5,
-            J6,
-            J7
-          ).finished();
+          *H1 = Eigen::Matrix<double, 16, 6>::Zero();
+//          *H1 = (Eigen::Matrix<double, 16, 6>{}
+//            <<
+//            J0,
+//            J1,
+////            J2,
+////            J3,
+////            J4,
+////            J5,
+////            J6,
+////            J7
+//            gtsam::Matrix26::Zero(),
+//            gtsam::Matrix26::Zero(),
+//            gtsam::Matrix26::Zero(),
+//            gtsam::Matrix26::Zero(),
+//            gtsam::Matrix26::Zero(),
+//            gtsam::Matrix26::Zero()
+//          ).finished();
         }
 
         if (H2) {
