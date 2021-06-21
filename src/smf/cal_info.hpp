@@ -9,6 +9,16 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 
+
+#define RETURN_IF_NONZERO(logger, str, test) \
+  do {auto ret = (test); if (ret) { \
+  logger.warn() << "factors_gtsam_test " << str << " ret=" << ret; return ret;}} while(false)
+
+#define RETURN_ONE_IF_FALSE(logger, str, test) \
+  do {if (!test) { \
+  logger.warn() << "factors_gtsam_test " << str; return 1;}} while(false)
+
+
 namespace camsim
 {
 
@@ -306,24 +316,25 @@ namespace camsim
                                 boost::optional<gtsam::Matrix &> H1 = boost::none,
                                 boost::optional<gtsam::Matrix &> H2 = boost::none) const override
     {
+      bool get_H = H1 || H2;
+
       gtsam::Matrix66 imager_d_pose3_wrt_pose3;
       gtsam::Matrix66 inverse_d_pose3_wrt_pose3;
       gtsam::Matrix66 compose_d_pose3_wrt_pose3;
-
-      bool get_H = H1 || H2;
+      auto imager_d_pose3_wrt_pose3_o{get_H ? gtsam::OptionalJacobian(imager_d_pose3_wrt_pose3) : boost::none};
+      auto inverse_d_pose3_wrt_pose3_o{get_H ? gtsam::OptionalJacobian(inverse_d_pose3_wrt_pose3) : boost::none};
+      auto compose_d_pose3_wrt_pose3_o{get_H ? gtsam::OptionalJacobian(compose_d_pose3_wrt_pose3) : boost::none};
 
       // Find the pose of the imager. If t_camera_imager is not optional, then the imager pose is
       // offset from the camera. Otherwise it is the same as the camera.
-      auto t_m0_i = (t_camera_imager_) ? t_m0_c.compose(
-        (*t_camera_imager_), get_H ? gtsam::OptionalJacobian(imager_d_pose3_wrt_pose3) : boost::none) : t_m0_c;
+      auto t_m0_i = (t_camera_imager_) ? t_m0_c.compose((*t_camera_imager_), imager_d_pose3_wrt_pose3_o) : t_m0_c;
 
       // Find the inverse of the transform from M1 to m0. This is used later to transform the imager
       // pose into m1's frame.
-      auto t_m1_m0 = t_m0_m1.inverse(get_H ? gtsam::OptionalJacobian(inverse_d_pose3_wrt_pose3) : boost::none);
+      auto t_m1_m0 = t_m0_m1.inverse(inverse_d_pose3_wrt_pose3_o);
 
       // find the pose of the imager in marker 1's frame.
-      auto t_m1_i = t_m1_m0.compose(
-        t_m0_i, get_H ? gtsam::OptionalJacobian(compose_d_pose3_wrt_pose3) : boost::none);
+      auto t_m1_i = t_m1_m0.compose(t_m0_i, compose_d_pose3_wrt_pose3_o);
 
       // Create two Pinhole Cameras - one in m0's frame and the other in m1's frame..
       auto m0_imager = gtsam::PinholeCamera<gtsam::Cal3DS2>{t_m0_i, *cal3ds2_};
@@ -331,72 +342,49 @@ namespace camsim
 
       try {
         gtsam::Matrix26 J0, J1, J2, J3, J4, J5, J6, J7;
+        auto J0_o{get_H ? gtsam::OptionalJacobian(J0) : boost::none};
+        auto J1_o{get_H ? gtsam::OptionalJacobian(J1) : boost::none};
+        auto J2_o{get_H ? gtsam::OptionalJacobian(J2) : boost::none};
+        auto J3_o{get_H ? gtsam::OptionalJacobian(J3) : boost::none};
+        auto J4_o{get_H ? gtsam::OptionalJacobian(J4) : boost::none};
+        auto J5_o{get_H ? gtsam::OptionalJacobian(J5) : boost::none};
+        auto J6_o{get_H ? gtsam::OptionalJacobian(J6) : boost::none};
+        auto J7_o{get_H ? gtsam::OptionalJacobian(J7) : boost::none};
+
         auto e = (Eigen::Matrix<double, 16, 1>{}
           <<
-          m0_imager.project(corners_f_marker_[0],
-                            (get_H) ? gtsam::OptionalJacobian(J0) : boost::none) - m0_corners_f_image_[0],
-          m0_imager.project(corners_f_marker_[1],
-                            (get_H) ? gtsam::OptionalJacobian(J1) : boost::none) - m0_corners_f_image_[1],
-          m0_imager.project(corners_f_marker_[2],
-                            (get_H) ? gtsam::OptionalJacobian(J2) : boost::none) - m0_corners_f_image_[2],
-          m0_imager.project(corners_f_marker_[3],
-                            (get_H) ? gtsam::OptionalJacobian(J3) : boost::none) - m0_corners_f_image_[3],
-
-          m1_imager.project(corners_f_marker_[0],
-                            (get_H) ? gtsam::OptionalJacobian(J4) : boost::none) - m1_corners_f_image_[0],
-          m1_imager.project(corners_f_marker_[1],
-                            (get_H) ? gtsam::OptionalJacobian(J5) : boost::none) - m1_corners_f_image_[1],
-          m1_imager.project(corners_f_marker_[2],
-                            (get_H) ? gtsam::OptionalJacobian(J6) : boost::none) - m1_corners_f_image_[2],
-          m1_imager.project(corners_f_marker_[3],
-                            (get_H) ? gtsam::OptionalJacobian(J7) : boost::none) - m1_corners_f_image_[3]
+          m0_imager.project(corners_f_marker_[0], J0_o) - m0_corners_f_image_[0],
+          m0_imager.project(corners_f_marker_[1], J1_o) - m0_corners_f_image_[1],
+          m0_imager.project(corners_f_marker_[2], J2_o) - m0_corners_f_image_[2],
+          m0_imager.project(corners_f_marker_[3], J3_o) - m0_corners_f_image_[3],
+          m1_imager.project(corners_f_marker_[0], J4_o) - m1_corners_f_image_[0],
+          m1_imager.project(corners_f_marker_[1], J5_o) - m1_corners_f_image_[1],
+          m1_imager.project(corners_f_marker_[2], J6_o) - m1_corners_f_image_[2],
+          m1_imager.project(corners_f_marker_[3], J7_o) - m1_corners_f_image_[3]
         ).finished();
 
-        if (get_H) {
-          logger_.warn() << J0;
-          logger_.warn() << J1;
-        }
-
-        if (t_camera_imager_) {
-          J0 = J0 * imager_d_pose3_wrt_pose3;
-          J1 = J1 * imager_d_pose3_wrt_pose3;
-          J2 = J2 * imager_d_pose3_wrt_pose3;
-          J3 = J3 * imager_d_pose3_wrt_pose3;
-          J4 = J4 * imager_d_pose3_wrt_pose3;
-          J5 = J5 * imager_d_pose3_wrt_pose3;
-          J6 = J6 * imager_d_pose3_wrt_pose3;
-          J7 = J7 * imager_d_pose3_wrt_pose3;
-        }
-
         if (H1) {
-          *H1 = Eigen::Matrix<double, 16, 6>::Zero();
-//          *H1 = (Eigen::Matrix<double, 16, 6>{}
-//            <<
-//            J0,
-//            J1,
-////            J2,
-////            J3,
-////            J4,
-////            J5,
-////            J6,
-////            J7
-//            gtsam::Matrix26::Zero(),
-//            gtsam::Matrix26::Zero(),
-//            gtsam::Matrix26::Zero(),
-//            gtsam::Matrix26::Zero(),
-//            gtsam::Matrix26::Zero(),
-//            gtsam::Matrix26::Zero()
-//          ).finished();
+          *H1 = (Eigen::Matrix<double, 16, 6>{}
+            <<
+            ((t_camera_imager_) ? J0 * imager_d_pose3_wrt_pose3 : J0),
+            ((t_camera_imager_) ? J1 * imager_d_pose3_wrt_pose3 : J1),
+            ((t_camera_imager_) ? J2 * imager_d_pose3_wrt_pose3 : J2),
+            ((t_camera_imager_) ? J3 * imager_d_pose3_wrt_pose3 : J3),
+            ((t_camera_imager_) ? J4 * imager_d_pose3_wrt_pose3 : J4),
+            ((t_camera_imager_) ? J5 * imager_d_pose3_wrt_pose3 : J5),
+            ((t_camera_imager_) ? J6 * imager_d_pose3_wrt_pose3 : J6),
+            ((t_camera_imager_) ? J7 * imager_d_pose3_wrt_pose3 : J7)
+          ).finished();
         }
 
         if (H2) {
           gtsam::Matrix66 combined_d_pose3_wrt_pose3 = compose_d_pose3_wrt_pose3 * inverse_d_pose3_wrt_pose3;
-          *H1 = (Eigen::Matrix<double, 16, 6>{}
+          *H2 = (Eigen::Matrix<double, 16, 6>{}
             <<
-            J0 * combined_d_pose3_wrt_pose3,
-            J1 * combined_d_pose3_wrt_pose3,
-            J2 * combined_d_pose3_wrt_pose3,
-            J3 * combined_d_pose3_wrt_pose3,
+            gtsam::Matrix26::Zero(),
+            gtsam::Matrix26::Zero(),
+            gtsam::Matrix26::Zero(),
+            gtsam::Matrix26::Zero(),
             J4 * combined_d_pose3_wrt_pose3,
             J5 * combined_d_pose3_wrt_pose3,
             J6 * combined_d_pose3_wrt_pose3,
@@ -440,11 +428,11 @@ namespace camsim
       camera_info_{camera_info}, imager_index_{imager_index}
     {}
 
-    static Map MakeMap(const fvlam::MarkerModelRunner &runner)
+    static Map MakeMap(const fvlam::CameraInfoMap &camera_info_map)
     {
       auto map = Map{};
       std::size_t imager_index = 0;
-      for (auto &cip : runner.model().camera_info_map().m()) {
+      for (auto &cip : camera_info_map.m()) {
         auto cal3ds2 = boost::shared_ptr<gtsam::Cal3DS2>(new gtsam::Cal3DS2(cip.second.to<gtsam::Cal3DS2>()));
         map.emplace(cip.first, CalInfo{cal3ds2, cip.second, imager_index++});
       }

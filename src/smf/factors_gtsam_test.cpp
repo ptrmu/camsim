@@ -7,14 +7,6 @@
 #include "gtsam/geometry/Rot3.h"
 #include "cal_info.hpp"
 
-#define RETURN_IF_NONZERO(logger, str, test) \
-  do {auto ret = (test); if (ret) { \
-  logger.warn() << "factors_gtsam_test " << str << " ret=" << ret; return ret;}} while(false)
-
-#define RETURN_ONE_IF_FALSE(logger, str, test) \
-  do {if (!test) { \
-  logger.warn() << "factors_gtsam_test " << str; return 1;}} while(false)
-
 namespace camsim
 {
 // ==============================================================================
@@ -731,8 +723,8 @@ namespace camsim
                                     d_point2_wrt_m0_c_pose,
                                     d_point2_wrt_m0_m1_pose);
 
-      runner_.logger().warn() << e;
-      runner_.logger().warn() << d_point2_wrt_m0_c_pose;
+//      runner_.logger().warn() << e;
+//      runner_.logger().warn() << d_point2_wrt_m0_c_pose;
 
       // Calculate the Jacobean numerically
       auto numericalH1 = gtsam::numericalDerivative21<Eigen::Matrix<double, 16, 1>, gtsam::Pose3, gtsam::Pose3>(
@@ -764,6 +756,7 @@ namespace camsim
 
     int operator()()
     {
+      int pair_count = 0;
       gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector2(1.0, 1.0));
       auto corners_f_marker = fvlam::Marker::corners_f_marker<std::array<gtsam::Point3, fvlam::Marker::ArraySize>>(
         runner_.model().environment().marker_length());
@@ -776,7 +769,7 @@ namespace camsim
           runner_.logger(), "QuadMarker0Marker1FactorTest truth_not_perturbed=" << truth_not_perturbed,
           runner_.for_each_observations(
             truth_not_perturbed,
-            [this, &corners_f_marker, &measurement_noise, truth_not_perturbed](
+            [this, &corners_f_marker, &measurement_noise, truth_not_perturbed, &pair_count](
               const fvlam::MarkerObservations &marker_observations,
               const fvlam::Observations &observations,
               const fvlam::CameraInfo &camera_info) -> int
@@ -787,6 +780,7 @@ namespace camsim
               // Loop over all the pairs of observations.
               for (std::size_t i0 = 0; i0 < observations.v().size(); i0 += 1) {
                 for (std::size_t i1 = i0 + 1; i1 < observations.v().size(); i1 += 1) {
+                  pair_count += 1;
                   auto m0_corners_f_image = observations.v()[i0].to<std::array<gtsam::Point2, 4>>();
                   auto m1_corners_f_image = observations.v()[i1].to<std::array<gtsam::Point2, 4>>();
 
@@ -816,6 +810,8 @@ namespace camsim
             }));
 
       } while (truth_not_perturbed);
+
+      runner_.logger().warn() << "QuadMarker0Marker1FactorTest Pairs of markers tested: " << pair_count;
       return 0;
     }
   };
@@ -830,31 +826,31 @@ namespace camsim
 //    auto model_maker = fvlam::MarkerModelGen::DualWideSingleCamera();
 //    auto model_maker = fvlam::MarkerModelGen::DualWideSingleMarker();
 //    auto model_maker = fvlam::MarkerModelGen::MonoSpinCameraAtOrigin();
-//    auto model_maker = fvlam::MarkerModelGen::DualSpinCameraAtOrigin();
+    auto model_maker = fvlam::MarkerModelGen::DualSpinCameraAtOrigin();
 //    auto model_maker = fvlam::MarkerModelGen::MonoParallelCircles();
-    auto model_maker = fvlam::MarkerModelGen::MonoDoubleMarker();
+//    auto model_maker = fvlam::MarkerModelGen::MonoDoubleMarker();
 //    auto model_maker = fvlam::MarkerModelGen::MonoSingleMarker();
 //    auto model_maker = fvlam::MarkerModelGen::DualSingleMarker();
 
-//    RETURN_IF_NONZERO(
-//      logger, "Run ProjectBetweenFactorTest",
-//      fvlam::MarkerModelRunner::runner_run<ProjectBetweenFactorTest>(runner_config, model_maker));
-//
-//    RETURN_IF_NONZERO(
-//      logger, "Run ResectioningFactorTest",
-//      fvlam::MarkerModelRunner::runner_run<ResectioningFactorTest>(runner_config, model_maker));
-//
-//    RETURN_IF_NONZERO(
-//      logger, "Run QuadResectioningFactorTest",
-//      fvlam::MarkerModelRunner::runner_run<QuadResectioningFactorTest>(runner_config, model_maker));
-//
-//    RETURN_IF_NONZERO(
-//      logger, "Run MarkerCornerFactorTest",
-//      fvlam::MarkerModelRunner::runner_run<MarkerCornerFactorTest>(runner_config, model_maker));
-//
-//    RETURN_IF_NONZERO(
-//      logger, "Run Imager0Imager1FactorTest",
-//      fvlam::MarkerModelRunner::runner_run<Imager0Imager1FactorTest>(runner_config, model_maker));
+    RETURN_IF_NONZERO(
+      logger, "Run ProjectBetweenFactorTest",
+      fvlam::MarkerModelRunner::runner_run<ProjectBetweenFactorTest>(runner_config, model_maker));
+
+    RETURN_IF_NONZERO(
+      logger, "Run ResectioningFactorTest",
+      fvlam::MarkerModelRunner::runner_run<ResectioningFactorTest>(runner_config, model_maker));
+
+    RETURN_IF_NONZERO(
+      logger, "Run QuadResectioningFactorTest",
+      fvlam::MarkerModelRunner::runner_run<QuadResectioningFactorTest>(runner_config, model_maker));
+
+    RETURN_IF_NONZERO(
+      logger, "Run MarkerCornerFactorTest",
+      fvlam::MarkerModelRunner::runner_run<MarkerCornerFactorTest>(runner_config, model_maker));
+
+    RETURN_IF_NONZERO(
+      logger, "Run Imager0Imager1FactorTest",
+      fvlam::MarkerModelRunner::runner_run<Imager0Imager1FactorTest>(runner_config, model_maker));
 
     RETURN_IF_NONZERO(
       logger, "Run Marker0Marker1FactorTest",

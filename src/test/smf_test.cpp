@@ -34,8 +34,13 @@ TEST_CASE("imager_relative_pose - run - zero", "[.][all]")
   REQUIRE(0 == camsim::imager_relative_pose());
 }
 
-TEST_CASE("factors_gtsam_test - run - zero", "[all]")
+TEST_CASE("factors_gtsam_test - run - zero", "[.][all]")
 {
   REQUIRE(0 == camsim::factors_gtsam_test());
+}
+
+TEST_CASE("inter_marker_pose_test - run - zero", "[all]")
+{
+  REQUIRE(0 == camsim::inter_marker_pose_test());
 }
 

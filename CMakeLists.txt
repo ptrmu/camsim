@@ -212,6 +212,7 @@ add_executable(smf_run
   src/smf/smf_run.cpp
   src/test/camsim_test.cpp
   src/test/smf_test.cpp
+  src/smf/inter_marker_pose.cpp
   )
 
 target_link_libraries(smf_run
@@ -307,6 +308,7 @@ add_executable(camsim_test
   src/test/smf_test.cpp
   src/test/tmm_test.cpp
   src/fvlam/model.cpp
+  src/smf/inter_marker_pose.cpp
   )
 
 

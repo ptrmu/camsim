@@ -20,13 +20,13 @@ namespace camsim
 {
 
 // ==============================================================================
-// ImagerRelativePoseTest class
+// InterMarkerPoseTest class
 // ==============================================================================
 
-  class InterImagerPoseTest
+  class InterMarkerPoseTest
   {
   public:
-    using This = InterImagerPoseTest;
+    using This = InterMarkerPoseTest;
     using Maker = std::function<This(fvlam::MarkerModelRunner &)>;
 
     struct Config
@@ -42,20 +42,139 @@ namespace camsim
     const std::string base_imager_frame_id_;
     const gtsam::SharedNoiseModel measurement_noise_;
     const std::vector<gtsam::Point3> corners_f_marker_;
+    std::array<gtsam::Point3, 4> corners_f_marker_array_;
     const std::vector<fvlam::Transform3> t_imager0_imagerNs_;
 
   public:
-    InterImagerPoseTest(Config cfg, fvlam::MarkerModelRunner &runner) :
+    InterMarkerPoseTest(Config cfg, fvlam::MarkerModelRunner &runner) :
       cfg_{cfg}, runner_{runner},
       k_map_{CalInfo::MakeMap(runner_.model().camera_info_map())},
       base_imager_frame_id_{CalInfo::make_base_imager_frame_id(k_map_)},
       measurement_noise_{gtsam::noiseModel::Isotropic::Sigma(2, 1.0)},
       corners_f_marker_{fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(
         runner_.model().environment().marker_length())},
+      corners_f_marker_array_{fvlam::Marker::corners_f_marker<std::array<gtsam::Point3, 4>>(
+        runner_.model().environment().marker_length())},
       t_imager0_imagerNs_{CalInfo::make_t_imager0_imagerNs(k_map_)}
     {}
 
-    int single_marker_inter_imager_pose()
+    int solve_for_single_pair(
+      std::array<gtsam::Point2, 4> m0_corners_f_image,
+      std::array<gtsam::Point2, 4> m1_corners_f_image,
+      const gtsam::SharedNoiseModel &model,
+      std::optional<gtsam::Pose3> t_camera_imager,
+      std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
+      const gtsam::Pose3 &t_m0_c,
+      const gtsam::Pose3 &t_m0_m1)
+    {
+      gtsam::Key key_t_m0_c = fvlam::ModelKey::camera(0);
+      gtsam::Key key_t_m0_m1 = fvlam::ModelKey::camera_marker(0, 1);
+
+      // Create a factor graph
+      gtsam::NonlinearFactorGraph graph;
+      gtsam::Values initial;
+
+      // imager n uses a factor relative to imager 0
+      graph.emplace_shared<QuadMarker0Marker1Factor>(
+        key_t_m0_c, key_t_m0_m1,
+        m0_corners_f_image,
+        m1_corners_f_image,
+        model,
+        corners_f_marker_array_,
+        t_camera_imager,
+        cal3ds2, runner_.logger(), "Single Pair Test");
+
+      gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+      initial.insert(key_t_m0_c, t_m0_c.compose(delta));
+      initial.insert(key_t_m0_m1, t_m0_m1.compose(delta));
+
+      /* Optimize the graph and print results */
+      auto params = gtsam::LevenbergMarquardtParams();
+//          params.setVerbosityLM("TERMINATION");
+//          params.setVerbosity("TERMINATION");
+//      params.setRelativeErrorTol(1e-12);
+//      params.setAbsoluteErrorTol(1e-12);
+//      params.setMaxIterations(2048);
+
+//          graph.print("graph\n");
+//          initial.print("initial\n");
+
+      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
+//      std::cout << "initial error = " << graph.error(initial) << std::endl;
+//      std::cout << "final error = " << graph.error(result) << std::endl;
+//      result.print("");
+
+      auto t_m0_c_sol = result.at<gtsam::Pose3>(key_t_m0_c);
+      auto t_m0_m1_sol = result.at<gtsam::Pose3>(key_t_m0_m1);
+      RETURN_ONE_IF_FALSE(
+        runner_.logger(), "InterMarkerPoseTest t_m0_c",
+        gtsam::assert_equal(t_m0_c, t_m0_c_sol, 1.0e-6));
+      RETURN_ONE_IF_FALSE(
+        runner_.logger(), "InterMarkerPoseTest t_m0_m1",
+        gtsam::assert_equal(t_m0_m1, t_m0_m1_sol, 1.0e-6));
+
+      return 0;
+    }
+
+    int each_pair()
+    {
+      int pair_count = 0;
+      gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(
+        Eigen::Matrix<double, 16, 1>::Constant(1.0));
+      auto corners_f_marker = fvlam::Marker::corners_f_marker<std::array<gtsam::Point3, fvlam::Marker::ArraySize>>(
+        runner_.model().environment().marker_length());
+
+
+      RETURN_IF_NONZERO(
+        runner_.logger(), "InterMarkerPoseTest each_pair=",
+        runner_.for_each_observations(
+          true,
+          [this, &corners_f_marker, &measurement_noise, &pair_count](
+            const fvlam::MarkerObservations &marker_observations,
+            const fvlam::Observations &observations,
+            const fvlam::CameraInfo &camera_info) -> int
+          {
+            auto cal3ds2 = std::make_shared<const gtsam::Cal3DS2>(camera_info.to<gtsam::Cal3DS2>());
+            const auto &t_w_c = marker_observations.t_map_camera();
+
+            auto t_camera_imager = camera_info.t_camera_imager().is_valid() ?
+                                   std::optional<gtsam::Pose3>(camera_info.t_camera_imager().to<gtsam::Pose3>()) :
+                                   std::nullopt;
+
+            // Loop over all the pairs of observations.
+            for (std::size_t i0 = 0; i0 < observations.v().size(); i0 += 1) {
+              for (std::size_t i1 = i0 + 1; i1 < observations.v().size(); i1 += 1) {
+                pair_count += 1;
+
+
+                auto m0_corners_f_image = observations.v()[i0].to<std::array<gtsam::Point2, 4>>();
+                auto m1_corners_f_image = observations.v()[i1].to<std::array<gtsam::Point2, 4>>();
+
+                auto t_w_m0 = runner_.model().targets()[observations.v()[i0].id()].t_map_marker().tf();
+                auto t_w_m1 = runner_.model().targets()[observations.v()[i1].id()].t_map_marker().tf();
+
+                auto t_m0_w = t_w_m0.inverse();
+                auto t_m0_c = t_m0_w * t_w_c;
+                auto t_m0_m1 = t_m0_w * t_w_m1;
+
+                RETURN_IF_NONZERO(
+                  runner_.logger(), "InterMarkerPoseTest i0, i1=" << i0 << ", " << i1,
+                  solve_for_single_pair(
+                    m0_corners_f_image, m1_corners_f_image,
+                    measurement_noise,
+                    t_camera_imager,
+                    cal3ds2,
+                    t_m0_c.to<gtsam::Pose3>(), t_m0_m1.to<gtsam::Pose3>()));
+              }
+            }
+            return 0;
+          }));
+
+      runner_.logger().warn() << "InterMarkerPoseTest Pairs of markers tested: " << pair_count;
+      return 0;
+    }
+
+    int single_marker_pair()
     {
       auto camera_0_key = fvlam::ModelKey::camera(0);
 
@@ -463,7 +582,7 @@ namespace camsim
       switch (cfg_.algorithm_) {
         default:
         case 0:
-          return single_marker_inter_imager_pose();
+          return each_pair();
 
         case 1:
           return multi_marker_inter_imager_pose();
@@ -477,84 +596,46 @@ namespace camsim
     }
   };
 
-  int imager_relative_pose()
+
+  int inter_marker_pose_test()
   {
     auto runner_config = fvlam::MarkerModelRunner::Config();
-    auto iip_config = InterImagerPoseTest::Config();
-
     fvlam::LoggerCout logger{runner_config.logger_level_};
 
-    auto runner_run = [&runner_config, &iip_config]() -> int
-    {
-      auto marker_runner = fvlam::MarkerModelRunner(runner_config,
-//                                                  fvlam::MarkerModelGen::MonoParallelGrid());
-//                                                    fvlam::MarkerModelGen::DualParallelGrid());
-//                                                    fvlam::MarkerModelGen::DualWideSingleCamera());
-//                                                    fvlam::MarkerModelGen::DualWideSingleMarker());
-//                                                  fvlam::MarkerModelGen::MonoSpinCameraAtOrigin());
-                                                    fvlam::MarkerModelGen::DualSpinCameraAtOrigin());
-//                                                  fvlam::MarkerModelGen::MonoParallelCircles());
+//    auto model_maker = fvlam::MarkerModelGen::MonoParallelGrid();
+//    auto model_maker = fvlam::MarkerModelGen::DualParallelGrid();
+//    auto model_maker = fvlam::MarkerModelGen::DualWideSingleCamera();
+//    auto model_maker = fvlam::MarkerModelGen::DualWideSingleMarker();
+    auto model_maker = fvlam::MarkerModelGen::MonoSpinCameraAtOrigin();
+//    auto model_maker = fvlam::MarkerModelGen::DualSpinCameraAtOrigin();
+//    auto model_maker = fvlam::MarkerModelGen::MonoParallelCircles();
+//    auto model_maker = fvlam::MarkerModelGen::MonoDoubleMarker();
+//    auto model_maker = fvlam::MarkerModelGen::MonoSingleMarker();
+//    auto model_maker = fvlam::MarkerModelGen::DualSingleMarker();
 
-      auto test_maker = [&iip_config](fvlam::MarkerModelRunner &runner) -> InterImagerPoseTest
-      {
-        return InterImagerPoseTest(iip_config, runner);
-      };
+    InterMarkerPoseTest::Config test_config{};
 
-      auto ret0 = marker_runner.run<InterImagerPoseTest::Maker>(test_maker);
+    test_config.algorithm_ = 0;
+    RETURN_IF_NONZERO(
+      logger, "Run InterMarkerPoseTest algorithm= " << test_config.algorithm_,
+      fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
+//
+//    test_config.algorithm_ = 1;
+//    RETURN_IF_NONZERO(
+//      logger, "Run InterMarkerPoseTest algorithm= " << test_config.algorithm_,
+//      fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
+//
+//    test_config.algorithm_ = 2;
+//    RETURN_IF_NONZERO(
+//      logger, "Run InterMarkerPoseTest algorithm= " << test_config.algorithm_,
+//      fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
+//
+//    test_config.algorithm_ = 3;
+//    RETURN_IF_NONZERO(
+//      logger, "Run InterMarkerPoseTest algorithm= " << test_config.algorithm_,
+//      fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
 
-#ifdef ENABLE_TIMING
-      gtsam::tictoc_print2_();
-#endif
-      gtsam::tictoc_reset_();
-
-      return ret0;
-    };
-
-    bool ret = 0;
-
-#if 1
-    runner_config.u_sampler_sigma_ = 1.e-5;
-    iip_config.algorithm_ = 0;
-    ret = runner_run();
-    if (ret != 0) {
-      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
-      return ret;
-    }
-#endif
-
-#if 1
-    runner_config.u_sampler_sigma_ = 1.e-3;
-//    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
-    iip_config.algorithm_ = 1;
-    ret = runner_run();
-    if (ret != 0) {
-      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
-      return ret;
-    }
-#endif
-
-#if 1
-    runner_config.u_sampler_sigma_ = 1.e-3;
-//    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
-    iip_config.algorithm_ = 2;
-    ret = runner_run();
-    if (ret != 0) {
-      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
-      return ret;
-    }
-#endif
-
-#if 1
-    runner_config.u_sampler_sigma_ = 1.e-3;
-//    runner_config.logger_level_ = fvlam::Logger::Levels::level_warn;
-    iip_config.algorithm_ = 3;
-    ret = runner_run();
-    if (ret != 0) {
-      logger.warn() << "algorithm_ " << iip_config.algorithm_ << " ret=" << ret;
-      return ret;
-    }
-#endif
-
-    return ret;
+    return 0;
   }
 }
+

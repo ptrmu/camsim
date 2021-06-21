@@ -387,7 +387,7 @@ namespace camsim
     int operator()()
     {
       // Create a map of calibrations and camera_infos
-      auto k_map = CalInfo::MakeMap(runner_);
+      auto k_map = CalInfo::MakeMap(runner_.model().camera_info_map());
 
       // Define the camera observation noise model
       auto measurementNoise = gtsam::noiseModel::Isotropic::Sigma(2, 1.0); // one pixel in u and v
