@@ -339,5 +339,19 @@ namespace fvlam
                                                   const fvlam::Observation &,
                                                   std::size_t corner_index,
                                                   const fvlam::Translate2)>); //
+
+    class ForAllMarkerObservations
+    {
+      MarkerModelRunner &runner_;
+      ForAllMarkerObservations(MarkerModelRunner &runner,
+                                bool truth_not_perturbed);
+
+    public:
+      void next();
+      bool test();
+      const fvlam::MarkerObservations & marker_observations();
+    };
+
+    ForAllMarkerObservations for_all_marker_observations(bool truth_not_perturbed);
   };
 }
