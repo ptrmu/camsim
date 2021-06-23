@@ -127,7 +127,7 @@ namespace camsim
 
       RETURN_IF_NONZERO(
         runner_.logger(), "InterMarkerPoseTest each_pair=",
-        runner_.for_each_observations(
+        runner_.for_all_observations(
           true,
           [this, &corners_f_marker, &measurement_noise, &pair_count](
             const fvlam::MarkerObservations &marker_observations,

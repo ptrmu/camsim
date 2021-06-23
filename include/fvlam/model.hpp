@@ -171,6 +171,7 @@ namespace fvlam
 // Runner class
 // ==============================================================================
 
+#if 0
   class MarkerModelRunnerSimple
   {
   public:
@@ -220,6 +221,7 @@ namespace fvlam
     auto &model() const
     { return model_; }
   };
+#endif
 
   class MarkerModelRunner
   {
@@ -342,16 +344,139 @@ namespace fvlam
 
     class ForAllMarkerObservations
     {
-      MarkerModelRunner &runner_;
-      ForAllMarkerObservations(MarkerModelRunner &runner,
-                                bool truth_not_perturbed);
+      std::vector<MarkerObservations>::const_iterator next_;
+      std::vector<MarkerObservations>::const_iterator end_;
 
     public:
-      void next();
-      bool test();
-      const fvlam::MarkerObservations & marker_observations();
+      explicit ForAllMarkerObservations(const std::vector<MarkerObservations> &marker_observations_list) :
+        next_{marker_observations_list.begin()},
+        end_{marker_observations_list.end()}
+      {}
+
+      bool test() const
+      { return next_ != end_; }
+
+      void next()
+      { ++next_; }
+
+      const auto &marker_observations() const
+      { return *next_; }
     };
 
-    ForAllMarkerObservations for_all_marker_observations(bool truth_not_perturbed);
+    ForAllMarkerObservations make_for_all_marker_observations(bool truth_not_perturbed)
+    {
+      return ForAllMarkerObservations{truth_not_perturbed ?
+                                      model_.target_observations_list() :
+                                      marker_observations_list_perturbed_};
+    }
+
+    class ForAllObservations
+    {
+      const CameraInfoMap &camera_info_map_;
+      std::vector<Observations>::const_iterator next_;
+      std::vector<Observations>::const_iterator end_;
+      const CameraInfo *camera_info_;
+
+      const CameraInfo *find_camera_info()
+      {
+        for (; test(); ++next_) {
+          // Find the camera_info
+          const auto &kp = camera_info_map_.m().find(next_->imager_frame_id());
+          if (kp != camera_info_map_.m().end()) {
+            return &kp->second;
+          }
+        }
+        return nullptr;
+      }
+
+    public:
+      ForAllObservations(const MarkerObservations &marker_observations,
+                         const CameraInfoMap &camera_info_map) :
+        camera_info_map_{camera_info_map},
+        next_{marker_observations.observations_synced().v().begin()},
+        end_{marker_observations.observations_synced().v().end()},
+        camera_info_{find_camera_info()}
+      {}
+
+      bool test() const
+      { return next_ != end_; }
+
+      void next()
+      {
+        ++next_;
+        camera_info_ = find_camera_info();
+      }
+
+      const auto &observations() const
+      { return *next_; }
+
+      const auto &camera_info() const
+      { return camera_info_; }
+    };
+
+    class ForAllObservation
+    {
+      std::vector<Observation>::const_iterator next_;
+      std::vector<Observation>::const_iterator end_;
+
+    public:
+      explicit ForAllObservation(const Observations &observations) :
+        next_{observations.v().begin()},
+        end_{observations.v().end()}
+      {}
+
+      bool test() const
+      { return next_ != end_; }
+
+      void next()
+      { ++next_; }
+
+      const auto &observation() const
+      { return *next_; }
+    };
+
+    class ForAllCornerFImage
+    {
+      std::size_t corner_index_;
+      Observation::Array corners_f_image_;
+
+    public:
+      explicit ForAllCornerFImage(Observation::Array corners_f_image) :
+        corner_index_{0},
+        corners_f_image_{std::move(corners_f_image)}
+      {}
+
+      bool test() const
+      { return corner_index_ < Observation::ArraySize; }
+
+      void next()
+      { ++corner_index_; }
+
+      const auto &corner_index() const
+      { return corner_index_; }
+
+      const auto &corner_f_image() const
+      { return corners_f_image_[corner_index_]; }
+    };
+
+
+    int for_all_marker_observations(bool truth_not_perturbed,
+                                    const std::function<int(const MarkerObservations &)> &); //
+    int for_all_observations(bool truth_not_perturbed,
+                             const std::function<int(const MarkerObservations &,
+                                                     const Observations &,
+                                                     const CameraInfo &)> &); //
+    int for_all_observation(bool truth_not_perturbed,
+                            const std::function<int(const MarkerObservations &,
+                                                    const Observations &,
+                                                    const CameraInfo &,
+                                                    const Observation &)> &); //
+    int for_all_corner_f_image(bool truth_not_perturbed,
+                               const std::function<int(const MarkerObservations &,
+                                                       const Observations &,
+                                                       const CameraInfo &,
+                                                       const Observation &,
+                                                       std::size_t corner_index,
+                                                       const Translate2)> &); //
   };
 }

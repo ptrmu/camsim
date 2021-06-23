@@ -621,4 +621,88 @@ namespace fvlam
                                   return 0;
                                 });
   }
+
+
+  int MarkerModelRunner::for_all_marker_observations(bool truth_not_perturbed,
+                                                     const std::function<int(const MarkerObservations &)> &cb)
+  {
+    for (auto famos = make_for_all_marker_observations(truth_not_perturbed); famos.test(); famos.next()) {
+      auto ret = cb(famos.marker_observations());
+      if (ret != 0) {
+        return ret;
+      }
+    }
+    return 0;
+  }
+
+  int MarkerModelRunner::for_all_observations(bool truth_not_perturbed,
+                                              const std::function<int(const fvlam::MarkerObservations &,
+                                                                      const fvlam::Observations &,
+                                                                      const fvlam::CameraInfo &)> &cb)
+  {
+    for (auto famos = make_for_all_marker_observations(truth_not_perturbed); famos.test(); famos.next()) {
+      for (auto faos = ForAllObservations(famos.marker_observations(), model_.camera_info_map());
+           faos.test(); faos.next()) {
+        auto ret = cb(famos.marker_observations(),
+                      faos.observations(),
+                      *faos.camera_info());
+        if (ret != 0) {
+          return ret;
+        }
+      }
+    }
+    return 0;
+  }
+
+  int MarkerModelRunner::for_all_observation(bool truth_not_perturbed,
+                                             const std::function<int(const fvlam::MarkerObservations &,
+                                                                     const fvlam::Observations &,
+                                                                     const fvlam::CameraInfo &,
+                                                                     const fvlam::Observation &)> &cb)
+  {
+    for (auto famos = make_for_all_marker_observations(truth_not_perturbed); famos.test(); famos.next()) {
+      for (auto faos = ForAllObservations(famos.marker_observations(), model_.camera_info_map());
+           faos.test(); faos.next()) {
+        for (auto fao = ForAllObservation(faos.observations()); fao.test(); fao.next()) {
+          auto ret = cb(famos.marker_observations(),
+                        faos.observations(),
+                        *faos.camera_info(),
+                        fao.observation());
+          if (ret != 0) {
+            return ret;
+          }
+        }
+      }
+    }
+    return 0;
+  }
+
+  int MarkerModelRunner::for_all_corner_f_image(bool truth_not_perturbed,
+                                                const std::function<int(const fvlam::MarkerObservations &,
+                                                                        const fvlam::Observations &,
+                                                                        const fvlam::CameraInfo &,
+                                                                        const fvlam::Observation &,
+                                                                        std::size_t,
+                                                                        const fvlam::Translate2)> &cb)
+  {
+    for (auto famos = make_for_all_marker_observations(truth_not_perturbed); famos.test(); famos.next()) {
+      for (auto faos = ForAllObservations(famos.marker_observations(), model_.camera_info_map());
+           faos.test(); faos.next()) {
+        for (auto fao = ForAllObservation(faos.observations()); fao.test(); fao.next()) {
+          for (auto facfi = ForAllCornerFImage(fao.observation().corners_f_image()); facfi.test(); facfi.next()) {
+            auto ret = cb(famos.marker_observations(),
+                          faos.observations(),
+                          *faos.camera_info(),
+                          fao.observation(),
+                          facfi.corner_index(),
+                          facfi.corner_f_image());
+            if (ret != 0) {
+              return ret;
+            }
+          }
+        }
+      }
+    }
+    return 0;
+  }
 }
