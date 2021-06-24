@@ -142,30 +142,27 @@ namespace camsim
                                    std::nullopt;
 
             // Loop over all the pairs of observations.
-            for (std::size_t i0 = 0; i0 < observations.v().size(); i0 += 1) {
-              for (std::size_t i1 = i0 + 1; i1 < observations.v().size(); i1 += 1) {
-                pair_count += 1;
+            for (auto faop = fvlam::MarkerModelRunner::ForAllObservationPair(observations); faop.test(); faop.next()) {
+              pair_count += 1;
+              
+              auto m0_corners_f_image = faop.observation0().to<std::array<gtsam::Point2, 4>>();
+              auto m1_corners_f_image = faop.observation1().to<std::array<gtsam::Point2, 4>>();
 
+              auto t_w_m0 = runner_.model().targets()[faop.observation0().id()].t_map_marker().tf();
+              auto t_w_m1 = runner_.model().targets()[faop.observation1().id()].t_map_marker().tf();
 
-                auto m0_corners_f_image = observations.v()[i0].to<std::array<gtsam::Point2, 4>>();
-                auto m1_corners_f_image = observations.v()[i1].to<std::array<gtsam::Point2, 4>>();
+              auto t_m0_w = t_w_m0.inverse();
+              auto t_m0_c = t_m0_w * t_w_c;
+              auto t_m0_m1 = t_m0_w * t_w_m1;
 
-                auto t_w_m0 = runner_.model().targets()[observations.v()[i0].id()].t_map_marker().tf();
-                auto t_w_m1 = runner_.model().targets()[observations.v()[i1].id()].t_map_marker().tf();
-
-                auto t_m0_w = t_w_m0.inverse();
-                auto t_m0_c = t_m0_w * t_w_c;
-                auto t_m0_m1 = t_m0_w * t_w_m1;
-
-                RETURN_IF_NONZERO(
-                  runner_.logger(), "InterMarkerPoseTest i0, i1=" << i0 << ", " << i1,
-                  solve_for_single_pair(
-                    m0_corners_f_image, m1_corners_f_image,
-                    measurement_noise,
-                    t_camera_imager,
-                    cal3ds2,
-                    t_m0_c.to<gtsam::Pose3>(), t_m0_m1.to<gtsam::Pose3>()));
-              }
+              RETURN_IF_NONZERO(
+                runner_.logger(), "InterMarkerPoseTest i0, i1=" << faop.i0() << ", " << faop.i1(),
+                solve_for_single_pair(
+                  m0_corners_f_image, m1_corners_f_image,
+                  measurement_noise,
+                  t_camera_imager,
+                  cal3ds2,
+                  t_m0_c.to<gtsam::Pose3>(), t_m0_m1.to<gtsam::Pose3>()));
             }
             return 0;
           }));

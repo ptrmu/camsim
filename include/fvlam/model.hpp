@@ -459,6 +459,42 @@ namespace fvlam
       { return corners_f_image_[corner_index_]; }
     };
 
+    class ForAllObservationPair
+    {
+      const std::vector<Observation> &v_;
+      std::size_t i0_;
+      std::size_t i1_;
+
+    public:
+      explicit ForAllObservationPair(const Observations &observations) :
+        v_{observations.v()}, i0_{0}, i1_{1}
+      {}
+
+      bool test() const
+      { return i0_ < v_.size() && i1_ < v_.size(); }
+
+      void next()
+      {
+        i1_ += 1;
+        if (i1_ >= v_.size()) {
+          i0_ += 1;
+          i1_ = i0_ + 1;
+        }
+      }
+
+      const auto i0() const
+      { return i0_; }
+
+      const auto i1() const
+      { return i1_; }
+
+      const auto &observation0() const
+      { return v_[i0_]; }
+
+      const auto &observation1() const
+      { return v_[i1_]; }
+    };
+
 
     int for_all_marker_observations(bool truth_not_perturbed,
                                     const std::function<int(const MarkerObservations &)> &); //
