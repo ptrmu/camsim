@@ -322,19 +322,29 @@ namespace fvlam
     };
   }
 
+  const static unsigned char key_char_value = 'a';
+  const static unsigned char key_char_camera = 'c';
+  const static unsigned char key_char_camera_marker = 'd';
+  const static unsigned char key_char_marker_marker = 'e';
+  const static unsigned char key_char_corner0 = 'i';
+  const static unsigned char key_char_corner1 = 'j';
+  const static unsigned char key_char_corner2 = 'k';
+  const static unsigned char key_char_corner3 = 'l';
+  const static unsigned char key_char_marker = 'm';
+
   std::uint64_t ModelKey::value(std::size_t value_idx)
   {
-    return gtsam::Symbol{'a', value_idx}.key();
+    return gtsam::Symbol{key_char_value, value_idx}.key();
   }
 
   std::uint64_t ModelKey::camera(std::size_t camera_idx)
   {
-    return gtsam::Symbol{'c', camera_idx}.key();
+    return gtsam::Symbol{key_char_camera, camera_idx}.key();
   }
 
   std::uint64_t ModelKey::marker(std::size_t marker_idx)
   {
-    return gtsam::Symbol{'m', marker_idx}.key();
+    return gtsam::Symbol{key_char_marker, marker_idx}.key();
   }
 
   static const std::size_t camera_marker_bits = 24;
@@ -343,12 +353,17 @@ namespace fvlam
 
   std::uint64_t ModelKey::camera_marker(std::size_t camera_idx, std::size_t marker_idx)
   {
-    return gtsam::Symbol{'d', camera_idx * camera_marker_stride + marker_idx}.key();
+    return gtsam::Symbol{key_char_camera_marker, camera_idx * camera_marker_stride + marker_idx}.key();
+  }
+
+  std::uint64_t ModelKey::marker_marker(std::size_t marker0_idx, std::size_t marker1_idx)
+  {
+    return gtsam::Symbol{key_char_marker_marker, marker0_idx * camera_marker_stride + marker1_idx}.key();
   }
 
   std::uint64_t ModelKey::corner(std::uint64_t marker_key, std::size_t corner_idx)
   {
-    static char codes[] = {'i', 'j', 'k', 'l'};
+    static char codes[] = {key_char_corner0, key_char_corner1, key_char_corner2, key_char_corner3};
     auto marker_index = gtsam::Symbol{marker_key}.index();
     return gtsam::Symbol(codes[corner_idx % sizeof(codes)], marker_index);
   }
@@ -360,13 +375,13 @@ namespace fvlam
 
   std::size_t ModelKey::camera_idx_from_camera_marker(std::uint64_t camera_marker_key)
   {
-    assert(gtsam::Symbol{camera_marker_key}.chr() == 'd');
+    assert(gtsam::Symbol{camera_marker_key}.chr() == key_char_camera_marker);
     return (gtsam::Symbol{camera_marker_key}.index() >> camera_marker_bits) & camera_marker_mask;
   }
 
   std::size_t ModelKey::marker_idx_from_camera_marker(std::uint64_t camera_marker_key)
   {
-    assert(gtsam::Symbol{camera_marker_key}.chr() == 'd');
+    assert(gtsam::Symbol{camera_marker_key}.chr() == key_char_camera_marker);
     return gtsam::Symbol{camera_marker_key}.index() & camera_marker_mask;
   }
 

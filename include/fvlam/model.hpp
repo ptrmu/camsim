@@ -161,6 +161,7 @@ namespace fvlam
     static std::uint64_t camera(std::size_t camera_idx); //
     static std::uint64_t marker(std::size_t marker_idx); //
     static std::uint64_t camera_marker(std::size_t camera_idx, std::size_t marker_idx); //
+    static std::uint64_t marker_marker(std::size_t marker0_idx, std::size_t marker1_idx); //
     static std::uint64_t corner(std::uint64_t marker_key, std::size_t corner_idx); //
     static std::uint64_t marker_from_corner(std::uint64_t corner_key); //
     static std::size_t camera_idx_from_camera_marker(std::uint64_t camera_marker_key); //

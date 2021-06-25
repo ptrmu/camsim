@@ -19,6 +19,83 @@
 namespace camsim
 {
 
+  struct GraphData
+  {
+    gtsam::Key t_m0_m1_key_;
+    gtsam::NonlinearFactorGraph graph_;
+    gtsam::Values initial_;
+
+    GraphData(gtsam::Key t_m0_m1_key) :
+      t_m0_m1_key_{t_m0_m1_key},
+      graph_{}, initial_{}
+    {}
+  };
+
+// ==============================================================================
+// MarkerMarkerStorage class
+// ==============================================================================
+
+  template<class Stg>
+  class MarkerMarkerStorage
+  {
+    std::map<std::uint64_t, std::map<std::uint64_t, Stg>> storage_{};
+
+  public:
+    explicit MarkerMarkerStorage()
+    {}
+
+    void clear()
+    {
+      storage_.clear();
+    }
+
+    Stg *lookup(std::uint64_t id0, std::uint64_t id1)
+    {
+      if (id0 > id1) {
+        std::swap(id0, id1);
+      }
+
+      auto f_links = storage_.find(id0);
+      if (f_links == storage_.end()) {
+        return nullptr;
+      }
+
+      auto f_link = f_links->second.find(id1);
+      if (f_link == f_links->second.end()) {
+        return nullptr;
+      }
+
+      return &f_link->second;
+    }
+
+    Stg &add_or_lookup(std::uint64_t id0, std::uint64_t id1, std::function<Stg(void)> solve_tmm_factory)
+    {
+      if (id0 > id1) {
+        std::swap(id0, id1);
+      }
+
+      // Look for thee forward link
+      auto f_links = storage_.find(id0);
+      if (f_links == storage_.end()) {
+        storage_.emplace(id0, std::map<std::uint64_t, Stg>{});
+        f_links = storage_.find(id0);
+      }
+
+      auto f_link = f_links->second.find(id1);
+      if (f_link != f_links->second.end()) {
+        return f_link->second;
+      }
+
+      // Insert a forward link
+      f_links->second.emplace(id1, solve_tmm_factory());
+      f_link = f_links->second.find(id1);
+
+      return f_link->second;
+    }
+  };
+
+  using GraphDataStorage = MarkerMarkerStorage<GraphData>;
+
 // ==============================================================================
 // InterMarkerPoseTest class
 // ==============================================================================
@@ -37,6 +114,7 @@ namespace camsim
   private:
     Config cfg_;
     fvlam::MarkerModelRunner &runner_;
+    std::map<std::uint64_t, GraphData> graph_data_map_;
 
     const CalInfo::Map k_map_;
     const std::string base_imager_frame_id_;
@@ -45,18 +123,16 @@ namespace camsim
     std::array<gtsam::Point3, 4> corners_f_marker_array_;
     const std::vector<fvlam::Transform3> t_imager0_imagerNs_;
 
-  public:
-    InterMarkerPoseTest(Config cfg, fvlam::MarkerModelRunner &runner) :
-      cfg_{cfg}, runner_{runner},
-      k_map_{CalInfo::MakeMap(runner_.model().camera_info_map())},
-      base_imager_frame_id_{CalInfo::make_base_imager_frame_id(k_map_)},
-      measurement_noise_{gtsam::noiseModel::Isotropic::Sigma(2, 1.0)},
-      corners_f_marker_{fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(
-        runner_.model().environment().marker_length())},
-      corners_f_marker_array_{fvlam::Marker::corners_f_marker<std::array<gtsam::Point3, 4>>(
-        runner_.model().environment().marker_length())},
-      t_imager0_imagerNs_{CalInfo::make_t_imager0_imagerNs(k_map_)}
-    {}
+    GraphData &add_or_lookup(std::uint64_t id0, const std::function<GraphData(void)> &make_graph_data)
+    {
+      auto pair = graph_data_map_.find(id0);
+      if (pair != graph_data_map_.end()) {
+        return pair->second;
+      }
+
+      graph_data_map_.emplace(id0, make_graph_data());
+      return graph_data_map_.find(id0)->second;
+    }
 
     int solve_for_single_pair(
       std::array<gtsam::Point2, 4> m0_corners_f_image,
@@ -116,6 +192,54 @@ namespace camsim
       return 0;
     }
 
+    void add_marker_pair_to_graph(
+      const fvlam::MarkerObservations &marker_observations,
+      const fvlam::CameraInfo &camera_info,
+      const fvlam::Observation &observation0,
+      const fvlam::Observation &observation1)
+    {
+      auto t_m0_c_key = fvlam::ModelKey::camera(marker_observations.camera_index());
+      auto t_m0_m1_key = fvlam::ModelKey::marker_marker(observation0.id(), observation1.id());
+
+      auto cal3ds2 = std::make_shared<const gtsam::Cal3DS2>(camera_info.to<gtsam::Cal3DS2>());
+      auto t_camera_imager = camera_info.t_camera_imager().is_valid() ?
+                             std::optional<gtsam::Pose3>(camera_info.t_camera_imager().to<gtsam::Pose3>()) :
+                             std::nullopt;
+
+      auto m0_corners_f_image = observation0.to<std::array<gtsam::Point2, 4>>();
+      auto m1_corners_f_image = observation1.to<std::array<gtsam::Point2, 4>>();
+
+      auto &graph_data = add_or_lookup(t_m0_m1_key,
+                                       [t_m0_m1_key]() -> GraphData
+                                       { return GraphData(t_m0_m1_key); });
+
+      // Add the factor to the graph
+      graph_data.graph_.emplace_shared<QuadMarker0Marker1Factor>(
+        t_m0_c_key, t_m0_m1_key,
+        m0_corners_f_image,
+        m1_corners_f_image,
+        measurement_noise_,
+        corners_f_marker_array_,
+        t_camera_imager,
+        cal3ds2, runner_.logger(), "Single Pair Test");
+
+      // Add initial values.
+      gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
+
+      const auto &t_w_c = marker_observations.t_map_camera();
+      auto t_w_m0 = runner_.model().targets()[observation0.id()].t_map_marker().tf();
+      auto t_w_m1 = runner_.model().targets()[observation1.id()].t_map_marker().tf();
+
+      auto t_m0_w = t_w_m0.inverse();
+      auto t_m0_c = t_m0_w * t_w_c;
+      auto t_m0_m1 = t_m0_w * t_w_m1;
+
+      graph_data.initial_.insert(t_m0_c_key, t_m0_c.to<gtsam::Pose3>().compose(delta));
+      if (!graph_data.initial_.exists(t_m0_m1_key)) {
+        graph_data.initial_.insert(t_m0_m1_key, t_m0_m1.to<gtsam::Pose3>().compose(delta));
+      }
+    }
+
     int each_pair()
     {
       int pair_count = 0;
@@ -144,6 +268,11 @@ namespace camsim
             // Loop over all the pairs of observations.
             for (auto faop = fvlam::MarkerModelRunner::ForAllObservationPair(observations); faop.test(); faop.next()) {
               pair_count += 1;
+
+              add_marker_pair_to_graph(marker_observations,
+                                       camera_info,
+                                       faop.observation0(),
+                                       faop.observation1());
               
               auto m0_corners_f_image = faop.observation0().to<std::array<gtsam::Point2, 4>>();
               auto m1_corners_f_image = faop.observation1().to<std::array<gtsam::Point2, 4>>();
@@ -574,8 +703,23 @@ namespace camsim
       return 0;
     }
 
+  public:
+    InterMarkerPoseTest(Config cfg, fvlam::MarkerModelRunner &runner) :
+      cfg_{cfg}, runner_{runner}, graph_data_map_{},
+      k_map_{CalInfo::MakeMap(runner_.model().camera_info_map())},
+      base_imager_frame_id_{CalInfo::make_base_imager_frame_id(k_map_)},
+      measurement_noise_{gtsam::noiseModel::Isotropic::Sigma(2, 1.0)},
+      corners_f_marker_{fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(
+        runner_.model().environment().marker_length())},
+      corners_f_marker_array_{fvlam::Marker::corners_f_marker<std::array<gtsam::Point3, 4>>(
+        runner_.model().environment().marker_length())},
+      t_imager0_imagerNs_{CalInfo::make_t_imager0_imagerNs(k_map_)}
+    {}
+
     int operator()()
     {
+      graph_data_map_.clear();
+
       switch (cfg_.algorithm_) {
         default:
         case 0:
