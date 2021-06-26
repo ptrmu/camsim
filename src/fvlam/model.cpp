@@ -322,16 +322,6 @@ namespace fvlam
     };
   }
 
-  const static unsigned char key_char_value = 'a';
-  const static unsigned char key_char_camera = 'c';
-  const static unsigned char key_char_camera_marker = 'd';
-  const static unsigned char key_char_marker_marker = 'e';
-  const static unsigned char key_char_corner0 = 'i';
-  const static unsigned char key_char_corner1 = 'j';
-  const static unsigned char key_char_corner2 = 'k';
-  const static unsigned char key_char_corner3 = 'l';
-  const static unsigned char key_char_marker = 'm';
-
   std::uint64_t ModelKey::value(std::size_t value_idx)
   {
     return gtsam::Symbol{key_char_value, value_idx}.key();
@@ -383,6 +373,18 @@ namespace fvlam
   {
     assert(gtsam::Symbol{camera_marker_key}.chr() == key_char_camera_marker);
     return gtsam::Symbol{camera_marker_key}.index() & camera_marker_mask;
+  }
+
+  std::size_t ModelKey::id0_from_marker_marker(std::uint64_t marker_marker_key)
+  {
+    assert(gtsam::Symbol{marker_marker_key}.chr() == key_char_marker_marker);
+    return (gtsam::Symbol{marker_marker_key}.index() >> camera_marker_bits) & camera_marker_mask;
+  }
+
+  std::size_t ModelKey::id1_from_marker_marker(std::uint64_t marker_marker_key)
+  {
+    assert(gtsam::Symbol{marker_marker_key}.chr() == key_char_marker_marker);
+    return gtsam::Symbol{marker_marker_key}.index() & camera_marker_mask;
   }
 
 // ==============================================================================
@@ -660,7 +662,7 @@ namespace fvlam
            faos.test(); faos.next()) {
         auto ret = cb(famos.marker_observations(),
                       faos.observations(),
-                      *faos.camera_info());
+                      faos.camera_info());
         if (ret != 0) {
           return ret;
         }
@@ -681,7 +683,7 @@ namespace fvlam
         for (auto fao = ForAllObservation(faos.observations()); fao.test(); fao.next()) {
           auto ret = cb(famos.marker_observations(),
                         faos.observations(),
-                        *faos.camera_info(),
+                        faos.camera_info(),
                         fao.observation());
           if (ret != 0) {
             return ret;
@@ -707,7 +709,7 @@ namespace fvlam
           for (auto facfi = ForAllCornerFImage(fao.observation().corners_f_image()); facfi.test(); facfi.next()) {
             auto ret = cb(famos.marker_observations(),
                           faos.observations(),
-                          *faos.camera_info(),
+                          faos.camera_info(),
                           fao.observation(),
                           facfi.corner_index(),
                           facfi.corner_f_image());

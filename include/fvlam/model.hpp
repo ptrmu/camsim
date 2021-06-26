@@ -157,6 +157,16 @@ namespace fvlam
 
   struct ModelKey
   {
+    const static unsigned char key_char_value = 'a';
+    const static unsigned char key_char_camera = 'c';
+    const static unsigned char key_char_camera_marker = 'd';
+    const static unsigned char key_char_marker_marker = 'e';
+    const static unsigned char key_char_corner0 = 'i';
+    const static unsigned char key_char_corner1 = 'j';
+    const static unsigned char key_char_corner2 = 'k';
+    const static unsigned char key_char_corner3 = 'l';
+    const static unsigned char key_char_marker = 'm';
+
     static std::uint64_t value(std::size_t value_idx); // Generic variable
     static std::uint64_t camera(std::size_t camera_idx); //
     static std::uint64_t marker(std::size_t marker_idx); //
@@ -166,6 +176,8 @@ namespace fvlam
     static std::uint64_t marker_from_corner(std::uint64_t corner_key); //
     static std::size_t camera_idx_from_camera_marker(std::uint64_t camera_marker_key); //
     static std::size_t marker_idx_from_camera_marker(std::uint64_t camera_marker_key); //
+    static std::size_t id0_from_marker_marker(std::uint64_t marker_marker_key); //
+    static std::size_t id1_from_marker_marker(std::uint64_t marker_marker_key); //
   };
 
 // ==============================================================================
@@ -233,7 +245,7 @@ namespace fvlam
       double t_sampler_sigma_ = 0.001;
       double u_sampler_sigma_ = 0.001;
 
-      double equals_tolerance_ = 1.0e-2;
+      double equals_tolerance_ = 1.0e-6;
 
       fvlam::Logger::Levels logger_level_ = fvlam::Logger::Levels::level_warn;
     };
@@ -412,7 +424,7 @@ namespace fvlam
       { return *next_; }
 
       const auto &camera_info() const
-      { return camera_info_; }
+      { return *camera_info_; }
     };
 
     class ForAllObservation

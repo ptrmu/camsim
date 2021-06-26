@@ -134,65 +134,7 @@ namespace camsim
       return graph_data_map_.find(id0)->second;
     }
 
-    int solve_for_single_pair(
-      std::array<gtsam::Point2, 4> m0_corners_f_image,
-      std::array<gtsam::Point2, 4> m1_corners_f_image,
-      const gtsam::SharedNoiseModel &model,
-      std::optional<gtsam::Pose3> t_camera_imager,
-      std::shared_ptr<const gtsam::Cal3DS2> &cal3ds2,
-      const gtsam::Pose3 &t_m0_c,
-      const gtsam::Pose3 &t_m0_m1)
-    {
-      gtsam::Key key_t_m0_c = fvlam::ModelKey::camera(0);
-      gtsam::Key key_t_m0_m1 = fvlam::ModelKey::camera_marker(0, 1);
-
-      // Create a factor graph
-      gtsam::NonlinearFactorGraph graph;
-      gtsam::Values initial;
-
-      // imager n uses a factor relative to imager 0
-      graph.emplace_shared<QuadMarker0Marker1Factor>(
-        key_t_m0_c, key_t_m0_m1,
-        m0_corners_f_image,
-        m1_corners_f_image,
-        model,
-        corners_f_marker_array_,
-        t_camera_imager,
-        cal3ds2, runner_.logger(), "Single Pair Test");
-
-      gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
-      initial.insert(key_t_m0_c, t_m0_c.compose(delta));
-      initial.insert(key_t_m0_m1, t_m0_m1.compose(delta));
-
-      /* Optimize the graph and print results */
-      auto params = gtsam::LevenbergMarquardtParams();
-//          params.setVerbosityLM("TERMINATION");
-//          params.setVerbosity("TERMINATION");
-//      params.setRelativeErrorTol(1e-12);
-//      params.setAbsoluteErrorTol(1e-12);
-//      params.setMaxIterations(2048);
-
-//          graph.print("graph\n");
-//          initial.print("initial\n");
-
-      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
-//      std::cout << "initial error = " << graph.error(initial) << std::endl;
-//      std::cout << "final error = " << graph.error(result) << std::endl;
-//      result.print("");
-
-      auto t_m0_c_sol = result.at<gtsam::Pose3>(key_t_m0_c);
-      auto t_m0_m1_sol = result.at<gtsam::Pose3>(key_t_m0_m1);
-      RETURN_ONE_IF_FALSE(
-        runner_.logger(), "InterMarkerPoseTest t_m0_c",
-        gtsam::assert_equal(t_m0_c, t_m0_c_sol, 1.0e-6));
-      RETURN_ONE_IF_FALSE(
-        runner_.logger(), "InterMarkerPoseTest t_m0_m1",
-        gtsam::assert_equal(t_m0_m1, t_m0_m1_sol, 1.0e-6));
-
-      return 0;
-    }
-
-    void add_marker_pair_to_graph(
+    GraphData &add_marker_pair_to_graph(
       const fvlam::MarkerObservations &marker_observations,
       const fvlam::CameraInfo &camera_info,
       const fvlam::Observation &observation0,
@@ -234,373 +176,118 @@ namespace camsim
       auto t_m0_c = t_m0_w * t_w_c;
       auto t_m0_m1 = t_m0_w * t_w_m1;
 
-      graph_data.initial_.insert(t_m0_c_key, t_m0_c.to<gtsam::Pose3>().compose(delta));
+      if (!graph_data.initial_.exists(t_m0_c_key)) {
+        graph_data.initial_.insert(t_m0_c_key, t_m0_c.to<gtsam::Pose3>().compose(delta));
+      }
       if (!graph_data.initial_.exists(t_m0_m1_key)) {
         graph_data.initial_.insert(t_m0_m1_key, t_m0_m1.to<gtsam::Pose3>().compose(delta));
       }
+
+      return graph_data;
     }
 
-    int each_pair()
+    int optimize_and_test(GraphData &graph_data)
     {
-      int pair_count = 0;
-      gtsam::SharedNoiseModel measurement_noise = gtsam::noiseModel::Diagonal::Sigmas(
-        Eigen::Matrix<double, 16, 1>::Constant(1.0));
-      auto corners_f_marker = fvlam::Marker::corners_f_marker<std::array<gtsam::Point3, fvlam::Marker::ArraySize>>(
-        runner_.model().environment().marker_length());
-
-
-      RETURN_IF_NONZERO(
-        runner_.logger(), "InterMarkerPoseTest each_pair=",
-        runner_.for_all_observations(
-          true,
-          [this, &corners_f_marker, &measurement_noise, &pair_count](
-            const fvlam::MarkerObservations &marker_observations,
-            const fvlam::Observations &observations,
-            const fvlam::CameraInfo &camera_info) -> int
-          {
-            auto cal3ds2 = std::make_shared<const gtsam::Cal3DS2>(camera_info.to<gtsam::Cal3DS2>());
-            const auto &t_w_c = marker_observations.t_map_camera();
-
-            auto t_camera_imager = camera_info.t_camera_imager().is_valid() ?
-                                   std::optional<gtsam::Pose3>(camera_info.t_camera_imager().to<gtsam::Pose3>()) :
-                                   std::nullopt;
-
-            // Loop over all the pairs of observations.
-            for (auto faop = fvlam::MarkerModelRunner::ForAllObservationPair(observations); faop.test(); faop.next()) {
-              pair_count += 1;
-
-              add_marker_pair_to_graph(marker_observations,
-                                       camera_info,
-                                       faop.observation0(),
-                                       faop.observation1());
-              
-              auto m0_corners_f_image = faop.observation0().to<std::array<gtsam::Point2, 4>>();
-              auto m1_corners_f_image = faop.observation1().to<std::array<gtsam::Point2, 4>>();
-
-              auto t_w_m0 = runner_.model().targets()[faop.observation0().id()].t_map_marker().tf();
-              auto t_w_m1 = runner_.model().targets()[faop.observation1().id()].t_map_marker().tf();
-
-              auto t_m0_w = t_w_m0.inverse();
-              auto t_m0_c = t_m0_w * t_w_c;
-              auto t_m0_m1 = t_m0_w * t_w_m1;
-
-              RETURN_IF_NONZERO(
-                runner_.logger(), "InterMarkerPoseTest i0, i1=" << faop.i0() << ", " << faop.i1(),
-                solve_for_single_pair(
-                  m0_corners_f_image, m1_corners_f_image,
-                  measurement_noise,
-                  t_camera_imager,
-                  cal3ds2,
-                  t_m0_c.to<gtsam::Pose3>(), t_m0_m1.to<gtsam::Pose3>()));
-            }
-            return 0;
-          }));
-
-      runner_.logger().warn() << "InterMarkerPoseTest Pairs of markers tested: " << pair_count;
-      return 0;
-    }
-
-    int single_marker_pair()
-    {
-      auto camera_0_key = fvlam::ModelKey::camera(0);
-
-      // For each camera.
-      for (auto &marker_observations : runner_.marker_observations_list_perturbed()) {
-
-        // for each marker
-        for (auto &marker : runner_.model().targets()) {
-
-          // Create a factor graph
-          gtsam::NonlinearFactorGraph graph;
-          gtsam::Values initial;
-          int num_observations = 0;
-
-          // For each imager's observations
-          for (auto &observations : marker_observations.observations_synced().v()) {
-
-            // Find the camera_info and K
-            const auto &kp = k_map_.find(observations.imager_frame_id());
-            if (kp == k_map_.end()) {
-              continue;
-            }
-            auto &cal_info = kp->second;
-
-            // For each observation of a marker
-            for (auto &observation : observations.v()) {
-
-              // If this is not the marker we are interested in then continue to search
-              if (observation.id() != marker.id()) {
-                continue;
-              }
-              num_observations += 1;
-
-              // For each corner of a marker
-              for (std::size_t i = 0; i < observation.corners_f_image().size(); i += 1) {
-
-                if (cal_info.imager_index_ == 0) {
-
-                  // imager 0 just does resection to figure its pose
-                  graph.emplace_shared<fvlam::ResectioningFactor>(
-                    camera_0_key,
-                    observation.corners_f_image()[i].to<gtsam::Point2>(),
-                    measurement_noise_,
-                    corners_f_marker_[i],
-                    cal_info.std_cal3ds2_,
-                    runner_.logger(), true);
-                } else {
-
-                  // imager n uses a factor relative to imager 0
-                  graph.emplace_shared<Imager0Imager1Factor>(
-                    camera_0_key, fvlam::ModelKey::camera(cal_info.imager_index_),
-                    observation.corners_f_image()[i].to<gtsam::Point2>(),
-                    measurement_noise_,
-                    corners_f_marker_[i],
-                    cal_info.std_cal3ds2_,
-                    runner_.logger(), true);
-                }
-              }
-            }
-
-            gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
-            if (cal_info.imager_index_ == 0) {
-
-              auto t_marker_camera = marker.t_map_marker().tf().inverse() * marker_observations.t_map_camera();
-              initial.insert(camera_0_key, t_marker_camera.to<gtsam::Pose3>().compose(delta));
-
-            } else {
-
-//              initial.insert(fvlam::ModelKey::camera(cal_info.imager_index_),
-//                             t_imager0_imagerN[cal_info.imager_index_].to<gtsam::Pose3>().compose(delta));
-              initial.insert(fvlam::ModelKey::camera(cal_info.imager_index_), gtsam::Pose3{});
-            }
-          }
-
-          if (num_observations < 2) {
-            continue;
-          }
-
-          /* Optimize the graph and print results */
-          auto params = gtsam::LevenbergMarquardtParams();
+      /* Optimize the graph and print results */
+      auto params = gtsam::LevenbergMarquardtParams();
 //          params.setVerbosityLM("TERMINATION");
 //          params.setVerbosity("TERMINATION");
-          params.setRelativeErrorTol(1e-12);
-          params.setAbsoluteErrorTol(1e-12);
-          params.setMaxIterations(2048);
-
-//          graph.print("graph\n");
-//          initial.print("initial\n");
-
-          auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
-//          std::cout << "initial error = " << graph.error(initial) << std::endl;
-//          std::cout << "final error = " << graph.error(result) << std::endl;
-//          result.print("");
-
-
-          for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
-            auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::camera(i));
-            auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
-            if (!t_imager0_imagerNs_[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
-              return 1;
-            }
-          }
-        }
-      }
-
-      return 0;
-    }
-
-    void load_per_camera_inter_imager_factors(const fvlam::MarkerObservations &marker_observations,
-                                              gtsam::NonlinearFactorGraph &graph,
-                                              gtsam::Values &initial,
-                                              gtsam::FixedLagSmoother::KeyTimestampMap *new_timestamps)
-    {
-      // Create a map of all marker id's that are observed by the base_imager.
-      std::map<std::uint64_t, fvlam::Transform3> observed_ids{};
-      for (auto &observations : marker_observations.observations_synced().v()) {
-        if (observations.imager_frame_id() == base_imager_frame_id_) {
-          for (auto &observation : observations.v()) {
-            for (auto &marker : runner_.model().targets()) {
-              if (marker.id() == observation.id()) {
-                observed_ids.emplace(marker.id(), marker.t_map_marker().tf());
-                break;
-              }
-            }
-          }
-          break;
-        }
-      }
-      if (observed_ids.empty()) {
-        return;
-      }
-
-      // For each imager's observations
-      for (auto &observations : marker_observations.observations_synced().v()) {
-
-        // Find the camera_info and K
-        const auto &kp = k_map_.find(observations.imager_frame_id());
-        if (kp == k_map_.end()) {
-          continue;
-        }
-        auto &cal_info = kp->second;
-
-        // For each observation of a marker
-        for (auto &observation : observations.v()) {
-
-          // If this marker is not seen by the base imager, then don't add its factor.
-          // If a marker is only seen by the base imager and not by others, its factor
-          // will get added to the graph. This is OK - inefficient but the optimization
-          // will not fail
-          auto observed_marker = observed_ids.find(observation.id());
-          if (observed_marker == observed_ids.end()) {
-            continue;
-          }
-          auto &t_map_marker = observed_marker->second;
-
-          auto camera_n_key = fvlam::ModelKey::camera_marker(
-            marker_observations.camera_index(), observation.id());
-
-          if (new_timestamps != nullptr) {
-            (*new_timestamps)[camera_n_key] = marker_observations.camera_index();
-          }
-
-          // For each corner of a marker
-          for (std::size_t i = 0; i < observation.corners_f_image().size(); i += 1) {
-
-            if (cal_info.imager_index_ == 0) {
-
-              // imager 0 just does resection to figure its pose
-              graph.emplace_shared<fvlam::ResectioningFactor>(
-                camera_n_key,
-                observation.corners_f_image()[i].to<gtsam::Point2>(),
-                measurement_noise_,
-                corners_f_marker_[i],
-                cal_info.std_cal3ds2_,
-                runner_.logger(), true);
-
-              if (!initial.exists(camera_n_key)) {
-                auto t_marker_camera = t_map_marker.inverse() * marker_observations.t_map_camera();
-                initial.insert(camera_n_key, t_marker_camera.to<gtsam::Pose3>().compose(
-                  gtsam::Pose3(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20))));
-              }
-
-            } else {
-
-              auto relative_imager_key = fvlam::ModelKey::value(cal_info.imager_index_);
-
-              // imager n uses a factor relative to imager 0
-              graph.emplace_shared<Imager0Imager1Factor>(
-                camera_n_key, relative_imager_key,
-                observation.corners_f_image()[i].to<gtsam::Point2>(),
-                measurement_noise_,
-                corners_f_marker_[i],
-                cal_info.std_cal3ds2_,
-                runner_.logger(), true);
-
-              if (!initial.exists(relative_imager_key) && new_timestamps == nullptr) {
-                initial.insert(relative_imager_key, gtsam::Pose3{});
-              }
-            }
-          }
-        }
-      }
-    }
-
-    int per_camera_inter_imager_pose(const fvlam::MarkerObservations &marker_observations)
-    {
-      // Create a factor graph
-      gtsam::NonlinearFactorGraph graph;
-      gtsam::Values initial;
-
-      load_per_camera_inter_imager_factors(
-        marker_observations,
-        graph, initial, nullptr);
-
-      /* Optimize the graph and print results */
-      auto params = gtsam::LevenbergMarquardtParams();
-//      params.setVerbosityLM("TERMINATION");
-//      params.setVerbosity("TERMINATION");
-      params.setRelativeErrorTol(1e-12);
-      params.setAbsoluteErrorTol(1e-12);
-      params.setMaxIterations(2048);
-
-//      graph.print("graph\n");
-//      initial.print("initial\n");
-
-      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
-//      std::cout << "initial error = " << graph.error(initial) << std::endl;
-//      std::cout << "final error = " << graph.error(result) << std::endl;
-//      result.print("");
-
-
-      for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
-        auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::value(i));
-        auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
-        runner_.logger().warn() << marker_observations.camera_index() << " "
-                                << "t_i0_i" << i << ": " << t_i0_iN_fvlam.to_string();
-        if (!t_imager0_imagerNs_[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
-          return 1;
-        }
-      }
-      return 0;
-    }
-
-    int multi_marker_inter_imager_pose()
-    {
-      gttic(multi_marker_inter_imager_pose);
-
-      // For each camera.
-      for (auto &marker_observations : runner_.marker_observations_list_perturbed()) {
-        auto ret = per_camera_inter_imager_pose(marker_observations);
-        if (ret != 0) {
-          return ret;
-        }
-      }
-
-      return 0;
-    }
-
-    int multi_camera_marker_inter_imager_pose()
-    {
-
-      // Create a factor graph
-      gtsam::NonlinearFactorGraph graph;
-      gtsam::Values initial;
-
-      gttic(multi_camera_marker_inter_imager_pose);
-
-//      for (auto &marker_observations : runner_.model().target_observations_list()) {
-      for (auto &marker_observations : runner_.marker_observations_list_perturbed()) {
-        load_per_camera_inter_imager_factors(
-          marker_observations,
-          graph, initial, nullptr);
-      }
-
-      /* Optimize the graph and print results */
-      auto params = gtsam::LevenbergMarquardtParams();
-//      params.setVerbosityLM("TERMINATION");
-//      params.setVerbosity("TERMINATION");
 //      params.setRelativeErrorTol(1e-12);
 //      params.setAbsoluteErrorTol(1e-12);
 //      params.setMaxIterations(2048);
 
-//      graph.print("graph\n");
-//      initial.print("initial\n");
+//          graph.print("graph\n");
+//          initial.print("initial\n");
 
-      auto result = gtsam::LevenbergMarquardtOptimizer(graph, initial, params).optimize();
-//      std::cout << "initial error = " << graph.error(initial) << std::endl;
-//      std::cout << "final error = " << graph.error(result) << std::endl;
+      auto result = gtsam::LevenbergMarquardtOptimizer(graph_data.graph_, graph_data.initial_, params).optimize();
+//      std::cout << "initial error = " << graph_data.graph_.error(graph_data.initial_) << std::endl;
+//      std::cout << "final error = " << graph_data.graph_.error(result) << std::endl;
 //      result.print("");
 
-      gttoc(multi_camera_marker_inter_imager_pose);
+      // Clear out the graph for the next optimization
+      graph_data.graph_.resize(0);
+      graph_data.initial_.clear();
 
-      for (std::size_t i = 1; i < t_imager0_imagerNs_.size(); i += 1) {
-        auto t_i0_iN = result.at<gtsam::Pose3>(fvlam::ModelKey::value(i));
-        auto t_i0_iN_fvlam = fvlam::Transform3::from(t_i0_iN);
-        runner_.logger().warn() << "t_i0_i" << i << ": " << t_i0_iN_fvlam.to_string();
-        if (!t_imager0_imagerNs_[i].equals(t_i0_iN_fvlam, runner_.cfg().equals_tolerance_)) {
-          return 1;
+      for (auto f: result.filter<gtsam::Pose3>(
+        gtsam::Symbol::ChrTest(fvlam::ModelKey::key_char_marker_marker))) {
+        auto t_m0_m1_key = f.key;
+        auto &t_m0_m1_actual = f.value;
+
+        auto id0 = fvlam::ModelKey::id0_from_marker_marker(t_m0_m1_key);
+        auto id1 = fvlam::ModelKey::id1_from_marker_marker(t_m0_m1_key);
+
+//        runner_.logger().warn() << id0 << " " << id1 << " "
+//                                << fvlam::Transform3::from(t_m0_m1_actual).to_string();
+
+        auto t_w_m0 = runner_.model().targets()[id0].t_map_marker().tf();
+        auto t_w_m1 = runner_.model().targets()[id1].t_map_marker().tf();
+        auto t_m0_w = t_w_m0.inverse();
+        auto t_m0_m1_expected = t_m0_w * t_w_m1;
+
+        RETURN_ONE_IF_FALSE(
+          runner_.logger(), "InterMarkerPoseTest optimize_and_test",
+          gtsam::assert_equal(t_m0_m1_expected.to<gtsam::Pose3>(),
+            t_m0_m1_actual,
+            runner_.cfg().equals_tolerance_));
+      }
+      return 0;
+    }
+
+    int optimize_and_test_all()
+    {
+      for (auto &gdp: graph_data_map_) {
+        RETURN_IF_NONZERO(
+          runner_.logger(), "InterMarkerPoseTest optimize_and_test_all",
+          optimize_and_test(gdp.second));
+      }
+      return 0;
+    }
+
+    int all_camera(int algorithm)
+    {
+      int pair_count = 0;
+      int optimizations_count = 0;
+
+      for (auto famos = runner_.make_for_all_marker_observations(false);
+           famos.test(); famos.next()) {
+        for (auto faos = fvlam::MarkerModelRunner::ForAllObservations(famos.marker_observations(),
+                                                                      runner_.model().camera_info_map());
+             faos.test(); faos.next()) {
+          for (auto faop = fvlam::MarkerModelRunner::ForAllObservationPair(faos.observations());
+               faop.test(); faop.next()) {
+            pair_count += 1;
+
+            add_marker_pair_to_graph(famos.marker_observations(),
+                                     faos.camera_info(),
+                                     faop.observation0(),
+                                     faop.observation1());
+          }
+
+          if (algorithm == 0) {
+            optimizations_count += 1;
+            RETURN_IF_NONZERO(
+              runner_.logger(), "InterMarkerPoseTest observations",
+              optimize_and_test_all());
+          }
+        }
+
+        if (algorithm == 1) {
+          optimizations_count += 1;
+          RETURN_IF_NONZERO(
+            runner_.logger(), "InterMarkerPoseTest observations",
+            optimize_and_test_all());
         }
       }
+
+      if (algorithm == 2) {
+        optimizations_count += 1;
+        RETURN_IF_NONZERO(
+          runner_.logger(), "InterMarkerPoseTest observations",
+          optimize_and_test_all());
+      }
+
+      runner_.logger().warn() << "InterMarkerPoseTest optimizations: " << optimizations_count
+                              << " pairs: " << pair_count;
       return 0;
     }
 
@@ -648,9 +335,9 @@ namespace camsim
         gttic(fixed_lag_inter_imager_pose_loop);
 
         // Add the measurements
-        load_per_camera_inter_imager_factors(
-          runner_.marker_observations_list_perturbed()[i_camera],
-          new_factors, new_values, &new_timestamps);
+//        load_per_camera_inter_imager_factors(
+//          runner_.marker_observations_list_perturbed()[i_camera],
+//          new_factors, new_values, &new_timestamps);
 
         // Update and print the current value
         if (i_camera >= 0) {
@@ -708,7 +395,7 @@ namespace camsim
       cfg_{cfg}, runner_{runner}, graph_data_map_{},
       k_map_{CalInfo::MakeMap(runner_.model().camera_info_map())},
       base_imager_frame_id_{CalInfo::make_base_imager_frame_id(k_map_)},
-      measurement_noise_{gtsam::noiseModel::Isotropic::Sigma(2, 1.0)},
+      measurement_noise_{gtsam::noiseModel::Isotropic::Sigma(16, 1.0)},
       corners_f_marker_{fvlam::Marker::corners_f_marker<std::vector<gtsam::Point3>>(
         runner_.model().environment().marker_length())},
       corners_f_marker_array_{fvlam::Marker::corners_f_marker<std::array<gtsam::Point3, 4>>(
@@ -723,13 +410,9 @@ namespace camsim
       switch (cfg_.algorithm_) {
         default:
         case 0:
-          return each_pair();
-
         case 1:
-          return multi_marker_inter_imager_pose();
-
         case 2:
-          return multi_camera_marker_inter_imager_pose();
+          return all_camera(cfg_.algorithm_);
 
         case 3:
           return fixed_lag_inter_imager_pose();
@@ -757,20 +440,23 @@ namespace camsim
     InterMarkerPoseTest::Config test_config{};
 
     test_config.algorithm_ = 0;
+    runner_config.equals_tolerance_ = 2.e-3;
+    RETURN_IF_NONZERO(
+      logger, "InterMarkerPoseTest algorithm=" << test_config.algorithm_,
+      fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
+
+    test_config.algorithm_ = 1;
+    runner_config.equals_tolerance_ = 2.e-3;
     RETURN_IF_NONZERO(
       logger, "Run InterMarkerPoseTest algorithm= " << test_config.algorithm_,
       fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
-//
-//    test_config.algorithm_ = 1;
-//    RETURN_IF_NONZERO(
-//      logger, "Run InterMarkerPoseTest algorithm= " << test_config.algorithm_,
-//      fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
-//
-//    test_config.algorithm_ = 2;
-//    RETURN_IF_NONZERO(
-//      logger, "Run InterMarkerPoseTest algorithm= " << test_config.algorithm_,
-//      fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
-//
+
+    test_config.algorithm_ = 2;
+    runner_config.equals_tolerance_ = 2.e-3;
+    RETURN_IF_NONZERO(
+      logger, "Run InterMarkerPoseTest algorithm= " << test_config.algorithm_,
+      fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
+
 //    test_config.algorithm_ = 3;
 //    RETURN_IF_NONZERO(
 //      logger, "Run InterMarkerPoseTest algorithm= " << test_config.algorithm_,
