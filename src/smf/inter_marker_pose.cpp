@@ -198,10 +198,10 @@ namespace camsim
       auto t_m0_m1 = t_m0_w * t_w_m1;
 
       if (!data.initial_.exists(t_m0_c_key)) {
-        data.initial_.insert(t_m0_c_key, t_m0_c.to<gtsam::Pose3>().compose(delta));
+        data.initial_.insert(t_m0_c_key, t_m0_c.template to<gtsam::Pose3>().compose(delta));
       }
       if (!data.initial_.exists(t_m0_m1_key)) {
-        data.initial_.insert(t_m0_m1_key, t_m0_m1.to<gtsam::Pose3>().compose(delta));
+        data.initial_.insert(t_m0_m1_key, t_m0_m1.template to<gtsam::Pose3>().compose(delta));
       }
 
       return data;
