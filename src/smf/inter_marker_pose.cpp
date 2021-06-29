@@ -176,6 +176,10 @@ namespace camsim
 
       TData &data = add_or_lookup<TData>(t_m0_m1_key, map, make_data);
 
+      if constexpr (std::is_same_v<TData, FixedLagData>) {
+        data.timestamps_[t_m0_c_key] = marker_observations.camera_index();
+      }
+
       // Add the factor to the graph
       data.graph_.template emplace_shared<QuadMarker0Marker1Factor>(
         t_m0_c_key, t_m0_m1_key,
