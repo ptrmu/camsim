@@ -193,19 +193,20 @@ namespace camsim
       // Add initial values.
       gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.1, 0.2, 0.25), gtsam::Point3(0.05, -0.10, 0.20));
 
-      const auto &t_w_c = marker_observations.t_map_camera();
       auto t_w_m0 = runner_.model().targets()[observation0.id()].t_map_marker().tf();
-      auto t_w_m1 = runner_.model().targets()[observation1.id()].t_map_marker().tf();
-
       auto t_m0_w = t_w_m0.inverse();
-      auto t_m0_c = t_m0_w * t_w_c;
-      auto t_m0_m1 = t_m0_w * t_w_m1;
 
       if (!data.initial_.exists(t_m0_c_key)) {
+        const auto &t_w_c = marker_observations.t_map_camera();
+        auto t_m0_c = t_m0_w * t_w_c;
         data.initial_.insert(t_m0_c_key, t_m0_c.template to<gtsam::Pose3>().compose(delta));
       }
-      if (!data.initial_.exists(t_m0_m1_key)) {
-        data.initial_.insert(t_m0_m1_key, t_m0_m1.template to<gtsam::Pose3>().compose(delta));
+      if constexpr (!std::is_same_v<TData, FixedLagData>) {
+        if (!data.initial_.exists(t_m0_m1_key)) {
+          auto t_w_m1 = runner_.model().targets()[observation1.id()].t_map_marker().tf();
+          auto t_m0_m1 = t_m0_w * t_w_m1;
+          data.initial_.insert(t_m0_m1_key, t_m0_m1.template to<gtsam::Pose3>().compose(delta));
+        }
       }
 
       return data;
