@@ -112,22 +112,22 @@ namespace fvlam
     other << "]";
   }
 
-  static std::string string_from_int32(int32_t val)//
+  static std::string string_from_int32(std::int32_t val)//
   { return std::to_string(val); } //
-  static std::string string_from_uint32(uint32_t val)//
+  static std::string string_from_uint32(std::uint32_t val)//
   { return std::to_string(val); } //
-//  static std::string string_from_int64(int64_t val)//
+//  static std::string string_from_int64(std::int64_t val)//
 //  { return std::to_string(val); } //
-  static std::string string_from_uint64(uint64_t val)//
+  static std::string string_from_uint64(std::uint64_t val)//
   { return std::to_string(val); } //
 
-  static int32_t int32_from_string(const std::string &str) //
+  static std::int32_t int32_from_string(const std::string &str) //
   { return std::stol(str); } //
-  static uint32_t uint32_from_string(const std::string &str) //
+  static std::uint32_t uint32_from_string(const std::string &str) //
   { return std::stoul(str); } //
-//  static int64_t int64_from_string(const std::string &str) //
+//  static std::int64_t int64_from_string(const std::string &str) //
 //  { return std::stoll(str); } //
-  static uint64_t uint64_from_string(const std::string &str) //
+  static std::uint64_t uint64_from_string(const std::string &str) //
   { return std::stoull(str); } //
 
 

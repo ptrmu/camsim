@@ -49,7 +49,7 @@ namespace fvlam
 
   class MarkerObservations
   {
-    uint64_t camera_index_;
+    std::uint64_t camera_index_;
     Transform3 t_map_camera_;
     ObservationsSynced observations_synced_;
 
@@ -63,13 +63,13 @@ namespace fvlam
                        const CameraInfoMap &camera_info_map,
                        Transform3 t_map_camera,
                        const std::vector<Marker> &markers,
-                       uint64_t camera_index) :
+                       std::uint64_t camera_index) :
       camera_index_{camera_index},
       t_map_camera_{std::move(t_map_camera)},
       observations_synced_(gen_observations_synced(map_environment, camera_info_map, t_map_camera, markers))
     {}
 
-    MarkerObservations(uint64_t camera_index,
+    MarkerObservations(std::uint64_t camera_index,
                        Transform3 t_map_camera,
                        ObservationsSynced observations_synced) :
       camera_index_{camera_index},

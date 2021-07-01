@@ -421,7 +421,7 @@ namespace fvlam
     {
       double r_sum{0.0};
       double t_sum{0.0};
-      uint64_t n{0};
+      std::uint64_t n{0};
 
       for (auto it0 = map.m().begin(); it0 != map.m().end(); ++it0)
         for (auto it1 = map.m().upper_bound(it0->first); it1 != map.m().end(); ++it1) {
