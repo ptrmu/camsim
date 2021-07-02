@@ -342,7 +342,7 @@ namespace camsim
       params.setMaxIterations(2048);
 
 
-      for (auto famos = runner_.make_for_all_marker_observations(false);
+      for (auto famos = runner_.make_for_all_marker_observations(true);
            famos.test(); famos.next()) {
 
         for (auto faos = fvlam::MarkerModelRunner::ForAllObservations(famos.marker_observations(),
@@ -361,6 +361,8 @@ namespace camsim
               { return FixedLagData{key, lag, params}; });
           }
         }
+
+        runner_.logger().warn() << famos.marker_observations().camera_index();
 
         fixed_lag_update(fixed_lag_data_map);
       }
@@ -401,8 +403,8 @@ namespace camsim
 //    auto model_maker = fvlam::MarkerModelGen::DualParallelGrid();
 //    auto model_maker = fvlam::MarkerModelGen::DualWideSingleCamera();
 //    auto model_maker = fvlam::MarkerModelGen::DualWideSingleMarker();
-//    auto model_maker = fvlam::MarkerModelGen::MonoSpinCameraAtOrigin();
-    auto model_maker = fvlam::MarkerModelGen::DualSpinCameraAtOrigin();
+    auto model_maker = fvlam::MarkerModelGen::MonoSpinCameraAtOrigin();
+//    auto model_maker = fvlam::MarkerModelGen::DualSpinCameraAtOrigin();
 //    auto model_maker = fvlam::MarkerModelGen::MonoParallelCircles();
 //    auto model_maker = fvlam::MarkerModelGen::MonoDoubleMarker();
 //    auto model_maker = fvlam::MarkerModelGen::MonoSingleMarker();
