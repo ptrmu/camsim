@@ -39,6 +39,7 @@ namespace camsim
     gtsam::FixedLagSmoother::KeyTimestampMap timestamps_;
     gtsam::BatchFixedLagSmoother batch_smoother_;
     std::uint64_t last_camera_index_{std::numeric_limits<std::uint64_t>::max()};
+    double current_timestamp_{0.};
 
     FixedLagData(gtsam::Key t_m0_m1_key, double lag,
                  const gtsam::LevenbergMarquardtParams &params) :
@@ -145,7 +146,11 @@ namespace camsim
         if (data.last_camera_index_ != marker_observations.camera_index()) {
           add_t_m0_c = true;
           data.last_camera_index_ = marker_observations.camera_index();
-          data.timestamps_[t_m0_c_key] = marker_observations.camera_index();
+
+          // The current_timestamp is updated everytime there is a an update
+          // done on this data system. In this way we smooth over the last
+          // "lag" measurements for this particular marker pair.
+          data.timestamps_[t_m0_c_key] = data.current_timestamp_;
         }
       }
 
@@ -286,13 +291,27 @@ namespace camsim
       for (auto &fldmp: fixed_lag_data_map) {
         auto &data = fldmp.second;
 
-        // Update the Fixed Lag Smoother for this pair of markers
-        data.batch_smoother_.update(data.graph_, data.initial_, data.timestamps_);
+        // Only do an update if a new factor has been added to this graph.
+        if (!data.graph_.empty()) {
 
-        // Clear containers for the next iteration
-        data.graph_.resize(0);
-        data.initial_.clear();
-        data.timestamps_.clear();
+          // Update the Fixed Lag Smoother for this pair of markers
+          data.batch_smoother_.update(data.graph_, data.initial_, data.timestamps_);
+
+          // Update the timestamp for the next set of measurements
+          data.current_timestamp_ += 1.0;
+
+//          auto t_m0_m1_key = data.t_m0_m1_key_;
+//          auto id0 = fvlam::ModelKey::id0_from_marker_marker(t_m0_m1_key);
+//          auto id1 = fvlam::ModelKey::id1_from_marker_marker(t_m0_m1_key);
+//          runner_.logger().warn() << "Just updated " << id0 << " " << id1;
+//          data.batch_smoother_.getFactors().print("Factors");
+//          data.batch_smoother_.getDelta().print("Delta");
+
+          // Clear containers for the next iteration
+          data.graph_.resize(0);
+          data.initial_.clear();
+          data.timestamps_.clear();
+        }
       }
     }
 
@@ -340,6 +359,7 @@ namespace camsim
       params.setRelativeErrorTol(1e-12);
       params.setAbsoluteErrorTol(1e-12);
       params.setMaxIterations(2048);
+      params.lambdaUpperBound = 1e10;
 
 
       for (auto famos = runner_.make_for_all_marker_observations(true);
