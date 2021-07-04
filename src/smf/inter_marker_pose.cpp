@@ -300,12 +300,12 @@ namespace camsim
           // Update the timestamp for the next set of measurements
           data.current_timestamp_ += 1.0;
 
-//          auto t_m0_m1_key = data.t_m0_m1_key_;
-//          auto id0 = fvlam::ModelKey::id0_from_marker_marker(t_m0_m1_key);
-//          auto id1 = fvlam::ModelKey::id1_from_marker_marker(t_m0_m1_key);
-//          runner_.logger().warn() << "Just updated " << id0 << " " << id1;
-//          data.batch_smoother_.getFactors().print("Factors");
-//          data.batch_smoother_.getDelta().print("Delta");
+          auto t_m0_m1_key = data.t_m0_m1_key_;
+          auto id0 = fvlam::ModelKey::id0_from_marker_marker(t_m0_m1_key);
+          auto id1 = fvlam::ModelKey::id1_from_marker_marker(t_m0_m1_key);
+          runner_.logger().warn() << "Just updated " << std::setw(2) << id0 << " " << std::setw(2) << id1;
+          data.batch_smoother_.getFactors().print("Factors");
+          data.batch_smoother_.getDelta().print("Delta");
 
           // Clear containers for the next iteration
           data.graph_.resize(0);
@@ -331,7 +331,7 @@ namespace camsim
 
         auto t_m0_m1_actual = data.batch_smoother_.calculateEstimate<gtsam::Pose3>(t_m0_m1_key);
 
-        runner_.logger().warn() << id0 << " " << id1 << " "
+        runner_.logger().warn() << std::setw(2) << id0 << " " << std::setw(2) << id1 << " "
                                 << t_m0_m1_expected.to_string() << " "
                                 << fvlam::Transform3::from(t_m0_m1_actual).to_string();
 
@@ -362,7 +362,7 @@ namespace camsim
       params.lambdaUpperBound = 1e10;
 
 
-      for (auto famos = runner_.make_for_all_marker_observations(true);
+      for (auto famos = runner_.make_for_all_marker_observations(false);
            famos.test(); famos.next()) {
 
         for (auto faos = fvlam::MarkerModelRunner::ForAllObservations(famos.marker_observations(),
@@ -371,18 +371,20 @@ namespace camsim
           for (auto faop = fvlam::MarkerModelRunner::ForAllObservationPair(faos.observations());
                faop.test(); faop.next()) {
 
-            add_marker_pair_to_graph<FixedLagData>(
-              famos.marker_observations(),
-              faos.camera_info(),
-              faop.observation0(),
-              faop.observation1(),
-              fixed_lag_data_map,
-              [&lag, &params](std::uint64_t key) -> FixedLagData
-              { return FixedLagData{key, lag, params}; });
+            if (faop.observation0().id() == 10 && faop.observation1().id() == 11) {
+              add_marker_pair_to_graph<FixedLagData>(
+                famos.marker_observations(),
+                faos.camera_info(),
+                faop.observation0(),
+                faop.observation1(),
+                fixed_lag_data_map,
+                [&lag, &params](std::uint64_t key) -> FixedLagData
+                { return FixedLagData{key, lag, params}; });
+            }
           }
         }
 
-        runner_.logger().warn() << famos.marker_observations().camera_index();
+        runner_.logger().warn() << "Do update for camera: " << famos.marker_observations().camera_index();
 
         fixed_lag_update(fixed_lag_data_map);
       }
@@ -451,7 +453,7 @@ namespace camsim
       fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
 
     test_config.algorithm_ = 3;
-    runner_config.equals_tolerance_ = 1.e-3;
+    runner_config.equals_tolerance_ = 2.e-3;
     RETURN_IF_NONZERO(
       logger, "Run InterMarkerPoseTest algorithm= " << test_config.algorithm_,
       fvlam::MarkerModelRunner::runner_run<InterMarkerPoseTest>(runner_config, model_maker, test_config));
