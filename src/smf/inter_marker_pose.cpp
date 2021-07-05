@@ -156,6 +156,7 @@ namespace camsim
 
       if (add_t_m0_c || add_t_m0_m1) {
         gtsam::Pose3 delta(gtsam::Rot3::Rodrigues(-0.35, 0.2, 0.25), gtsam::Point3(0.5, -0.10, 0.20));
+//        gtsam::Pose3 delta{};
 
         auto t_w_m0 = runner_.model().targets()[observation0.id()].t_map_marker().tf();
         auto t_m0_w = t_w_m0.inverse();
@@ -304,8 +305,8 @@ namespace camsim
           auto id0 = fvlam::ModelKey::id0_from_marker_marker(t_m0_m1_key);
           auto id1 = fvlam::ModelKey::id1_from_marker_marker(t_m0_m1_key);
           runner_.logger().warn() << "Just updated " << std::setw(2) << id0 << " " << std::setw(2) << id1;
-          data.batch_smoother_.getFactors().print("Factors");
-          data.batch_smoother_.getDelta().print("Delta");
+//          data.batch_smoother_.getFactors().print("Factors\n");
+//          data.batch_smoother_.getDelta().print("Delta\n");
 
           // Clear containers for the next iteration
           data.graph_.resize(0);
@@ -356,10 +357,10 @@ namespace camsim
       auto params = gtsam::LevenbergMarquardtParams();
       params.setVerbosityLM("TERMINATION");
       params.setVerbosity("TERMINATION");
-      params.setRelativeErrorTol(1e-12);
-      params.setAbsoluteErrorTol(1e-12);
-      params.setMaxIterations(2048);
-      params.lambdaUpperBound = 1e10;
+//      params.setRelativeErrorTol(1e-12);
+//      params.setAbsoluteErrorTol(1e-12);
+//      params.setMaxIterations(2048);
+//      params.lambdaUpperBound = 1e10;
 
 
       for (auto famos = runner_.make_for_all_marker_observations(false);
@@ -371,7 +372,8 @@ namespace camsim
           for (auto faop = fvlam::MarkerModelRunner::ForAllObservationPair(faos.observations());
                faop.test(); faop.next()) {
 
-            if (faop.observation0().id() == 10 && faop.observation1().id() == 11) {
+//            if (faop.observation0().id() == 10 && faop.observation1().id() == 11) {
+
               add_marker_pair_to_graph<FixedLagData>(
                 famos.marker_observations(),
                 faos.camera_info(),
@@ -380,7 +382,7 @@ namespace camsim
                 fixed_lag_data_map,
                 [&lag, &params](std::uint64_t key) -> FixedLagData
                 { return FixedLagData{key, lag, params}; });
-            }
+//            }
           }
         }
 
